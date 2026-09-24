@@ -20,7 +20,7 @@
 
 | # | Regla |
 |---|---|
-| RN-01 | El estado de la cuenta (registrada, validada, desactivada) **se guarda**: es una decisión, no se deduce de otros datos. |
+| RN-01 | El estado de la cuenta **se guarda** (es una decisión o un hecho, no se deduce): `registrada` → `verificada` (confirmó su correo, RN-32) → `validada` (validada en mostrador, D-03); `desactivada` en cualquier momento. |
 | RN-02 | Cada lector tiene un **tipo de lector**. El tipo define el máximo de préstamos físicos simultáneos y los días de préstamo (configurables en datos, no en código). |
 | RN-03 | Un lector está **bloqueado para préstamos** mientras tenga multas pendientes o algún préstamo vencido. El bloqueo **se calcula**, no se guarda: al pagar o devolver se desbloquea solo. |
 
@@ -65,11 +65,72 @@
 | RN-23 | El estado del ejemplar **se guarda** (desnormalización controlada, por ser la consulta más frecuente del sistema). Toda operación que lo afecta (prestar, devolver, asignar reserva, trasladar, ubicar) lo actualiza **en la misma transacción** que su registro, con `UPDATE ... WHERE estado = <estado esperado>` como candado de concurrencia. |
 | RN-24 | Una **consulta detectora** compara el estado guardado con el deducido de préstamos, reservas, traslados y ubicación. Debe devolver 0 filas; se ejecuta en las pruebas y se muestra en el panel de administración. |
 
+## Préstamo digital
+
+| # | Regla |
+|---|---|
+| RN-25 | Las **licencias digitales son de la red**, no de una sede. La biblioteca adquiere N licencias de un título (N lecturas simultáneas), con **fecha de vencimiento opcional**; al vencer dejan de contar. |
+| RN-26 | El tipo de lector define los **días de préstamo digital** y el **máximo de préstamos digitales simultáneos**, independientes de los físicos. |
+| RN-27 | El lector puede **devolver antes** para liberar la licencia. Al cumplirse el plazo, el préstamo **vence solo**: vigente = no devuelto y fecha de fin posterior a ahora (se calcula, no requiere proceso programado). |
+| RN-28 | La **reserva digital** es sobre la obra, sin sede, en cola por orden de llegada. Al liberarse una licencia se asigna al primero, que tiene un plazo en horas para **confirmar**; si no confirma, pasa al siguiente. |
+| RN-29 | La lectura es **solo en el navegador**. El archivo se sirve por una ruta que verifica en el servidor que el lector tiene un préstamo vigente o una compra de ese título; nunca por una URL pública ni como descarga. |
+| RN-30 | La **compra digital** da acceso de lectura permanente al título, sin consumir licencias de préstamo. |
+
+## Cuentas, empleados y roles
+
+| # | Regla |
+|---|---|
+| RN-31 | Una **cuenta** (correo único, hash de contraseña, estado RN-01) representa a la persona. Los **perfiles** lector y empleado apuntan a la cuenta; una persona puede tener ambos con un solo inicio de sesión. |
+| RN-32 | Al registrarse se envía un **enlace de verificación** con token de un solo uso que vence. Sin verificar el correo no se usan los beneficios. En desarrollo, el enlace se imprime en la consola. |
+| RN-33 | Roles de empleado: **bibliotecario** (préstamos, devoluciones, ubicar ejemplares, validar lectores, entregar pedidos), **coordinador de sede** (lo anterior + traslados, auditorías de estante y reportes de su sede) y **administrador de red** (catálogo, licencias, precios, secciones, tipos de lector, configuración y empleados). |
+| RN-34 | Bibliotecario y coordinador tienen **una sede asignada** y solo operan en ella; cada operación registra el empleado y la sede. El administrador de red no tiene sede y ve todas. |
+| RN-35 | Los permisos se verifican **en el servidor** en cada operación; ocultar un botón en la interfaz no es una medida de seguridad. |
+
+## Compras
+
+| # | Regla |
+|---|---|
+| RN-36 | El **stock de venta** es una cantidad por título y sede, separado de los ejemplares de préstamo. |
+| RN-37 | El stock se **aparta al crear el pedido** (`UPDATE ... WHERE cantidad >= ?` como candado de concurrencia). Si el pedido no se paga en el plazo configurado, **vence** y el stock vuelve. |
+| RN-38 | Un pedido físico sale de **una sola sede**: la elegida para recoger, o, para envío, una sede con stock de todo el carrito. Si ninguna lo tiene, el comprador divide la compra. |
+| RN-39 | El detalle del pedido **guarda el precio del momento** de la compra; cambiar el precio de un título no altera pedidos anteriores. |
+| RN-40 | Ciclo del pedido: `pendiente_pago` → `pagado` → `preparado` → `listo_para_recoger` o `enviado` → `entregado`. También `vencido` (RN-37), `cancelado` (antes de entregarse) y `reembolsado`. Los ítems digitales se entregan al pagar. |
+| RN-41 | Un libro físico comprado se puede **devolver dentro de N días** en cualquier sede: reembolso (simulado) y el stock vuelve a la sede que lo recibe. Las compras digitales **no son reembolsables** una vez abiertas. |
+| RN-42 | El envío a domicilio se cobra con una **tarifa por ciudad** de destino, con un monto opcional a partir del cual es gratis. Solo se envía a ciudades con tarifa. |
+
+## Convenciones del modelo de datos
+
+| # | Convención |
+|---|---|
+| C-01 | Nombres en `snake_case`, minúscula y singular (`lector`, `prestamo_fisico`, `libro_genero`); claves `id_<tabla>`. En MySQL sobre Linux los nombres de tabla distinguen mayúsculas. |
+| C-02 | **Estados como ENUM** (ejemplar, reserva, préstamo digital, traslado, pedido, pago, cuenta), porque cada valor tiene lógica en el código. **Catálogos editables en tablas** (género, sección, editorial, tipo de lector, ciudad, país), porque un administrador los amplía sin tocar código. |
+| C-03 | `ciudad` en tabla (sedes, direcciones de envío, tarifas). `pais` en tabla, solo para la nacionalidad del autor. Calle y código postal como texto. |
+| C-04 | Las reglas con valores (límites, plazos, montos) viven en **datos** (`tipo_lector` y una tabla de configuración), no en el código. |
+| C-05 | Cambios respecto al modelo de BD2: `Biblioteca` → `sede`; `Usuario` → `cuenta` + `lector`; `Categoria` se descarta a favor de `genero` + `seccion`; los catálogos de estado pasan a ENUM; `Cargo` pasa a rol (ENUM); se agregan ubicación, traslado, préstamo y licencia digital, pedidos, pagos y stock. |
+
+## Valores iniciales
+
+Cargados en el seed; se cambian en datos sin tocar código (C-04).
+
+| Valor | Inicial |
+|---|---|
+| Renovaciones máximas por préstamo | 2 |
+| Multa por día de atraso / tope | $1.000 / $30.000 |
+| Días de atraso para declarar un ejemplar perdido | 30 |
+| Días para recoger una reserva física | 3 |
+| Horas para confirmar una reserva digital | 48 |
+| Minutos para pagar un pedido | 30 |
+| Días para devolver una compra física | 15 |
+
+## Reglas transversales
+
+| # | Regla |
+|---|---|
+| RN-43 | Un lector **bloqueado** (RN-03) no puede pedir préstamos físicos ni digitales ni hacer reservas; **sí puede comprar**. |
+| RN-44 | La fecha de fin de un préstamo digital es la **menor** entre la fecha de hoy más los días del tipo de lector y el vencimiento de la licencia (RN-25). |
+| RN-45 | El tipo de lector define **máximos separados** de reservas físicas y de reservas digitales (complementa RN-12). |
+| RN-46 | Cada libro tiene una **clasificación por edad** (infantil, +15, +18, en tabla). El lector registra su fecha de nacimiento y no puede prestar, reservar ni comprar títulos de una clasificación superior a su edad. La edad **se calcula**, no se guarda. |
+
 ## Pendiente de definir
 
-- Número máximo de renovaciones, valor por día y tope de la multa, plazo para declarar un ejemplar perdido.
-- Préstamo digital: duración, licencias por título, reservas digitales.
-- Empleados: roles, permisos y si trabajan en una o en varias sedes.
-- Cuentas: si lectores y empleados comparten tabla de autenticación.
-- Compras: stock por sede, estados del pedido, devoluciones y reembolsos, precio de envío.
-- Revisión de inconsistencias del modelo de BD2 (`Genero`/`Categoria`, `ciudad` en `Biblioteca`, catálogos de estado).
+Nada por ahora. Las dudas que aparezcan al modelar las tablas se agregan aquí.
