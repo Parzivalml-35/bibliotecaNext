@@ -130,9 +130,9 @@ erDiagram
 2. **Coherencia entre estado y ubicación** (RN-20, RN-22):
    - `por_ubicar` y `en_transito` → `id_ubicacion IS NULL`.
    - `disponible` → `id_ubicacion IS NOT NULL`.
-   - Se expresa con `CHECK`. Limitación de MySQL a verificar al escribir el SQL: una columna usada en un `CHECK`
-     no puede tener acciones `ON DELETE/UPDATE` en su FK, así que esa FK queda `RESTRICT` (que es lo que queremos:
-     no se borra un estante con libros).
+   - Se expresa con `CHECK`. Limitación de MySQL (verificada en 8.4.11): una columna usada en un `CHECK` no puede
+     tener acciones `ON DELETE/UPDATE` en su FK (`ERROR 3823 ... needed in a foreign key constraint ... referential
+     action`). Esa FK queda sin acciones, que es lo que queremos: no se borra un estante con libros.
 3. `estado` es ENUM (C-02) con los 8 valores de RN-22 y se actualiza en transacción (RN-23).
 4. `id_sede` cambia al devolver en otra sede (RN-13) o al recibir un traslado (RN-16).
 

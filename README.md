@@ -32,11 +32,20 @@ cd bibliotecaNext
 cp .env.example .env        # y cambia las contraseñas en .env
 ```
 
-Pasos que se agregan cuando existan (Fase 0 y 1):
+Levantar MySQL (la primera vez descarga la imagen y ejecuta `db/init/*.sql`):
 
-- Levantar MySQL: `docker compose up -d`
-- Instalar dependencias: `pnpm install`
-- Servidor de desarrollo: `pnpm dev`
+```bash
+docker compose up -d --wait
+```
+
+MySQL queda en `127.0.0.1:3307` (usuario y base de datos según `.env`). Los scripts de `db/init/` **solo se
+ejecutan con el volumen vacío**; para aplicar cambios de esquema hay que recrear la BD, lo que borra sus datos:
+
+```bash
+docker compose down -v && docker compose up -d --wait
+```
+
+Pasos que se agregan cuando existan (Fase 1): `pnpm install` y `pnpm dev`.
 
 ## Rutina al trabajar en dos equipos
 
