@@ -1,6 +1,10 @@
 # CLAUDE.md — bibliotecaNext
 
+@AGENTS.md
+
 Reglas de este proyecto. Complementan el `CLAUDE.md` global y tienen prioridad sobre él.
+`AGENTS.md` lo genera Next.js 16: antes de escribir código de Next, leer la guía correspondiente en
+`node_modules/next/dist/docs/` (la versión instalada manda sobre lo que se recuerde de versiones anteriores).
 
 ## Qué es
 

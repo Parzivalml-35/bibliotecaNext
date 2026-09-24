@@ -14,6 +14,12 @@ next-env.d.ts
 # Archivos privados de libros digitales (se sirven solo tras verificar acceso)
 storage/
 
+# Tests, builds y despliegue (del .gitignore de create-next-app)
+/coverage
+/build
+.vercel
+*.pem
+
 # Logs
 npm-debug.log*
 pnpm-debug.log*
