@@ -121,6 +121,7 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 | Horas para confirmar una reserva digital | 48 |
 | Minutos para pagar un pedido | 30 |
 | Días para devolver una compra física | 15 |
+| Mínimo de copias disponibles de sobra para sugerir un traslado (RN-14) | 1 |
 
 ## Reglas transversales
 

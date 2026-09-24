@@ -116,7 +116,7 @@ erDiagram
 | `clasificacion_edad` | RN-46 | `edad_minima` es lo que permite **calcular** si un lector puede acceder a un título. |
 | `seccion` | RN-18 | De toda la red; el color es de la sección. `color_hex` con `CHECK` de formato `#RRGGBB`. |
 | `genero` | RN-19 | `id_seccion NOT NULL`: cada género pertenece a una sola sección; así se sabe dónde va un libro. |
-| `libro` | RN-19, RN-46 | `id_genero_principal` decide sección y color. `isbn` único. |
+| `libro` | RN-19, RN-46 | `id_genero_principal` decide sección y color. `isbn` único. En rigor es una **edición** (ISBN y editorial son de una edición concreta, no de la obra); `anio_publicacion` es el año de esa edición. Suficiente para este proyecto: una edición por título. |
 | `libro_genero` | RN-19 | Solo géneros **secundarios**. Que no repita el principal no se puede expresar con un `CHECK` (involucra otra tabla): se valida en la capa de lógica. |
 | `sede` | D-01 | Antes `Biblioteca` en BD2 (C-05). |
 | `ubicacion` | RN-17, RN-18 | Una fila = un nivel de un estante. `UNIQUE(id_sede, pasillo, estante, nivel)`. `UNIQUE(id_ubicacion, id_sede)` para la FK compuesta de `ejemplar`. |
