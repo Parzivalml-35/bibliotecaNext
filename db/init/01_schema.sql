@@ -445,3 +445,82 @@ CREATE TABLE auditoria_hallazgo (
     CONSTRAINT fk_hallazgo_encontrada FOREIGN KEY (id_ubicacion_encontrada) REFERENCES ubicacion (id_ubicacion),
     CONSTRAINT fk_hallazgo_empleado FOREIGN KEY (id_empleado_decide) REFERENCES empleado (id_empleado)
 );
+
+-- =====================================================================
+-- Bloque 4 — Préstamo digital
+-- =====================================================================
+
+-- RN-29, RN-54: archivos del título por formato. clave_archivo = nombre en el almacenamiento privado,
+-- nunca una URL pública.
+CREATE TABLE edicion_digital (
+    id_edicion     INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_libro       INT UNSIGNED NOT NULL,
+    formato        ENUM('pdf', 'epub') NOT NULL,
+    clave_archivo  VARCHAR(255) NOT NULL,
+    tamano_bytes   INT UNSIGNED NOT NULL,
+    fecha_carga    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_edicion_libro_formato UNIQUE (id_libro, formato),
+    CONSTRAINT uq_edicion_clave UNIQUE (clave_archivo),
+    CONSTRAINT ck_edicion_tamano CHECK (tamano_bytes > 0),
+    CONSTRAINT fk_edicion_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro)
+);
+
+-- RN-25, RN-54: lote de licencias de un TÍTULO (sirve para cualquier formato).
+CREATE TABLE licencia_digital (
+    id_licencia           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_libro              INT UNSIGNED NOT NULL,
+    cantidad              SMALLINT UNSIGNED NOT NULL,   -- lecturas simultáneas
+    fecha_adquisicion     DATE NOT NULL,
+    fecha_vencimiento     DATE NULL,                    -- NULL = no vence
+    id_empleado_registra  INT UNSIGNED NOT NULL,
+    CONSTRAINT uq_licencia_libro UNIQUE (id_licencia, id_libro),   -- destino de la FK compuesta de reserva_digital
+    CONSTRAINT ck_licencia_cantidad CHECK (cantidad > 0),
+    CONSTRAINT ck_licencia_fechas CHECK (fecha_vencimiento IS NULL OR fecha_vencimiento > fecha_adquisicion),
+    CONSTRAINT fk_licencia_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro),
+    CONSTRAINT fk_licencia_empleado FOREIGN KEY (id_empleado_registra) REFERENCES empleado (id_empleado)
+);
+
+-- RN-26, RN-27, RN-44, RN-55. Vigente ⇔ fecha_devolucion IS NULL AND fecha_fin > NOW() (calculado: vence solo).
+-- fecha_fin ya viene recortada por el vencimiento de la licencia (RN-44) al crear el préstamo.
+CREATE TABLE prestamo_digital (
+    id_prestamo_digital  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_lector            INT UNSIGNED NOT NULL,
+    id_licencia          INT UNSIGNED NOT NULL,
+    fecha_inicio         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_fin            DATETIME NOT NULL,
+    fecha_devolucion     DATETIME NULL,        -- RN-27: devolución anticipada
+    CONSTRAINT ck_prestamo_digital_fechas CHECK (fecha_fin > fecha_inicio
+                                                 AND (fecha_devolucion IS NULL OR fecha_devolucion >= fecha_inicio)),
+    CONSTRAINT fk_prestamo_digital_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_prestamo_digital_licencia FOREIGN KEY (id_licencia) REFERENCES licencia_digital (id_licencia),
+    INDEX idx_prestamo_digital_en_uso (id_licencia, fecha_devolucion, fecha_fin),   -- RN-56: contar licencias en uso
+    INDEX idx_prestamo_digital_lector (id_lector, fecha_devolucion)
+);
+
+-- RN-28, RN-45, RN-56. Como reserva_fisica, sin sede. Al asignarse retiene un lote de licencias.
+CREATE TABLE reserva_digital (
+    id_reserva_digital         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_lector                  INT UNSIGNED NOT NULL,
+    id_libro                   INT UNSIGNED NOT NULL,
+    estado                     ENUM('activa', 'asignada', 'cumplida', 'vencida', 'cancelada') NOT NULL DEFAULT 'activa',
+    fecha_solicitud            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id_licencia                INT UNSIGNED NULL,
+    fecha_asignacion           DATETIME NULL,
+    fecha_limite_confirmacion  DATETIME NULL,
+    fecha_cierre               DATETIME NULL,
+    id_prestamo_digital        INT UNSIGNED NULL,
+    libro_vivo                 INT UNSIGNED AS (IF(estado IN ('activa', 'asignada'), id_libro, NULL)) VIRTUAL,
+    CONSTRAINT uq_reserva_digital_viva UNIQUE (id_lector, libro_vivo),
+    CONSTRAINT uq_reserva_digital_prestamo UNIQUE (id_prestamo_digital),
+    CONSTRAINT ck_reserva_digital_activa CHECK (estado <> 'activa' OR id_licencia IS NULL),
+    CONSTRAINT ck_reserva_digital_asignada CHECK (estado <> 'asignada'
+        OR (id_licencia IS NOT NULL AND fecha_asignacion IS NOT NULL AND fecha_limite_confirmacion IS NOT NULL)),
+    CONSTRAINT ck_reserva_digital_cumplida CHECK (estado <> 'cumplida' OR id_prestamo_digital IS NOT NULL),
+    CONSTRAINT ck_reserva_digital_cierre CHECK ((estado IN ('cumplida', 'vencida', 'cancelada')) = (fecha_cierre IS NOT NULL)),
+    CONSTRAINT fk_reserva_digital_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_reserva_digital_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro),
+    -- El lote retenido debe ser del mismo libro. FK compuesta segura: licencia_digital.id_libro nunca cambia.
+    CONSTRAINT fk_reserva_digital_licencia FOREIGN KEY (id_licencia, id_libro) REFERENCES licencia_digital (id_licencia, id_libro),
+    CONSTRAINT fk_reserva_digital_prestamo FOREIGN KEY (id_prestamo_digital) REFERENCES prestamo_digital (id_prestamo_digital),
+    INDEX idx_reserva_digital_cola (id_libro, estado, fecha_solicitud)
+);

@@ -462,7 +462,7 @@ erDiagram
 | `edicion_digital` | RN-29, RN-54 | `UNIQUE(id_libro, formato)`. `clave_archivo` es el nombre del archivo en el almacenamiento privado (fuera de `public/`), **nunca una URL pública**; la ruta de lectura verifica el acceso y sirve el archivo. |
 | `licencia_digital` | RN-25, RN-54 | Un lote. `CHECK (cantidad > 0)` y `fecha_vencimiento > fecha_adquisicion`. Es del título, no del formato: con la misma licencia se lee cualquier edición. |
 | `prestamo_digital` | RN-26, RN-27, RN-44, RN-55 | Vigente ⇔ `fecha_devolucion IS NULL AND fecha_fin > NOW()` (**calculado**, vence solo). `fecha_fin` ya viene recortada por RN-44 al crear. `CHECK (fecha_fin > fecha_inicio)`. |
-| `reserva_digital` | RN-28, RN-45, RN-56 | Misma forma que `reserva_fisica`, sin sede. Al asignarse retiene un lote (`id_licencia`). Columna generada + `UNIQUE` para una sola reserva viva por lector y obra. `CHECK`: `asignada` ⇒ `id_licencia` y `fecha_limite_confirmacion` no NULL; `cumplida` ⇒ `id_prestamo_digital` no NULL. |
+| `reserva_digital` | RN-28, RN-45, RN-56 | Misma forma que `reserva_fisica`, sin sede. Al asignarse retiene un lote (`id_licencia`). FK compuesta `(id_licencia, id_libro)`: el lote es del mismo libro (segura porque `licencia_digital.id_libro` nunca cambia). Columna generada + `UNIQUE` para una sola reserva viva por lector y obra. `CHECK`: `asignada` ⇒ `id_licencia` y `fecha_limite_confirmacion` no NULL; `cumplida` ⇒ `id_prestamo_digital` no NULL. |
 
 ### Concurrencia: dos patrones distintos
 
