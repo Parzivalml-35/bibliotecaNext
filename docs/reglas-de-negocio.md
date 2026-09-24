@@ -140,6 +140,11 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 | RN-54 | Las licencias se adquieren **por lotes de un título** (cantidad, fecha de adquisición, vencimiento opcional). Los archivos son **ediciones** del título por formato (`pdf`, `epub`); la primera versión implementa solo el visor PDF. |
 | RN-55 | Al prestar, se asigna el lote que **vence antes entre los que cubren el préstamo completo**. Si ninguno lo cubre, el que vence más tarde (y el préstamo se recorta según RN-44). |
 | RN-56 | Licencias **en uso** de un lote = préstamos vigentes + reservas digitales `asignadas` dentro de su plazo de confirmación (la reserva asignada retiene la licencia). La asignación se hace bloqueando los lotes del título (`SELECT ... FOR UPDATE`) mientras se cuenta. |
+| RN-57 | El **carrito** se guarda en la base de datos por lector (se ve igual en cualquier dispositivo). Agregar al carrito **no aparta stock**; al crear el pedido se revalidan precio, stock y reglas. |
+| RN-58 | Modalidad del pedido: `recoger`, `envio` o `solo_digital`. El pedido **congela** el precio de cada ítem (RN-39), la dirección de envío y el costo del envío; subtotal y total **se calculan** del detalle. `cancelado` = cancelado antes de pagar; `reembolsado` = pagado y cancelado antes de la entrega (reembolso total, el stock vuelve). |
+| RN-59 | Un pedido puede tener **varios intentos de pago**, pero solo uno `pagado`. Cada pago guarda una referencia externa opcional para la futura pasarela (D-07). |
+| RN-60 | Las **devoluciones de compras físicas son por ítem** y pueden ser parciales, dentro de `dias_devolucion_compra` desde la entrega. Registran cantidad, sede que recibe, empleado y monto reembolsado; el stock vuelve a la sede que recibe (RN-41). El pedido sigue `entregado`. |
+| RN-61 | Pagar un ítem digital crea un **acceso permanente** (RN-30), único por lector y título: no se puede comprar dos veces. "Abierto" (RN-41) = tiene fecha de primera lectura. |
 
 ## Pendiente de definir
 

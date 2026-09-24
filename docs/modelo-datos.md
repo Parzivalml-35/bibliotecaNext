@@ -478,3 +478,124 @@ el contador en ese instante.
 
 - Guardar el **progreso de lectura** (página actual) para retomar en otro dispositivo: sería una tabla
   `progreso_lectura (id_lector, id_edicion, posicion, fecha)`. Buena mejora futura.
+
+## Bloque 5 — Compras
+
+```mermaid
+erDiagram
+    libro ||--o{ producto : "se vende como"
+    producto ||--o{ stock_venta : "stock por sede"
+    sede ||--o{ stock_venta : ""
+    ciudad ||--o| tarifa_envio : "tarifa"
+    lector ||--o{ carrito_item : "carrito"
+    producto ||--o{ carrito_item : ""
+    lector ||--o{ pedido : "compra"
+    sede |o--o{ pedido : "despacha / entrega"
+    ciudad |o--o{ pedido : "destino"
+    pedido ||--|{ pedido_detalle : "ítems"
+    producto ||--o{ pedido_detalle : ""
+    pedido ||--o{ pago : "intentos"
+    pedido ||--o{ devolucion_compra : "devoluciones"
+    producto ||--o{ devolucion_compra : ""
+    sede ||--o{ devolucion_compra : "recibe"
+    lector ||--o{ acceso_digital : "posee"
+    libro ||--o{ acceso_digital : ""
+    pedido ||--o{ acceso_digital : "origen"
+
+    producto {
+        int id_producto PK
+        int id_libro FK
+        enum tipo
+        decimal precio
+        boolean activo
+    }
+    stock_venta {
+        int id_producto PK, FK
+        int id_sede PK, FK
+        smallint cantidad
+    }
+    tarifa_envio {
+        int id_ciudad PK, FK
+        decimal valor
+        decimal monto_envio_gratis "NULL"
+    }
+    carrito_item {
+        int id_lector PK, FK
+        int id_producto PK, FK
+        smallint cantidad
+        datetime fecha_agregado
+    }
+    pedido {
+        int id_pedido PK
+        int id_lector FK
+        enum modalidad
+        enum estado
+        int id_sede FK "NULL"
+        varchar envio_destinatario "NULL"
+        varchar envio_telefono "NULL"
+        varchar envio_calle "NULL"
+        varchar envio_codigo_postal "NULL"
+        int envio_id_ciudad FK "NULL"
+        decimal costo_envio
+        varchar numero_guia "NULL"
+        datetime fecha_creacion
+        datetime fecha_limite_pago
+        datetime fecha_pago "NULL"
+        datetime fecha_entrega "NULL"
+        int id_empleado_entrega FK "NULL"
+        datetime fecha_cancelacion "NULL"
+    }
+    pedido_detalle {
+        int id_pedido PK, FK
+        int id_producto PK, FK
+        smallint cantidad
+        decimal precio_unitario
+    }
+    pago {
+        int id_pago PK
+        int id_pedido FK
+        decimal monto
+        enum metodo
+        enum estado
+        varchar referencia_externa "NULL"
+        datetime fecha_creacion
+        datetime fecha_confirmacion "NULL"
+    }
+    devolucion_compra {
+        int id_devolucion PK
+        int id_pedido FK
+        int id_producto FK
+        smallint cantidad
+        int id_sede_recibe FK
+        int id_empleado FK
+        decimal monto_reembolso
+        datetime fecha
+    }
+    acceso_digital {
+        int id_lector PK, FK
+        int id_libro PK, FK
+        int id_pedido FK
+        datetime fecha_otorgado
+        datetime fecha_primera_lectura "NULL"
+    }
+```
+
+### De dónde sale cada tabla
+
+| Tabla | Reglas | Notas de diseño |
+|---|---|---|
+| `producto` | D-05 | Lo que se vende: un título en formato `fisico` o `digital`. `UNIQUE(id_libro, tipo)`. Precio **actual**; el histórico queda congelado en cada pedido. Que un digital tenga `edicion_digital` se valida en lógica. |
+| `stock_venta` | RN-36, RN-37 | `CHECK (cantidad >= 0)`. Candado: `UPDATE ... SET cantidad = cantidad - ? WHERE ... AND cantidad >= ?`. Una devolución en una sede sin fila de stock la crea (`INSERT ... ON DUPLICATE KEY UPDATE`). |
+| `tarifa_envio` | RN-42 | Una por ciudad; sin fila = no se envía a esa ciudad. |
+| `carrito_item` | RN-57 | `CHECK (cantidad > 0)`. No aparta stock. |
+| `pedido` | RN-37, RN-38, RN-40, RN-58 | `modalidad`: `recoger`, `envio`, `solo_digital`. `estado` con los valores de RN-40. Campos `envio_*` = **copia congelada** de la dirección. `CHECK` por modalidad: `recoger` ⇒ `id_sede` no NULL y `envio_*` NULL; `envio` ⇒ `id_sede` y `envio_*` no NULL; `solo_digital` ⇒ `id_sede` NULL y `costo_envio = 0`. |
+| `pedido_detalle` | RN-39 | `precio_unitario` congelado. `CHECK (cantidad > 0)`. Que un ítem digital tenga cantidad 1 se valida en lógica. |
+| `pago` | D-07, RN-59 | `metodo`: `simulado` (luego se agrega la pasarela). `estado`: `pendiente`, `pagado`, `fallido`, `reembolsado`. Columna generada + `UNIQUE` para un solo `pagado` por pedido. |
+| `devolucion_compra` | RN-41, RN-60 | Una fila por ítem devuelto. `CHECK (cantidad > 0 AND monto_reembolso >= 0)`. Que no se devuelva más de lo comprado (suma de devoluciones ≤ cantidad del detalle) se valida en lógica. |
+| `acceso_digital` | RN-30, RN-41, RN-61 | La PK `(id_lector, id_libro)` impide comprar dos veces. `fecha_primera_lectura` define "abierto". |
+
+### Datos que no se guardan en este bloque
+
+- **Subtotal y total del pedido**: `SUM(cantidad * precio_unitario)` del detalle + `costo_envio` (ambos congelados).
+- **Pedido vencido por falta de pago**: se detecta con `fecha_limite_pago < NOW()` y se procesa con vencimiento perezoso
+  (RN-48), que pasa el estado a `vencido` y devuelve el stock.
