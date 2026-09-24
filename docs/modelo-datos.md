@@ -396,3 +396,85 @@ erDiagram
 ### Fuera de alcance (anotado)
 
 - Recepción parcial de un lote (llega la caja con un libro menos): se detectaría en una auditoría posterior.
+
+## Bloque 4 — Préstamo digital
+
+```mermaid
+erDiagram
+    libro ||--o{ edicion_digital : "archivos"
+    libro ||--o{ licencia_digital : "lotes de licencias"
+    empleado ||--o{ licencia_digital : "registra"
+    licencia_digital ||--o{ prestamo_digital : "se consume en"
+    lector ||--o{ prestamo_digital : "lee"
+    lector ||--o{ reserva_digital : "reserva"
+    libro ||--o{ reserva_digital : "obra"
+    licencia_digital |o--o{ reserva_digital : "retiene"
+    reserva_digital |o--o| prestamo_digital : "se cumple con"
+
+    edicion_digital {
+        int id_edicion PK
+        int id_libro FK
+        enum formato
+        varchar clave_archivo UK
+        int tamano_bytes
+        datetime fecha_carga
+    }
+    licencia_digital {
+        int id_licencia PK
+        int id_libro FK
+        smallint cantidad
+        date fecha_adquisicion
+        date fecha_vencimiento "NULL"
+        int id_empleado_registra FK
+    }
+    prestamo_digital {
+        int id_prestamo_digital PK
+        int id_lector FK
+        int id_licencia FK
+        datetime fecha_inicio
+        datetime fecha_fin
+        datetime fecha_devolucion "NULL"
+    }
+    reserva_digital {
+        int id_reserva_digital PK
+        int id_lector FK
+        int id_libro FK
+        enum estado
+        datetime fecha_solicitud
+        int id_licencia FK "NULL"
+        datetime fecha_asignacion "NULL"
+        datetime fecha_limite_confirmacion "NULL"
+        datetime fecha_cierre "NULL"
+        int id_prestamo_digital FK "NULL, UK"
+    }
+```
+
+### De dónde sale cada tabla
+
+| Tabla | Reglas | Notas de diseño |
+|---|---|---|
+| `edicion_digital` | RN-29, RN-54 | `UNIQUE(id_libro, formato)`. `clave_archivo` es el nombre del archivo en el almacenamiento privado (fuera de `public/`), **nunca una URL pública**; la ruta de lectura verifica el acceso y sirve el archivo. |
+| `licencia_digital` | RN-25, RN-54 | Un lote. `CHECK (cantidad > 0)` y `fecha_vencimiento > fecha_adquisicion`. Es del título, no del formato: con la misma licencia se lee cualquier edición. |
+| `prestamo_digital` | RN-26, RN-27, RN-44, RN-55 | Vigente ⇔ `fecha_devolucion IS NULL AND fecha_fin > NOW()` (**calculado**, vence solo). `fecha_fin` ya viene recortada por RN-44 al crear. `CHECK (fecha_fin > fecha_inicio)`. |
+| `reserva_digital` | RN-28, RN-45, RN-56 | Misma forma que `reserva_fisica`, sin sede. Al asignarse retiene un lote (`id_licencia`). Columna generada + `UNIQUE` para una sola reserva viva por lector y obra. `CHECK`: `asignada` ⇒ `id_licencia` y `fecha_limite_confirmacion` no NULL; `cumplida` ⇒ `id_prestamo_digital` no NULL. |
+
+### Concurrencia: dos patrones distintos
+
+| Caso | Estado | Patrón |
+|---|---|---|
+| Ejemplar físico (RN-23) | Guardado en una fila por copia | `UPDATE ... WHERE estado = 'disponible'` y revisar filas afectadas |
+| Licencia digital (RN-56) | Calculado (resta con fechas) | `SELECT ... FROM licencia_digital WHERE id_libro = ? FOR UPDATE`, contar en uso, insertar y `COMMIT` |
+
+No se guarda un contador `en_uso` en la licencia: los préstamos vencen solos por fecha (RN-27) y nadie decrementaría
+el contador en ese instante.
+
+### Lo que valida la capa de lógica
+
+- Un lector no tiene dos préstamos digitales vigentes del mismo título (depende de la fecha actual; no se puede
+  expresar con `UNIQUE`).
+- Máximo de préstamos digitales y de reservas digitales del tipo de lector (RN-26, RN-45), bloqueo (RN-43), edad (RN-46).
+
+### Fuera de alcance (anotado)
+
+- Guardar el **progreso de lectura** (página actual) para retomar en otro dispositivo: sería una tabla
+  `progreso_lectura (id_lector, id_edicion, posicion, fecha)`. Buena mejora futura.

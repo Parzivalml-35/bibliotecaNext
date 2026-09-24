@@ -137,6 +137,9 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 | RN-51 | Confirmar un traslado **no bloquea** los ejemplares: siguen disponibles hasta el **despacho**. Al despachar, cada ejemplar pasa a `en_transito` con el candado `WHERE estado = 'disponible'`; el que ya no esté disponible queda `cancelado` dentro del lote. |
 | RN-52 | Al **recibir** un traslado, cada ejemplar cambia de sede. Si en la sede destino hay cola por esa obra, se asigna directo a la primera reserva (`apartado`, sin ubicación, en mostrador); si no, queda `por_ubicar` (RN-20). |
 | RN-53 | Una auditoría guarda las **lecturas tal cual**, incluidos códigos inexistentes. Al cerrarla, los hallazgos calculados se **congelan** como registro histórico: `faltante`, `mal_ubicado`, `estado_incoherente` (leído pero el sistema lo tiene prestado, en tránsito, etc.) y `desconocido`. El sistema sugiere correcciones (mal ubicado → actualizar ubicación; faltante → declarar perdido) y el empleado aplica o descarta cada una. |
+| RN-54 | Las licencias se adquieren **por lotes de un título** (cantidad, fecha de adquisición, vencimiento opcional). Los archivos son **ediciones** del título por formato (`pdf`, `epub`); la primera versión implementa solo el visor PDF. |
+| RN-55 | Al prestar, se asigna el lote que **vence antes entre los que cubren el préstamo completo**. Si ninguno lo cubre, el que vence más tarde (y el préstamo se recorta según RN-44). |
+| RN-56 | Licencias **en uso** de un lote = préstamos vigentes + reservas digitales `asignadas` dentro de su plazo de confirmación (la reserva asignada retiene la licencia). La asignación se hace bloqueando los lotes del título (`SELECT ... FOR UPDATE`) mientras se cuenta. |
 
 ## Pendiente de definir
 
