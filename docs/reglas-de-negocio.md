@@ -130,6 +130,7 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 | RN-44 | La fecha de fin de un préstamo digital es la **menor** entre la fecha de hoy más los días del tipo de lector y el vencimiento de la licencia (RN-25). |
 | RN-45 | El tipo de lector define **máximos separados** de reservas físicas y de reservas digitales (complementa RN-12). |
 | RN-46 | Cada libro tiene una **clasificación por edad** (infantil, +15, +18, en tabla). El lector registra su fecha de nacimiento y no puede prestar, reservar ni comprar títulos de una clasificación superior a su edad. La edad **se calcula**, no se guarda. |
+| RN-47 | Un ejemplar devuelto **en su propia sede** vuelve a su estante y queda `disponible` (o se asigna a una reserva, RN-11) sin pasar por `por_ubicar`. Solo las llegadas desde otra sede quedan por ubicar (RN-20). |
 
 ## Pendiente de definir
 
