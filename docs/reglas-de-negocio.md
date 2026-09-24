@@ -50,7 +50,7 @@
 | RN-13 | **Colección flotante**: un ejemplar se puede devolver en cualquier sede y pasa a pertenecer a esa sede. |
 | RN-14 | El sistema **sugiere traslados** (calculado, no guardado) cuando una sede tiene lectores en cola por una obra y ninguna copia disponible, y otra sede tiene más copias disponibles que un mínimo configurable. |
 | RN-15 | Un empleado **confirma, ajusta o descarta** cada traslado sugerido; nunca se mueven libros automáticamente. |
-| RN-16 | Ciclo del traslado (se guarda): `pendiente` → `en tránsito` → `recibido`. Al recibirlo, el ejemplar cambia de sede. |
+| RN-16 | Un traslado confirmado **se guarda** con su ciclo `pendiente` → `en_transito` → `recibido` (o `cancelado` antes del despacho). Detalle en RN-50 a RN-52. |
 
 ## Ubicación física y ejemplares
 
@@ -60,7 +60,7 @@
 | RN-18 | Las **secciones y su color son de toda la red** (un solo código de colores para el lector). Cada sede decide qué pasillos y estantes asigna a cada sección. |
 | RN-19 | Cada sección agrupa uno o varios **géneros**. Cada libro tiene un **género principal**, que decide su sección y su color, y puede tener **géneros secundarios** para búsqueda y filtros. |
 | RN-20 | Un ejemplar que llega a una sede (por devolución en otra sede o por traslado) queda **por ubicar**: no cuenta como disponible ni se puede reservar hasta que un empleado confirma su estante. El sistema **sugiere** un estante de la sección de su género principal en esa sede. |
-| RN-21 | **Auditoría de estante**: un empleado registra los códigos que encuentra en un estante y el sistema los compara con lo esperado (faltantes, sobrantes, mal ubicados). Se guarda la fecha de la última verificación de cada estante. |
+| RN-21 | **Auditoría de estante**: un empleado registra los códigos que encuentra en un estante y el sistema los compara con lo esperado. La fecha de la última verificación de un estante se **calcula** (última auditoría cerrada). Detalle en RN-53. |
 | RN-22 | Estados del ejemplar: `disponible`, `apartado`, `prestado`, `por_ubicar`, `en_transito`, `en_reparacion`, `perdido`, `de_baja`. |
 | RN-23 | El estado del ejemplar **se guarda** (desnormalización controlada, por ser la consulta más frecuente del sistema). Toda operación que lo afecta (prestar, devolver, asignar reserva, trasladar, ubicar) lo actualiza **en la misma transacción** que su registro, con `UPDATE ... WHERE estado = <estado esperado>` como candado de concurrencia. |
 | RN-24 | Una **consulta detectora** compara el estado guardado con el deducido de préstamos, reservas, traslados y ubicación. Debe devolver 0 filas; se ejecuta en las pruebas y se muestra en el panel de administración. |
@@ -133,6 +133,10 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 | RN-47 | Un ejemplar devuelto **en su propia sede** vuelve a su estante y queda `disponible` (o se asigna a una reserva, RN-11) sin pasar por `por_ubicar`. Solo las llegadas desde otra sede quedan por ubicar (RN-20). |
 | RN-48 | **Vencimiento perezoso**: antes de operar sobre una obra (y sede, si aplica) se procesan sus vencidos: reservas físicas no recogidas (RN-10), reservas digitales no confirmadas (RN-28) y pedidos no pagados (RN-37). Más adelante se puede sumar una tarea programada que barra todo periódicamente. |
 | RN-49 | Un ejemplar se declara **perdido** por decisión de un empleado, a partir de una lista calculada de préstamos con más de `dias_atraso_perdido` días de atraso. Al declararlo, el ejemplar pasa a `perdido` y se genera la multa de reposición (RN-06). |
+| RN-50 | Un traslado es un **envío por lote** entre dos sedes distintas: una cabecera (origen, destino, estado, fechas y empleados) con N ejemplares. |
+| RN-51 | Confirmar un traslado **no bloquea** los ejemplares: siguen disponibles hasta el **despacho**. Al despachar, cada ejemplar pasa a `en_transito` con el candado `WHERE estado = 'disponible'`; el que ya no esté disponible queda `cancelado` dentro del lote. |
+| RN-52 | Al **recibir** un traslado, cada ejemplar cambia de sede. Si en la sede destino hay cola por esa obra, se asigna directo a la primera reserva (`apartado`, sin ubicación, en mostrador); si no, queda `por_ubicar` (RN-20). |
+| RN-53 | Una auditoría guarda las **lecturas tal cual**, incluidos códigos inexistentes. Al cerrarla, los hallazgos calculados se **congelan** como registro histórico: `faltante`, `mal_ubicado`, `estado_incoherente` (leído pero el sistema lo tiene prestado, en tránsito, etc.) y `desconocido`. El sistema sugiere correcciones (mal ubicado → actualizar ubicación; faltante → declarar perdido) y el empleado aplica o descarta cada una. |
 
 ## Pendiente de definir
 

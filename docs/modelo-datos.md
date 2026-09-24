@@ -308,3 +308,91 @@ erDiagram
 - Estado de la cuenta deducido de fechas, sin ENUM → RN-01 actualizada.
 - Vencimiento perezoso de reservas y pedidos → RN-48.
 - Declaración de ejemplar perdido por un empleado, desde una lista calculada → RN-49.
+
+## Bloque 3 — Operación de sede: traslados y auditorías
+
+```mermaid
+erDiagram
+    sede ||--o{ traslado : "origen / destino"
+    empleado ||--o{ traslado : "confirma / despacha / recibe"
+    traslado ||--|{ traslado_ejemplar : "contiene"
+    ejemplar ||--o{ traslado_ejemplar : "viaja en"
+    sede ||--o{ auditoria_estante : "se audita"
+    empleado ||--o{ auditoria_estante : "realiza"
+    auditoria_estante ||--o{ auditoria_lectura : "lecturas"
+    ubicacion ||--o{ auditoria_lectura : "encontrado en"
+    ejemplar |o--o{ auditoria_lectura : "corresponde a"
+    auditoria_estante ||--o{ auditoria_hallazgo : "hallazgos"
+    ejemplar |o--o{ auditoria_hallazgo : "afecta a"
+
+    traslado {
+        int id_traslado PK
+        int id_sede_origen FK
+        int id_sede_destino FK
+        enum estado
+        int id_empleado_confirma FK
+        datetime fecha_confirmacion
+        int id_empleado_despacha FK "NULL"
+        datetime fecha_despacho "NULL"
+        int id_empleado_recibe FK "NULL"
+        datetime fecha_recepcion "NULL"
+    }
+    traslado_ejemplar {
+        int id_traslado PK, FK
+        int id_ejemplar PK, FK
+        enum estado
+    }
+    auditoria_estante {
+        int id_auditoria PK
+        int id_sede FK
+        varchar pasillo
+        tinyint estante
+        int id_empleado FK
+        datetime fecha_inicio
+        datetime fecha_cierre "NULL"
+    }
+    auditoria_lectura {
+        int id_lectura PK
+        int id_auditoria FK
+        varchar codigo_barras
+        int id_ejemplar FK "NULL"
+        int id_ubicacion FK
+        datetime fecha_lectura
+    }
+    auditoria_hallazgo {
+        int id_hallazgo PK
+        int id_auditoria FK
+        enum tipo
+        varchar codigo_barras
+        int id_ejemplar FK "NULL"
+        int id_ubicacion_esperada FK "NULL"
+        int id_ubicacion_encontrada FK "NULL"
+        enum decision
+        int id_empleado_decide FK "NULL"
+        datetime fecha_decision "NULL"
+    }
+```
+
+### De dónde sale cada tabla
+
+| Tabla | Reglas | Notas de diseño |
+|---|---|---|
+| `traslado` | RN-14 a RN-16, RN-50 | Cabecera del lote. `estado`: `pendiente`, `en_transito`, `recibido`, `cancelado`. `CHECK (id_sede_origen <> id_sede_destino)` y coherencia estado ↔ fechas (despachado ⇒ `fecha_despacho` no NULL, etc.). |
+| `traslado_ejemplar` | RN-51, RN-52 | Detalle. `estado`: `incluido`, `cancelado` (no estaba disponible al despachar). |
+| `auditoria_estante` | RN-21, RN-53 | Un estante = `(id_sede, pasillo, estante)`, todos sus niveles. En curso ⇔ `fecha_cierre IS NULL` (deducido, sin ENUM). |
+| `auditoria_lectura` | RN-53 | Guarda el **código leído** aunque no exista (`id_ejemplar` NULL). `UNIQUE(id_auditoria, codigo_barras)`: leer dos veces el mismo código no duplica. `id_ubicacion` = nivel donde se encontró. |
+| `auditoria_hallazgo` | RN-53 | `tipo`: `faltante`, `mal_ubicado`, `estado_incoherente`, `desconocido`. `decision`: `pendiente`, `aplicada`, `descartada`. |
+
+### Conceptos del bloque
+
+- **Cabecera/detalle** (`traslado` + `traslado_ejemplar`): el mismo patrón que tendrán los pedidos. La cabecera guarda lo
+  común al envío; el detalle, lo de cada ítem.
+- **Congelar un cálculo al cerrar**: los hallazgos se podrían recalcular siempre, pero los ejemplares se siguen moviendo
+  y el resultado de hoy no sería el de la auditoría. Al cerrarla, el cálculo se guarda como **hecho histórico**.
+  Es la misma razón por la que el pedido guarda el precio del momento (RN-39).
+- **Lo que no protege la BD**: que un ejemplar no esté en dos traslados abiertos a la vez (el estado vive en la
+  cabecera, otra tabla). Lo cubren el candado de RN-51 y la validación en `lib/actions`.
+
+### Fuera de alcance (anotado)
+
+- Recepción parcial de un lote (llega la caja con un libro menos): se detectaría en una auditoría posterior.
