@@ -52,12 +52,23 @@
 | RN-15 | Un empleado **confirma, ajusta o descarta** cada traslado sugerido; nunca se mueven libros automáticamente. |
 | RN-16 | Ciclo del traslado (se guarda): `pendiente` → `en tránsito` → `recibido`. Al recibirlo, el ejemplar cambia de sede. |
 
+## Ubicación física y ejemplares
+
+| # | Regla |
+|---|---|
+| RN-17 | La ubicación es **jerárquica**: sección → pasillo → estante → nivel (ej. "Literatura (azul) – Pasillo B – Estante 3.5"). El ejemplar apunta a una ubicación de un **catálogo de ubicaciones válidas** de su sede; nunca se escribe a mano. |
+| RN-18 | Las **secciones y su color son de toda la red** (un solo código de colores para el lector). Cada sede decide qué pasillos y estantes asigna a cada sección. |
+| RN-19 | Cada sección agrupa uno o varios **géneros**. Cada libro tiene un **género principal**, que decide su sección y su color, y puede tener **géneros secundarios** para búsqueda y filtros. |
+| RN-20 | Un ejemplar que llega a una sede (por devolución en otra sede o por traslado) queda **por ubicar**: no cuenta como disponible ni se puede reservar hasta que un empleado confirma su estante. El sistema **sugiere** un estante de la sección de su género principal en esa sede. |
+| RN-21 | **Auditoría de estante**: un empleado registra los códigos que encuentra en un estante y el sistema los compara con lo esperado (faltantes, sobrantes, mal ubicados). Se guarda la fecha de la última verificación de cada estante. |
+| RN-22 | Estados del ejemplar: `disponible`, `apartado`, `prestado`, `por_ubicar`, `en_transito`, `en_reparacion`, `perdido`, `de_baja`. |
+| RN-23 | El estado del ejemplar **se guarda** (desnormalización controlada, por ser la consulta más frecuente del sistema). Toda operación que lo afecta (prestar, devolver, asignar reserva, trasladar, ubicar) lo actualiza **en la misma transacción** que su registro, con `UPDATE ... WHERE estado = <estado esperado>` como candado de concurrencia. |
+| RN-24 | Una **consulta detectora** compara el estado guardado con el deducido de préstamos, reservas, traslados y ubicación. Debe devolver 0 filas; se ejecuta en las pruebas y se muestra en el panel de administración. |
+
 ## Pendiente de definir
 
-- Ubicación de un ejemplar que llega a otra sede (por devolución o traslado) mientras no se ubica en un estante.
 - Número máximo de renovaciones, valor por día y tope de la multa, plazo para declarar un ejemplar perdido.
 - Préstamo digital: duración, licencias por título, reservas digitales.
-- Ubicación física: pasillo / estante / nivel, identificación por color, cambios de ubicación.
 - Empleados: roles, permisos y si trabajan en una o en varias sedes.
 - Cuentas: si lectores y empleados comparten tabla de autenticación.
 - Compras: stock por sede, estados del pedido, devoluciones y reembolsos, precio de envío.
