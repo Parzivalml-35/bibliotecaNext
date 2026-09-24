@@ -338,3 +338,110 @@ CREATE TABLE reserva_fisica (
     CONSTRAINT fk_reserva_prestamo FOREIGN KEY (id_prestamo) REFERENCES prestamo_fisico (id_prestamo),
     INDEX idx_reserva_cola (id_libro, id_sede, estado, fecha_solicitud)   -- RN-09, RN-11: buscar la cola
 );
+
+-- =====================================================================
+-- Bloque 3 — Operación de sede: traslados y auditorías
+-- =====================================================================
+
+-- RN-14 a RN-16, RN-50: cabecera del envío por lote entre dos sedes.
+CREATE TABLE traslado (
+    id_traslado           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_sede_origen        INT UNSIGNED NOT NULL,
+    id_sede_destino       INT UNSIGNED NOT NULL,
+    estado                ENUM('pendiente', 'en_transito', 'recibido', 'cancelado') NOT NULL DEFAULT 'pendiente',
+    id_empleado_confirma  INT UNSIGNED NOT NULL,    -- RN-15
+    fecha_confirmacion    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id_empleado_despacha  INT UNSIGNED NULL,
+    fecha_despacho        DATETIME NULL,
+    id_empleado_recibe    INT UNSIGNED NULL,
+    fecha_recepcion       DATETIME NULL,
+    fecha_cancelacion     DATETIME NULL,
+    CONSTRAINT ck_traslado_sedes CHECK (id_sede_origen <> id_sede_destino),
+    CONSTRAINT ck_traslado_despacho CHECK ((fecha_despacho IS NULL) = (id_empleado_despacha IS NULL)),
+    CONSTRAINT ck_traslado_recepcion CHECK ((fecha_recepcion IS NULL) = (id_empleado_recibe IS NULL)),
+    -- Coherencia estado ↔ fechas. Solo se cancela antes del despacho (RN-16).
+    CONSTRAINT ck_traslado_estado CHECK (
+        (estado = 'pendiente'   AND fecha_despacho IS NULL     AND fecha_recepcion IS NULL     AND fecha_cancelacion IS NULL) OR
+        (estado = 'en_transito' AND fecha_despacho IS NOT NULL AND fecha_recepcion IS NULL     AND fecha_cancelacion IS NULL) OR
+        (estado = 'recibido'    AND fecha_despacho IS NOT NULL AND fecha_recepcion IS NOT NULL AND fecha_cancelacion IS NULL) OR
+        (estado = 'cancelado'   AND fecha_despacho IS NULL     AND fecha_recepcion IS NULL     AND fecha_cancelacion IS NOT NULL)),
+    CONSTRAINT ck_traslado_orden CHECK ((fecha_despacho IS NULL OR fecha_despacho >= fecha_confirmacion)
+                                        AND (fecha_recepcion IS NULL OR fecha_recepcion >= fecha_despacho)),
+    CONSTRAINT fk_traslado_origen FOREIGN KEY (id_sede_origen) REFERENCES sede (id_sede),
+    CONSTRAINT fk_traslado_destino FOREIGN KEY (id_sede_destino) REFERENCES sede (id_sede),
+    CONSTRAINT fk_traslado_confirma FOREIGN KEY (id_empleado_confirma) REFERENCES empleado (id_empleado),
+    CONSTRAINT fk_traslado_despacha FOREIGN KEY (id_empleado_despacha) REFERENCES empleado (id_empleado),
+    CONSTRAINT fk_traslado_recibe FOREIGN KEY (id_empleado_recibe) REFERENCES empleado (id_empleado)
+);
+
+-- RN-51, RN-52: detalle del lote. 'cancelado' = no estaba disponible al despachar.
+-- Que un ejemplar no esté en dos traslados abiertos se valida en lib/actions (el estado vive en la cabecera).
+CREATE TABLE traslado_ejemplar (
+    id_traslado  INT UNSIGNED NOT NULL,
+    id_ejemplar  INT UNSIGNED NOT NULL,
+    estado       ENUM('incluido', 'cancelado') NOT NULL DEFAULT 'incluido',
+    PRIMARY KEY (id_traslado, id_ejemplar),
+    CONSTRAINT fk_traslado_ejemplar_traslado FOREIGN KEY (id_traslado) REFERENCES traslado (id_traslado),
+    CONSTRAINT fk_traslado_ejemplar_ejemplar FOREIGN KEY (id_ejemplar) REFERENCES ejemplar (id_ejemplar)
+);
+
+-- RN-21, RN-53: un estante = (sede, pasillo, estante) con todos sus niveles. Abierta ⇔ fecha_cierre NULL.
+-- Que el estante exista en ubicacion se valida en lib/actions (ubicacion es única por nivel, no por estante).
+CREATE TABLE auditoria_estante (
+    id_auditoria  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_sede       INT UNSIGNED NOT NULL,
+    pasillo       VARCHAR(5) NOT NULL,
+    estante       TINYINT UNSIGNED NOT NULL,
+    id_empleado   INT UNSIGNED NOT NULL,
+    fecha_inicio  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_cierre  DATETIME NULL,
+    -- Una sola auditoría abierta por estante (unicidad parcial).
+    abierta       TINYINT AS (IF(fecha_cierre IS NULL, 1, NULL)) VIRTUAL,
+    CONSTRAINT uq_auditoria_abierta UNIQUE (id_sede, pasillo, estante, abierta),
+    CONSTRAINT ck_auditoria_fechas CHECK (fecha_cierre IS NULL OR fecha_cierre >= fecha_inicio),
+    CONSTRAINT fk_auditoria_sede FOREIGN KEY (id_sede) REFERENCES sede (id_sede),
+    CONSTRAINT fk_auditoria_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado),
+    INDEX idx_auditoria_estante (id_sede, pasillo, estante, fecha_cierre)   -- RN-21: última verificación
+);
+
+-- RN-53: lo leído tal cual, aunque el código no exista (id_ejemplar NULL).
+CREATE TABLE auditoria_lectura (
+    id_lectura     INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_auditoria   INT UNSIGNED NOT NULL,
+    codigo_barras  VARCHAR(30) NOT NULL,
+    id_ejemplar    INT UNSIGNED NULL,
+    id_ubicacion   INT UNSIGNED NOT NULL,     -- nivel donde se encontró
+    fecha_lectura  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_lectura_codigo UNIQUE (id_auditoria, codigo_barras),   -- leer dos veces no duplica
+    CONSTRAINT fk_lectura_auditoria FOREIGN KEY (id_auditoria) REFERENCES auditoria_estante (id_auditoria),
+    CONSTRAINT fk_lectura_ejemplar FOREIGN KEY (id_ejemplar) REFERENCES ejemplar (id_ejemplar),
+    CONSTRAINT fk_lectura_ubicacion FOREIGN KEY (id_ubicacion) REFERENCES ubicacion (id_ubicacion)
+);
+
+-- RN-53: hallazgos calculados al cerrar y CONGELADOS como registro histórico, con la decisión del empleado.
+CREATE TABLE auditoria_hallazgo (
+    id_hallazgo              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_auditoria             INT UNSIGNED NOT NULL,
+    tipo                     ENUM('faltante', 'mal_ubicado', 'estado_incoherente', 'desconocido') NOT NULL,
+    codigo_barras            VARCHAR(30) NOT NULL,
+    id_ejemplar              INT UNSIGNED NULL,
+    id_ubicacion_esperada    INT UNSIGNED NULL,
+    id_ubicacion_encontrada  INT UNSIGNED NULL,
+    decision                 ENUM('pendiente', 'aplicada', 'descartada') NOT NULL DEFAULT 'pendiente',
+    id_empleado_decide       INT UNSIGNED NULL,
+    fecha_decision           DATETIME NULL,
+    CONSTRAINT uq_hallazgo_codigo UNIQUE (id_auditoria, codigo_barras),
+    CONSTRAINT ck_hallazgo_decision CHECK ((decision = 'pendiente') = (fecha_decision IS NULL)
+                                           AND (fecha_decision IS NULL) = (id_empleado_decide IS NULL)),
+    -- Qué datos exige cada tipo de hallazgo.
+    CONSTRAINT ck_hallazgo_tipo CHECK (
+        (tipo = 'desconocido'        AND id_ejemplar IS NULL     AND id_ubicacion_encontrada IS NOT NULL) OR
+        (tipo = 'faltante'           AND id_ejemplar IS NOT NULL AND id_ubicacion_esperada IS NOT NULL AND id_ubicacion_encontrada IS NULL) OR
+        (tipo = 'mal_ubicado'        AND id_ejemplar IS NOT NULL AND id_ubicacion_esperada IS NOT NULL AND id_ubicacion_encontrada IS NOT NULL) OR
+        (tipo = 'estado_incoherente' AND id_ejemplar IS NOT NULL AND id_ubicacion_encontrada IS NOT NULL)),
+    CONSTRAINT fk_hallazgo_auditoria FOREIGN KEY (id_auditoria) REFERENCES auditoria_estante (id_auditoria),
+    CONSTRAINT fk_hallazgo_ejemplar FOREIGN KEY (id_ejemplar) REFERENCES ejemplar (id_ejemplar),
+    CONSTRAINT fk_hallazgo_esperada FOREIGN KEY (id_ubicacion_esperada) REFERENCES ubicacion (id_ubicacion),
+    CONSTRAINT fk_hallazgo_encontrada FOREIGN KEY (id_ubicacion_encontrada) REFERENCES ubicacion (id_ubicacion),
+    CONSTRAINT fk_hallazgo_empleado FOREIGN KEY (id_empleado_decide) REFERENCES empleado (id_empleado)
+);

@@ -340,6 +340,7 @@ erDiagram
         datetime fecha_despacho "NULL"
         int id_empleado_recibe FK "NULL"
         datetime fecha_recepcion "NULL"
+        datetime fecha_cancelacion "NULL"
     }
     traslado_ejemplar {
         int id_traslado PK, FK
@@ -354,6 +355,7 @@ erDiagram
         int id_empleado FK
         datetime fecha_inicio
         datetime fecha_cierre "NULL"
+        tinyint abierta "generada"
     }
     auditoria_lectura {
         int id_lectura PK
@@ -381,9 +383,9 @@ erDiagram
 
 | Tabla | Reglas | Notas de diseño |
 |---|---|---|
-| `traslado` | RN-14 a RN-16, RN-50 | Cabecera del lote. `estado`: `pendiente`, `en_transito`, `recibido`, `cancelado`. `CHECK (id_sede_origen <> id_sede_destino)` y coherencia estado ↔ fechas (despachado ⇒ `fecha_despacho` no NULL, etc.). |
+| `traslado` | RN-14 a RN-16, RN-50 | Cabecera del lote. `estado`: `pendiente`, `en_transito`, `recibido`, `cancelado`. `CHECK (id_sede_origen <> id_sede_destino)` y un `CHECK` que fija qué fechas exige cada estado (solo se cancela antes del despacho). `fecha_cancelacion` agregada al escribir el SQL: la cancelación también es un hecho con fecha. |
 | `traslado_ejemplar` | RN-51, RN-52 | Detalle. `estado`: `incluido`, `cancelado` (no estaba disponible al despachar). |
-| `auditoria_estante` | RN-21, RN-53 | Un estante = `(id_sede, pasillo, estante)`, todos sus niveles. En curso ⇔ `fecha_cierre IS NULL` (deducido, sin ENUM). |
+| `auditoria_estante` | RN-21, RN-53 | Un estante = `(id_sede, pasillo, estante)`, todos sus niveles. En curso ⇔ `fecha_cierre IS NULL` (deducido, sin ENUM). Columna generada `abierta` + `UNIQUE`: una sola auditoría abierta por estante (agregado al escribir el SQL). |
 | `auditoria_lectura` | RN-53 | Guarda el **código leído** aunque no exista (`id_ejemplar` NULL). `UNIQUE(id_auditoria, codigo_barras)`: leer dos veces el mismo código no duplica. `id_ubicacion` = nivel donde se encontró. |
 | `auditoria_hallazgo` | RN-53 | `tipo`: `faltante`, `mal_ubicado`, `estado_incoherente`, `desconocido`. `decision`: `pendiente`, `aplicada`, `descartada`. |
 
