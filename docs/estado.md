@@ -14,14 +14,16 @@
 | Base del repo: README, CLAUDE.md, estado, .gitignore, .env.example | Hecho |
 | `docker-compose.yml` con MySQL 8.4 (puerto 3307), `db/init/` montado | Hecho |
 | `db/init/01_schema.sql` — bloque 1 (catálogo y ubicación, 13 tablas), verificado | Hecho |
-| `db/init/01_schema.sql` — bloques 2 a 5 | **Siguiente** |
+| `db/init/01_schema.sql` — bloque 2 (cuentas, préstamos, reservas, multas, 9 tablas), verificado | Hecho |
+| `db/init/01_schema.sql` — bloques 3 a 5 | **Siguiente** |
 | `db/init/02_seed.sql` (casos que ejerzan cada regla) y `db/consultas.sql` | Pendiente |
 
 ## Próximo paso
 
-Bloque 2 del esquema (cuentas, préstamos físicos, reservas, multas) en `db/init/01_schema.sql`.
-Como el script de inicio solo corre con el volumen vacío, para aplicar los bloques nuevos hay que recrear
-la BD: `docker compose down -v && docker compose up -d --wait` (borra los datos; mientras no haya seed, no se pierde nada).
+Bloque 3 del esquema (traslados y auditorías) en `db/init/01_schema.sql`.
+Cada bloque nuevo se aplica solo sobre la BD en marcha (`awk` desde el marcador del bloque) y se prueba con transacciones
+que terminan en `ROLLBACK`. Al terminar los 5 bloques: reconstrucción completa con `docker compose down -v` (con confirmación)
+para probar que el repo levanta la BD desde cero.
 
 ## Pendientes y avisos
 

@@ -295,6 +295,10 @@ erDiagram
 4. **Lo que no puede proteger la BD** (involucra otras tablas o reglas con valores de configuración): límites del tipo
    de lector, bloqueo (RN-03, RN-43), edad (RN-46), renovación sin reservas (RN-04). Se validan en `lib/actions`, dentro
    de la transacción.
+5. **Ejemplar asignado a una reserva de la misma obra y sede**: no se usa FK compuesta hacia `ejemplar` porque el ejemplar
+   cambia de sede (colección flotante, RN-13) y la FK impediría actualizarlo mientras exista la reserva. Una FK compuesta
+   solo conviene cuando las columnas referenciadas no cambian. Se valida en `lib/actions`.
+6. `lector.tipo_documento`: ENUM `CC`, `TI`, `CE`, `PASAPORTE` (supuesto; ampliar si hace falta).
 
 ### Datos que no se guardan en este bloque
 

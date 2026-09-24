@@ -156,3 +156,185 @@ CREATE TABLE ejemplar (
     -- id_ubicacion se usa en un CHECK (limitación de MySQL a verificar) y no se borra un estante con libros.
     CONSTRAINT fk_ejemplar_ubicacion FOREIGN KEY (id_ubicacion, id_sede) REFERENCES ubicacion (id_ubicacion, id_sede)
 );
+
+-- =====================================================================
+-- Bloque 2 — Cuentas, lectores, préstamos físicos, reservas y multas
+-- =====================================================================
+
+-- C-04 y valores iniciales: una sola fila con columnas tipadas (no clave-valor).
+CREATE TABLE configuracion (
+    id                               TINYINT UNSIGNED PRIMARY KEY DEFAULT 1,
+    max_renovaciones                 TINYINT UNSIGNED NOT NULL,   -- RN-04
+    multa_por_dia                    DECIMAL(10,2) NOT NULL,      -- RN-05
+    multa_tope                       DECIMAL(10,2) NOT NULL,      -- RN-05
+    dias_atraso_perdido              SMALLINT UNSIGNED NOT NULL,  -- RN-49
+    horas_confirmar_reserva_digital  SMALLINT UNSIGNED NOT NULL,  -- RN-28
+    minutos_pago_pedido              SMALLINT UNSIGNED NOT NULL,  -- RN-37
+    dias_devolucion_compra           SMALLINT UNSIGNED NOT NULL,  -- RN-41
+    minimo_sobrante_traslado         TINYINT UNSIGNED NOT NULL,   -- RN-14
+    CONSTRAINT ck_configuracion_unica CHECK (id = 1),
+    CONSTRAINT ck_configuracion_multa CHECK (multa_por_dia > 0 AND multa_tope >= multa_por_dia),
+    CONSTRAINT ck_configuracion_plazos CHECK (dias_atraso_perdido > 0 AND horas_confirmar_reserva_digital > 0
+                                              AND minutos_pago_pedido > 0 AND dias_devolucion_compra > 0)
+);
+
+-- RN-02, RN-12, RN-26, RN-45: límites por tipo de lector, en datos.
+CREATE TABLE tipo_lector (
+    id_tipo_lector           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nombre                   VARCHAR(40) NOT NULL,
+    max_prestamos_fisicos    TINYINT UNSIGNED NOT NULL,
+    dias_prestamo_fisico     TINYINT UNSIGNED NOT NULL,
+    max_prestamos_digitales  TINYINT UNSIGNED NOT NULL,
+    dias_prestamo_digital    TINYINT UNSIGNED NOT NULL,
+    max_reservas_fisicas     TINYINT UNSIGNED NOT NULL,
+    max_reservas_digitales   TINYINT UNSIGNED NOT NULL,
+    dias_recoger_reserva     TINYINT UNSIGNED NOT NULL,
+    CONSTRAINT uq_tipo_lector_nombre UNIQUE (nombre),
+    CONSTRAINT ck_tipo_lector_dias CHECK (dias_prestamo_fisico > 0 AND dias_prestamo_digital > 0 AND dias_recoger_reserva > 0)
+);
+
+-- RN-01, RN-31: la persona que inicia sesión. Sin columna de estado: se deduce de las fechas.
+CREATE TABLE cuenta (
+    id_cuenta            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    correo               VARCHAR(254) NOT NULL,
+    password_hash        VARCHAR(255) NOT NULL,
+    fecha_registro       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_verificacion   DATETIME NULL,      -- RN-32
+    fecha_desactivacion  DATETIME NULL,
+    CONSTRAINT uq_cuenta_correo UNIQUE (correo),
+    CONSTRAINT ck_cuenta_fechas CHECK (fecha_verificacion IS NULL OR fecha_verificacion >= fecha_registro)
+);
+
+-- RN-32: se guarda el HASH del token (SHA-256 en hex), nunca el token. Un solo uso y con vencimiento.
+CREATE TABLE token_cuenta (
+    id_token    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_cuenta   INT UNSIGNED NOT NULL,
+    token_hash  CHAR(64) NOT NULL,
+    tipo        ENUM('verificar_correo', 'recuperar_contrasena') NOT NULL,
+    creado_en   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expira_en   DATETIME NOT NULL,
+    usado_en    DATETIME NULL,
+    CONSTRAINT uq_token_hash UNIQUE (token_hash),
+    CONSTRAINT ck_token_expira CHECK (expira_en > creado_en),
+    CONSTRAINT fk_token_cuenta FOREIGN KEY (id_cuenta) REFERENCES cuenta (id_cuenta) ON DELETE CASCADE
+);
+
+-- RN-33, RN-34: rol y sede. El administrador de red no tiene sede; los demás, exactamente una.
+CREATE TABLE empleado (
+    id_empleado         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_cuenta           INT UNSIGNED NOT NULL,
+    nombre              VARCHAR(60) NOT NULL,
+    apellido            VARCHAR(60) NOT NULL,
+    rol                 ENUM('bibliotecario', 'coordinador', 'admin_red') NOT NULL,
+    id_sede             INT UNSIGNED NULL,
+    fecha_contratacion  DATE NOT NULL,
+    activo              BOOLEAN NOT NULL DEFAULT TRUE,
+    CONSTRAINT uq_empleado_cuenta UNIQUE (id_cuenta),
+    CONSTRAINT ck_empleado_sede CHECK ((rol = 'admin_red') = (id_sede IS NULL)),
+    CONSTRAINT fk_empleado_cuenta FOREIGN KEY (id_cuenta) REFERENCES cuenta (id_cuenta),
+    CONSTRAINT fk_empleado_sede FOREIGN KEY (id_sede) REFERENCES sede (id_sede)
+);
+
+-- D-02, D-03, RN-02, RN-46. Documento y validación quedan NULL hasta la validación en mostrador.
+CREATE TABLE lector (
+    id_lector              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_cuenta              INT UNSIGNED NOT NULL,
+    id_tipo_lector         INT UNSIGNED NOT NULL,
+    nombre                 VARCHAR(60) NOT NULL,
+    apellido               VARCHAR(60) NOT NULL,
+    fecha_nacimiento       DATE NOT NULL,           -- RN-46: la edad se calcula
+    telefono               VARCHAR(20) NULL,
+    calle                  VARCHAR(120) NULL,
+    codigo_postal          VARCHAR(10) NULL,
+    id_ciudad              INT UNSIGNED NULL,
+    tipo_documento         ENUM('CC', 'TI', 'CE', 'PASAPORTE') NULL,
+    numero_documento       VARCHAR(20) NULL,
+    fecha_validacion       DATETIME NULL,           -- D-03
+    id_empleado_validador  INT UNSIGNED NULL,
+    CONSTRAINT uq_lector_cuenta UNIQUE (id_cuenta),
+    CONSTRAINT uq_lector_documento UNIQUE (tipo_documento, numero_documento),
+    CONSTRAINT ck_lector_documento CHECK ((tipo_documento IS NULL) = (numero_documento IS NULL)),
+    -- Validar = quién y cuándo, y exige documento.
+    CONSTRAINT ck_lector_validacion CHECK ((fecha_validacion IS NULL) = (id_empleado_validador IS NULL)
+                                           AND (fecha_validacion IS NULL OR tipo_documento IS NOT NULL)),
+    CONSTRAINT fk_lector_cuenta FOREIGN KEY (id_cuenta) REFERENCES cuenta (id_cuenta),
+    CONSTRAINT fk_lector_tipo FOREIGN KEY (id_tipo_lector) REFERENCES tipo_lector (id_tipo_lector),
+    CONSTRAINT fk_lector_ciudad FOREIGN KEY (id_ciudad) REFERENCES ciudad (id_ciudad),
+    CONSTRAINT fk_lector_validador FOREIGN KEY (id_empleado_validador) REFERENCES empleado (id_empleado)
+);
+
+-- RN-02 a RN-05, RN-13, RN-34. Estado (activo / vencido / devuelto) calculado con las fechas.
+CREATE TABLE prestamo_fisico (
+    id_prestamo         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_ejemplar         INT UNSIGNED NOT NULL,
+    id_lector           INT UNSIGNED NOT NULL,
+    id_sede_prestamo    INT UNSIGNED NOT NULL,
+    id_empleado_presta  INT UNSIGNED NOT NULL,
+    fecha_prestamo      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_vencimiento   DATE NOT NULL,
+    renovaciones        TINYINT UNSIGNED NOT NULL DEFAULT 0,   -- RN-04: el máximo está en configuracion
+    fecha_devolucion    DATETIME NULL,
+    id_sede_devolucion  INT UNSIGNED NULL,                      -- RN-13: puede ser otra sede
+    id_empleado_recibe  INT UNSIGNED NULL,
+    -- Unicidad parcial: vale id_ejemplar solo mientras el préstamo está abierto (NULL no compite en UNIQUE).
+    ejemplar_abierto    INT UNSIGNED AS (IF(fecha_devolucion IS NULL, id_ejemplar, NULL)) VIRTUAL,
+    CONSTRAINT uq_prestamo_ejemplar_abierto UNIQUE (ejemplar_abierto),
+    CONSTRAINT ck_prestamo_devolucion CHECK ((fecha_devolucion IS NULL) = (id_sede_devolucion IS NULL)
+                                             AND (fecha_devolucion IS NULL) = (id_empleado_recibe IS NULL)),
+    CONSTRAINT ck_prestamo_fechas CHECK (fecha_vencimiento >= DATE(fecha_prestamo)
+                                         AND (fecha_devolucion IS NULL OR fecha_devolucion >= fecha_prestamo)),
+    CONSTRAINT fk_prestamo_ejemplar FOREIGN KEY (id_ejemplar) REFERENCES ejemplar (id_ejemplar),
+    CONSTRAINT fk_prestamo_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_prestamo_sede FOREIGN KEY (id_sede_prestamo) REFERENCES sede (id_sede),
+    CONSTRAINT fk_prestamo_empleado_presta FOREIGN KEY (id_empleado_presta) REFERENCES empleado (id_empleado),
+    CONSTRAINT fk_prestamo_sede_devolucion FOREIGN KEY (id_sede_devolucion) REFERENCES sede (id_sede),
+    CONSTRAINT fk_prestamo_empleado_recibe FOREIGN KEY (id_empleado_recibe) REFERENCES empleado (id_empleado),
+    INDEX idx_prestamo_lector_abierto (id_lector, fecha_devolucion)   -- RN-03: bloqueo y límites del lector
+);
+
+-- RN-05, RN-06, RN-49. Un préstamo no genera dos multas del mismo tipo.
+CREATE TABLE multa (
+    id_multa        INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_prestamo     INT UNSIGNED NOT NULL,
+    tipo            ENUM('retraso', 'reposicion') NOT NULL,
+    monto           DECIMAL(10,2) NOT NULL,
+    fecha_generada  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    estado          ENUM('pendiente', 'pagada', 'anulada') NOT NULL DEFAULT 'pendiente',
+    fecha_pago      DATETIME NULL,
+    CONSTRAINT uq_multa_prestamo_tipo UNIQUE (id_prestamo, tipo),
+    CONSTRAINT ck_multa_monto CHECK (monto > 0),
+    CONSTRAINT ck_multa_pago CHECK ((estado = 'pagada') = (fecha_pago IS NOT NULL)),
+    CONSTRAINT fk_multa_prestamo FOREIGN KEY (id_prestamo) REFERENCES prestamo_fisico (id_prestamo)
+);
+
+-- RN-07 a RN-12. Reserva de una OBRA en una SEDE. Cola: ORDER BY fecha_solicitud, id_reserva.
+-- Que el ejemplar asignado sea de esa obra y sede se valida en lib/actions: una FK compuesta hacia
+-- ejemplar impediría cambiar su sede (colección flotante, RN-13) mientras exista la reserva.
+CREATE TABLE reserva_fisica (
+    id_reserva             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_lector              INT UNSIGNED NOT NULL,
+    id_libro               INT UNSIGNED NOT NULL,
+    id_sede                INT UNSIGNED NOT NULL,
+    estado                 ENUM('activa', 'asignada', 'cumplida', 'vencida', 'cancelada') NOT NULL DEFAULT 'activa',
+    fecha_solicitud        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id_ejemplar            INT UNSIGNED NULL,
+    fecha_asignacion       DATETIME NULL,
+    fecha_limite_recogida  DATETIME NULL,
+    fecha_cierre           DATETIME NULL,
+    id_prestamo            INT UNSIGNED NULL,
+    -- Una sola reserva viva (activa o asignada) por lector y obra.
+    libro_vivo             INT UNSIGNED AS (IF(estado IN ('activa', 'asignada'), id_libro, NULL)) VIRTUAL,
+    CONSTRAINT uq_reserva_viva UNIQUE (id_lector, libro_vivo),
+    CONSTRAINT uq_reserva_prestamo UNIQUE (id_prestamo),
+    CONSTRAINT ck_reserva_activa CHECK (estado <> 'activa' OR id_ejemplar IS NULL),
+    CONSTRAINT ck_reserva_asignada CHECK (estado <> 'asignada'
+                                          OR (id_ejemplar IS NOT NULL AND fecha_asignacion IS NOT NULL AND fecha_limite_recogida IS NOT NULL)),
+    CONSTRAINT ck_reserva_cumplida CHECK (estado <> 'cumplida' OR id_prestamo IS NOT NULL),
+    CONSTRAINT ck_reserva_cierre CHECK ((estado IN ('cumplida', 'vencida', 'cancelada')) = (fecha_cierre IS NOT NULL)),
+    CONSTRAINT fk_reserva_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_reserva_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro),
+    CONSTRAINT fk_reserva_sede FOREIGN KEY (id_sede) REFERENCES sede (id_sede),
+    CONSTRAINT fk_reserva_ejemplar FOREIGN KEY (id_ejemplar) REFERENCES ejemplar (id_ejemplar),
+    CONSTRAINT fk_reserva_prestamo FOREIGN KEY (id_prestamo) REFERENCES prestamo_fisico (id_prestamo),
+    INDEX idx_reserva_cola (id_libro, id_sede, estado, fecha_solicitud)   -- RN-09, RN-11: buscar la cola
+);
