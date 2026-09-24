@@ -32,10 +32,29 @@
 | RN-05 | La **multa por retraso** es un valor por día con un tope máximo. Se genera al devolver el libro. |
 | RN-06 | Si un ejemplar no se devuelve (perdido), se cobra su **valor de reposición**. |
 
+## Reservas físicas
+
+| # | Regla |
+|---|---|
+| RN-07 | Una reserva es sobre **una obra en una sede** elegida por el lector, no sobre un ejemplar concreto. Solo cuentan las copias de esa sede; el sistema no traslada libros por una reserva. |
+| RN-08 | El catálogo muestra la **disponibilidad por sede**, para que el lector decida dónde reservar o hacer cola. |
+| RN-09 | Si hay copia disponible en la sede elegida, la reserva se **asigna de inmediato** (apartado). Si no, el lector entra en **cola** por orden de llegada. |
+| RN-10 | Ciclo de la reserva: `activa` (en cola) → `asignada` (ejemplar apartado, lista para recoger) → `cumplida` al recogerla. Si no la recoge en el plazo, pasa a `vencida` y la copia se asigna al siguiente de la cola. El lector puede `cancelar` antes de recoger. |
+| RN-11 | Al **devolver** un ejemplar, antes de dejarlo disponible, el sistema revisa la cola de esa obra en esa sede y, si hay alguien, lo asigna a su reserva. |
+| RN-12 | El tipo de lector define el **máximo de reservas activas** y los **días para recoger**. Un lector bloqueado (RN-03) no puede reservar. |
+
+## Sedes, devoluciones y traslados
+
+| # | Regla |
+|---|---|
+| RN-13 | **Colección flotante**: un ejemplar se puede devolver en cualquier sede y pasa a pertenecer a esa sede. |
+| RN-14 | El sistema **sugiere traslados** (calculado, no guardado) cuando una sede tiene lectores en cola por una obra y ninguna copia disponible, y otra sede tiene más copias disponibles que un mínimo configurable. |
+| RN-15 | Un empleado **confirma, ajusta o descarta** cada traslado sugerido; nunca se mueven libros automáticamente. |
+| RN-16 | Ciclo del traslado (se guarda): `pendiente` → `en tránsito` → `recibido`. Al recibirlo, el ejemplar cambia de sede. |
+
 ## Pendiente de definir
 
-- Reservas físicas: ¿sobre la obra o sobre un ejemplar?, ¿en qué sede se recoge?, vencimiento y orden de la cola.
-- Devolución en una sede distinta a la del préstamo.
+- Ubicación de un ejemplar que llega a otra sede (por devolución o traslado) mientras no se ubica en un estante.
 - Número máximo de renovaciones, valor por día y tope de la multa, plazo para declarar un ejemplar perdido.
 - Préstamo digital: duración, licencias por título, reservas digitales.
 - Ubicación física: pasillo / estante / nivel, identificación por color, cambios de ubicación.
