@@ -2,9 +2,9 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-09-24 (portátil)
+**Última actualización:** 2026-09-24 (portátil) — Fase 0 terminada
 
-## Fase actual: 0 — Diseño del dominio
+## Fase 0 — Diseño del dominio (terminada)
 
 | Paso | Estado |
 |---|---|
@@ -21,12 +21,13 @@
 | Reconstrucción completa desde cero: 40 tablas, 79 FK, 54 CHECK, 34 UNIQUE, 5 columnas generadas | Hecho |
 | `db/init/02_seed.sql`: 16 libros reales (ISBN verificados), 3 sedes, 32 ejemplares, 7 lectores, escenarios de las reglas; detector RN-24 = 0 | Hecho |
 | `db/consultas.sql`: 12 consultas clave (catálogo, ubicación, lector, cola, traslados, licencias, pedidos, detector), verificadas | Hecho |
-| Reconstrucción completa con schema + seed (`docker compose down -v`) | **Siguiente** (requiere confirmación) |
+| Reconstrucción completa: schema + seed en volumen vacío, 12 consultas sin errores, detector = 0 | Hecho |
 
 ## Próximo paso
 
-Reconstrucción completa para probar que `01_schema.sql` + `02_seed.sql` levantan juntos en un volumen vacío;
-ejecutar `db/consultas.sql` sobre el resultado. Luego cierre de la Fase 0 (`/documentar`) y Fase 1 (scaffold Next.js).
+1. Cerrar la Fase 0 en el vault con `/documentar` (incluye corregir "41 → 40 tablas" en 3 notas y los aprendizajes pendientes).
+2. **Fase 1 — Scaffold y primera conexión:** `create-next-app` (TypeScript, Tailwind, ESLint, App Router), recorrido de
+   lo generado, `lib/db.ts` con el pool de `mysql2` y una primera página que lea datos reales (catálogo, consulta 1).
 
 ## Pendientes y avisos
 
