@@ -18,13 +18,14 @@
 | `db/init/01_schema.sql` — bloque 3 (traslados y auditorías, 5 tablas), verificado | Hecho |
 | `db/init/01_schema.sql` — bloque 4 (préstamo digital, 4 tablas), verificado + prueba de concurrencia | Hecho |
 | `db/init/01_schema.sql` — bloque 5 (compras, 9 tablas), verificado. Esquema completo: 40 tablas | Hecho |
-| Reconstrucción completa desde cero (`docker compose down -v`) | **Siguiente** (requiere confirmación) |
-| `db/init/02_seed.sql` (casos que ejerzan cada regla) y `db/consultas.sql` | Pendiente |
+| Reconstrucción completa desde cero: 40 tablas, 79 FK, 54 CHECK, 34 UNIQUE, 5 columnas generadas | Hecho |
+| `db/init/02_seed.sql` (casos que ejerzan cada regla) y `db/consultas.sql` | **Siguiente** |
 
 ## Próximo paso
 
-Reconstruir la BD desde cero para probar que `db/init/01_schema.sql` completo funciona con un volumen vacío
-(como en un equipo nuevo): `docker compose down -v && docker compose up -d --wait`. Después: `db/init/02_seed.sql`.
+`db/init/02_seed.sql`: datos realistas (sedes, secciones con color, libros, ejemplares ubicados, lectores de
+distintos tipos, préstamos vencidos y al día, reservas en cola, licencias, pedidos) que ejerzan las reglas,
+sin ids escritos a mano. Luego `db/consultas.sql` con las consultas clave que usará la app.
 
 ## Pendientes y avisos
 
