@@ -20,20 +20,20 @@
 | `db/init/01_schema.sql` — bloque 5 (compras, 9 tablas), verificado. Esquema completo: 40 tablas | Hecho |
 | Reconstrucción completa desde cero: 40 tablas, 79 FK, 54 CHECK, 34 UNIQUE, 5 columnas generadas | Hecho |
 | `db/init/02_seed.sql`: 16 libros reales (ISBN verificados), 3 sedes, 32 ejemplares, 7 lectores, escenarios de las reglas; detector RN-24 = 0 | Hecho |
-| `db/consultas.sql` con las consultas clave de la app | **Siguiente** |
-| Reconstrucción completa con schema + seed (`docker compose down -v`) | Pendiente (requiere confirmación) |
+| `db/consultas.sql`: 12 consultas clave (catálogo, ubicación, lector, cola, traslados, licencias, pedidos, detector), verificadas | Hecho |
+| Reconstrucción completa con schema + seed (`docker compose down -v`) | **Siguiente** (requiere confirmación) |
 
 ## Próximo paso
 
-`db/consultas.sql`: disponibilidad y ubicación por sede, estado deducido del lector (bloqueo, edad), cola de reservas,
-licencias en uso, total del pedido y consulta detectora (RN-24). Después, reconstrucción completa para probar que
-`01_schema.sql` + `02_seed.sql` levantan juntos en un volumen vacío, y cierre de la Fase 0.
+Reconstrucción completa para probar que `01_schema.sql` + `02_seed.sql` levantan juntos en un volumen vacío;
+ejecutar `db/consultas.sql` sobre el resultado. Luego cierre de la Fase 0 (`/documentar`) y Fase 1 (scaffold Next.js).
 
 ## Pendientes y avisos
 
 - Verificar el PC de escritorio: `node -v` (22 LTS), `pnpm -v`, `docker compose version`, `ssh -T git@github.com`.
 - Verificado (MySQL 8.4.11): una columna usada en un `CHECK` no puede tener acciones `ON DELETE/UPDATE` en su FK (`ERROR 3823`).
 - Verificado con dos sesiones simultáneas: sin `FOR UPDATE` una licencia única se prestó dos veces; con `FOR UPDATE` la segunda sesión esperó el `COMMIT` y no prestó. Primero bloquear, después contar.
+- `SUM()` sobre cero filas devuelve NULL, no 0: usar `COALESCE(SUM(...), 0)`.
 - `information_schema.tables.table_rows` es una estadística en caché, no un conteo: usar `COUNT(*)`.
 - En pruebas y seed, nunca escribir ids a mano: `AUTO_INCREMENT` no se revierte con `ROLLBACK`. Usar `LAST_INSERT_ID()` o buscar por un dato único.
 - Fase 1: `create-next-app` puede negarse a crear el proyecto en una carpeta con archivos (este repo ya tiene
