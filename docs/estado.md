@@ -9,7 +9,7 @@
 | Paso | Estado |
 |---|---|
 | Reglas de negocio (`docs/reglas-de-negocio.md`, RN-01 a RN-61) | Hecho |
-| Modelo de datos por bloques (`docs/modelo-datos.md`, 41 tablas) | Hecho |
+| Modelo de datos por bloques (`docs/modelo-datos.md`, 40 tablas) | Hecho |
 | Documentación de la fase en el vault (`Biblioteca Next`) | Hecho |
 | Base del repo: README, CLAUDE.md, estado, .gitignore, .env.example | Hecho |
 | `docker-compose.yml` con MySQL 8.4 (puerto 3307), `db/init/` montado | Hecho |
@@ -17,15 +17,14 @@
 | `db/init/01_schema.sql` — bloque 2 (cuentas, préstamos, reservas, multas, 9 tablas), verificado | Hecho |
 | `db/init/01_schema.sql` — bloque 3 (traslados y auditorías, 5 tablas), verificado | Hecho |
 | `db/init/01_schema.sql` — bloque 4 (préstamo digital, 4 tablas), verificado + prueba de concurrencia | Hecho |
-| `db/init/01_schema.sql` — bloque 5 (compras) | **Siguiente** |
+| `db/init/01_schema.sql` — bloque 5 (compras, 9 tablas), verificado. Esquema completo: 40 tablas | Hecho |
+| Reconstrucción completa desde cero (`docker compose down -v`) | **Siguiente** (requiere confirmación) |
 | `db/init/02_seed.sql` (casos que ejerzan cada regla) y `db/consultas.sql` | Pendiente |
 
 ## Próximo paso
 
-Bloque 5 del esquema (compras) en `db/init/01_schema.sql`.
-Cada bloque nuevo se aplica solo sobre la BD en marcha (`awk` desde el marcador del bloque) y se prueba con transacciones
-que terminan en `ROLLBACK`. Al terminar los 5 bloques: reconstrucción completa con `docker compose down -v` (con confirmación)
-para probar que el repo levanta la BD desde cero.
+Reconstruir la BD desde cero para probar que `db/init/01_schema.sql` completo funciona con un volumen vacío
+(como en un equipo nuevo): `docker compose down -v && docker compose up -d --wait`. Después: `db/init/02_seed.sql`.
 
 ## Pendientes y avisos
 

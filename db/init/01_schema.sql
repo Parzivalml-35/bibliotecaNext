@@ -524,3 +524,162 @@ CREATE TABLE reserva_digital (
     CONSTRAINT fk_reserva_digital_prestamo FOREIGN KEY (id_prestamo_digital) REFERENCES prestamo_digital (id_prestamo_digital),
     INDEX idx_reserva_digital_cola (id_libro, estado, fecha_solicitud)
 );
+
+-- =====================================================================
+-- Bloque 5 — Compras
+-- =====================================================================
+
+-- D-05: lo que se vende, un título en formato físico o digital. Precio ACTUAL; el histórico queda en cada pedido.
+CREATE TABLE producto (
+    id_producto  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_libro     INT UNSIGNED NOT NULL,
+    tipo         ENUM('fisico', 'digital') NOT NULL,
+    precio       DECIMAL(10,2) NOT NULL,
+    activo       BOOLEAN NOT NULL DEFAULT TRUE,
+    CONSTRAINT uq_producto_libro_tipo UNIQUE (id_libro, tipo),
+    CONSTRAINT ck_producto_precio CHECK (precio > 0),
+    CONSTRAINT fk_producto_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro)
+);
+
+-- RN-36, RN-37: stock de venta por sede, separado de los ejemplares de préstamo. UNSIGNED: nunca negativo.
+-- Candado al apartar: UPDATE ... SET cantidad = cantidad - ? WHERE ... AND cantidad >= ?
+CREATE TABLE stock_venta (
+    id_producto  INT UNSIGNED NOT NULL,
+    id_sede      INT UNSIGNED NOT NULL,
+    cantidad     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (id_producto, id_sede),
+    CONSTRAINT fk_stock_producto FOREIGN KEY (id_producto) REFERENCES producto (id_producto),
+    CONSTRAINT fk_stock_sede FOREIGN KEY (id_sede) REFERENCES sede (id_sede)
+);
+
+-- RN-42: tarifa por ciudad de destino. Sin fila = no se envía a esa ciudad.
+CREATE TABLE tarifa_envio (
+    id_ciudad           INT UNSIGNED PRIMARY KEY,
+    valor               DECIMAL(10,2) NOT NULL,
+    monto_envio_gratis  DECIMAL(10,2) NULL,
+    CONSTRAINT ck_tarifa_valores CHECK (valor >= 0 AND (monto_envio_gratis IS NULL OR monto_envio_gratis > 0)),
+    CONSTRAINT fk_tarifa_ciudad FOREIGN KEY (id_ciudad) REFERENCES ciudad (id_ciudad)
+);
+
+-- RN-57: carrito en la BD por lector. No aparta stock.
+CREATE TABLE carrito_item (
+    id_lector       INT UNSIGNED NOT NULL,
+    id_producto     INT UNSIGNED NOT NULL,
+    cantidad        SMALLINT UNSIGNED NOT NULL,
+    fecha_agregado  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_lector, id_producto),
+    CONSTRAINT ck_carrito_cantidad CHECK (cantidad > 0),
+    CONSTRAINT fk_carrito_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_carrito_producto FOREIGN KEY (id_producto) REFERENCES producto (id_producto)
+);
+
+-- RN-37, RN-38, RN-40, RN-58. Dirección y costo de envío CONGELADOS; subtotal y total se calculan del detalle.
+CREATE TABLE pedido (
+    id_pedido             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_lector             INT UNSIGNED NOT NULL,
+    modalidad             ENUM('recoger', 'envio', 'solo_digital') NOT NULL,
+    estado                ENUM('pendiente_pago', 'pagado', 'preparado', 'listo_para_recoger', 'enviado',
+                               'entregado', 'vencido', 'cancelado', 'reembolsado') NOT NULL DEFAULT 'pendiente_pago',
+    id_sede               INT UNSIGNED NULL,          -- RN-38: sede que despacha o entrega
+    envio_destinatario    VARCHAR(120) NULL,
+    envio_telefono        VARCHAR(20) NULL,
+    envio_calle           VARCHAR(120) NULL,
+    envio_codigo_postal   VARCHAR(10) NULL,
+    envio_id_ciudad       INT UNSIGNED NULL,
+    costo_envio           DECIMAL(10,2) NOT NULL DEFAULT 0,
+    numero_guia           VARCHAR(40) NULL,
+    fecha_creacion        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_limite_pago     DATETIME NOT NULL,          -- RN-37
+    fecha_pago            DATETIME NULL,
+    fecha_entrega         DATETIME NULL,
+    id_empleado_entrega   INT UNSIGNED NULL,          -- solo en recogida en sede
+    fecha_cancelacion     DATETIME NULL,
+    -- Qué datos exige cada modalidad.
+    CONSTRAINT ck_pedido_modalidad CHECK (
+        (modalidad = 'recoger' AND id_sede IS NOT NULL AND costo_envio = 0
+            AND envio_destinatario IS NULL AND envio_calle IS NULL AND envio_id_ciudad IS NULL AND numero_guia IS NULL) OR
+        (modalidad = 'envio' AND id_sede IS NOT NULL AND costo_envio >= 0
+            AND envio_destinatario IS NOT NULL AND envio_telefono IS NOT NULL AND envio_calle IS NOT NULL AND envio_id_ciudad IS NOT NULL) OR
+        (modalidad = 'solo_digital' AND id_sede IS NULL AND costo_envio = 0
+            AND envio_destinatario IS NULL AND envio_calle IS NULL AND envio_id_ciudad IS NULL AND numero_guia IS NULL)),
+    -- Qué fechas exige cada estado (máquina de estados, RN-40, RN-58).
+    CONSTRAINT ck_pedido_estado CHECK (
+        (estado IN ('pendiente_pago', 'vencido') AND fecha_pago IS NULL AND fecha_entrega IS NULL AND fecha_cancelacion IS NULL) OR
+        (estado IN ('pagado', 'preparado', 'listo_para_recoger', 'enviado')
+            AND fecha_pago IS NOT NULL AND fecha_entrega IS NULL AND fecha_cancelacion IS NULL) OR
+        (estado = 'entregado'   AND fecha_pago IS NOT NULL AND fecha_entrega IS NOT NULL AND fecha_cancelacion IS NULL) OR
+        (estado = 'cancelado'   AND fecha_pago IS NULL     AND fecha_entrega IS NULL     AND fecha_cancelacion IS NOT NULL) OR
+        (estado = 'reembolsado' AND fecha_pago IS NOT NULL AND fecha_entrega IS NULL     AND fecha_cancelacion IS NOT NULL)),
+    CONSTRAINT ck_pedido_estado_modalidad CHECK ((estado <> 'listo_para_recoger' OR modalidad = 'recoger')
+                                                 AND (estado <> 'enviado' OR modalidad = 'envio')),
+    CONSTRAINT ck_pedido_entrega_empleado CHECK (
+        (modalidad = 'recoger' AND (fecha_entrega IS NULL) = (id_empleado_entrega IS NULL)) OR
+        (modalidad <> 'recoger' AND id_empleado_entrega IS NULL)),
+    CONSTRAINT ck_pedido_fechas CHECK (fecha_limite_pago > fecha_creacion AND costo_envio >= 0),
+    CONSTRAINT fk_pedido_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_pedido_sede FOREIGN KEY (id_sede) REFERENCES sede (id_sede),
+    CONSTRAINT fk_pedido_ciudad FOREIGN KEY (envio_id_ciudad) REFERENCES ciudad (id_ciudad),
+    CONSTRAINT fk_pedido_empleado FOREIGN KEY (id_empleado_entrega) REFERENCES empleado (id_empleado),
+    INDEX idx_pedido_vencimiento (estado, fecha_limite_pago)   -- RN-48: vencimiento perezoso
+);
+
+-- RN-39: precio del momento congelado.
+CREATE TABLE pedido_detalle (
+    id_pedido        INT UNSIGNED NOT NULL,
+    id_producto      INT UNSIGNED NOT NULL,
+    cantidad         SMALLINT UNSIGNED NOT NULL,
+    precio_unitario  DECIMAL(10,2) NOT NULL,
+    PRIMARY KEY (id_pedido, id_producto),
+    CONSTRAINT ck_detalle_valores CHECK (cantidad > 0 AND precio_unitario >= 0),
+    CONSTRAINT fk_detalle_pedido FOREIGN KEY (id_pedido) REFERENCES pedido (id_pedido),
+    CONSTRAINT fk_detalle_producto FOREIGN KEY (id_producto) REFERENCES producto (id_producto)
+);
+
+-- D-07, RN-59: varios intentos por pedido, un solo pago exitoso (pagado o luego reembolsado).
+CREATE TABLE pago (
+    id_pago             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_pedido           INT UNSIGNED NOT NULL,
+    monto               DECIMAL(10,2) NOT NULL,
+    metodo              ENUM('simulado') NOT NULL DEFAULT 'simulado',   -- se amplía al conectar la pasarela
+    estado              ENUM('pendiente', 'pagado', 'fallido', 'reembolsado') NOT NULL DEFAULT 'pendiente',
+    referencia_externa  VARCHAR(100) NULL,
+    fecha_creacion      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_confirmacion  DATETIME NULL,
+    pedido_pagado       INT UNSIGNED AS (IF(estado IN ('pagado', 'reembolsado'), id_pedido, NULL)) VIRTUAL,
+    CONSTRAINT uq_pago_exitoso UNIQUE (pedido_pagado),
+    CONSTRAINT uq_pago_referencia UNIQUE (referencia_externa),
+    CONSTRAINT ck_pago_monto CHECK (monto > 0),
+    CONSTRAINT ck_pago_confirmacion CHECK ((estado = 'pendiente') = (fecha_confirmacion IS NULL)),
+    CONSTRAINT fk_pago_pedido FOREIGN KEY (id_pedido) REFERENCES pedido (id_pedido)
+);
+
+-- RN-41, RN-60: devolución por ítem, parcial. La FK compuesta al detalle garantiza que el producto
+-- estaba en ESE pedido (segura: el detalle no cambia). Que no se devuelva más de lo comprado, en lib/actions.
+CREATE TABLE devolucion_compra (
+    id_devolucion    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_pedido        INT UNSIGNED NOT NULL,
+    id_producto      INT UNSIGNED NOT NULL,
+    cantidad         SMALLINT UNSIGNED NOT NULL,
+    id_sede_recibe   INT UNSIGNED NOT NULL,
+    id_empleado      INT UNSIGNED NOT NULL,
+    monto_reembolso  DECIMAL(10,2) NOT NULL,
+    fecha            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_devolucion_valores CHECK (cantidad > 0 AND monto_reembolso >= 0),
+    CONSTRAINT fk_devolucion_detalle FOREIGN KEY (id_pedido, id_producto) REFERENCES pedido_detalle (id_pedido, id_producto),
+    CONSTRAINT fk_devolucion_sede FOREIGN KEY (id_sede_recibe) REFERENCES sede (id_sede),
+    CONSTRAINT fk_devolucion_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado)
+);
+
+-- RN-30, RN-41, RN-61: acceso permanente a un título digital comprado. La PK impide comprarlo dos veces.
+CREATE TABLE acceso_digital (
+    id_lector              INT UNSIGNED NOT NULL,
+    id_libro               INT UNSIGNED NOT NULL,
+    id_pedido              INT UNSIGNED NOT NULL,
+    fecha_otorgado         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_primera_lectura  DATETIME NULL,     -- "abierto" (RN-41): define si se puede reembolsar
+    PRIMARY KEY (id_lector, id_libro),
+    CONSTRAINT ck_acceso_fechas CHECK (fecha_primera_lectura IS NULL OR fecha_primera_lectura >= fecha_otorgado),
+    CONSTRAINT fk_acceso_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_acceso_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro),
+    CONSTRAINT fk_acceso_pedido FOREIGN KEY (id_pedido) REFERENCES pedido (id_pedido)
+);
