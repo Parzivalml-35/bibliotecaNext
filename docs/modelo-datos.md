@@ -141,3 +141,170 @@ erDiagram
 - **Fecha de la última auditoría de un estante** (RN-21): se calculará como `MAX(fecha)` de la tabla de auditorías
   (bloque de operación de sede), en vez de una columna que habría que mantener.
 - **Disponibilidad por sede** (RN-08): `COUNT(*)` de ejemplares `disponible` agrupado por sede.
+
+## Bloque 2 — Cuentas, lectores, préstamos físicos, reservas y multas
+
+```mermaid
+erDiagram
+    cuenta ||--o| lector : "perfil"
+    cuenta ||--o| empleado : "perfil"
+    cuenta ||--o{ token_cuenta : "tokens"
+    tipo_lector ||--o{ lector : "define límites"
+    ciudad ||--o{ lector : "vive en"
+    sede |o--o{ empleado : "trabaja en"
+    empleado |o--o{ lector : "validó"
+    lector ||--o{ prestamo_fisico : "pide"
+    ejemplar ||--o{ prestamo_fisico : "se presta"
+    empleado ||--o{ prestamo_fisico : "presta / recibe"
+    sede ||--o{ prestamo_fisico : "sede de préstamo / devolución"
+    prestamo_fisico ||--o{ multa : "genera"
+    lector ||--o{ reserva_fisica : "reserva"
+    libro ||--o{ reserva_fisica : "obra"
+    sede ||--o{ reserva_fisica : "recoge en"
+    ejemplar |o--o{ reserva_fisica : "asignado"
+    reserva_fisica |o--o| prestamo_fisico : "se cumple con"
+
+    configuracion {
+        tinyint id PK "CHECK id = 1"
+        tinyint max_renovaciones
+        decimal multa_por_dia
+        decimal multa_tope
+        smallint dias_atraso_perdido
+        smallint horas_confirmar_reserva_digital
+        smallint minutos_pago_pedido
+        smallint dias_devolucion_compra
+        tinyint minimo_sobrante_traslado
+    }
+    tipo_lector {
+        int id_tipo_lector PK
+        varchar nombre UK
+        tinyint max_prestamos_fisicos
+        tinyint dias_prestamo_fisico
+        tinyint max_prestamos_digitales
+        tinyint dias_prestamo_digital
+        tinyint max_reservas_fisicas
+        tinyint max_reservas_digitales
+        tinyint dias_recoger_reserva
+    }
+    cuenta {
+        int id_cuenta PK
+        varchar correo UK
+        varchar password_hash
+        datetime fecha_registro
+        datetime fecha_verificacion "NULL"
+        datetime fecha_desactivacion "NULL"
+    }
+    token_cuenta {
+        int id_token PK
+        int id_cuenta FK
+        char token_hash UK
+        enum tipo
+        datetime expira_en
+        datetime usado_en "NULL"
+    }
+    lector {
+        int id_lector PK
+        int id_cuenta FK, UK
+        int id_tipo_lector FK
+        varchar nombre
+        varchar apellido
+        date fecha_nacimiento
+        varchar telefono "NULL"
+        varchar calle "NULL"
+        varchar codigo_postal "NULL"
+        int id_ciudad FK "NULL"
+        enum tipo_documento "NULL"
+        varchar numero_documento "NULL"
+        datetime fecha_validacion "NULL"
+        int id_empleado_validador FK "NULL"
+    }
+    empleado {
+        int id_empleado PK
+        int id_cuenta FK, UK
+        varchar nombre
+        varchar apellido
+        enum rol
+        int id_sede FK "NULL"
+        date fecha_contratacion
+        boolean activo
+    }
+    prestamo_fisico {
+        int id_prestamo PK
+        int id_ejemplar FK
+        int id_lector FK
+        int id_sede_prestamo FK
+        int id_empleado_presta FK
+        datetime fecha_prestamo
+        date fecha_vencimiento
+        tinyint renovaciones
+        datetime fecha_devolucion "NULL"
+        int id_sede_devolucion FK "NULL"
+        int id_empleado_recibe FK "NULL"
+    }
+    multa {
+        int id_multa PK
+        int id_prestamo FK
+        enum tipo
+        decimal monto
+        datetime fecha_generada
+        enum estado
+        datetime fecha_pago "NULL"
+    }
+    reserva_fisica {
+        int id_reserva PK
+        int id_lector FK
+        int id_libro FK
+        int id_sede FK
+        enum estado
+        datetime fecha_solicitud
+        int id_ejemplar FK "NULL"
+        datetime fecha_asignacion "NULL"
+        datetime fecha_limite_recogida "NULL"
+        datetime fecha_cierre "NULL"
+        int id_prestamo FK "NULL, UK"
+    }
+```
+
+### De dónde sale cada tabla
+
+| Tabla | Reglas | Notas de diseño |
+|---|---|---|
+| `configuracion` | C-04, valores iniciales, RN-14 | **Una sola fila** con columnas tipadas (`CHECK (id = 1)`), en vez de clave-valor: cada valor tiene su tipo y no se puede escribir mal el nombre. |
+| `tipo_lector` | RN-02, RN-12, RN-26, RN-45 | Todos los límites por tipo de lector. |
+| `cuenta` | RN-01, RN-31 | Sin columna de estado: se deduce de `fecha_verificacion`, `lector.fecha_validacion` y `fecha_desactivacion` (RN-01). |
+| `token_cuenta` | RN-32 | Se guarda el **hash** del token, no el token: si alguien lee la BD, no puede usar los enlaces. `tipo`: `verificar_correo`, `recuperar_contrasena`. Un solo uso (`usado_en`) y vencimiento (`expira_en`). |
+| `lector` | D-03, RN-02, RN-46 | Documento y validación quedan NULL hasta la validación en mostrador. `UNIQUE(tipo_documento, numero_documento)`. El carné de BD2 desaparece: lo identifica la cuenta y, tras validar, el documento. |
+| `empleado` | RN-33, RN-34 | `rol` ENUM: `bibliotecario`, `coordinador`, `admin_red`. `CHECK`: `admin_red` ⇔ `id_sede IS NULL`. `activo` reemplaza a `EstadoEmpleado` de BD2. |
+| `prestamo_fisico` | RN-02 a RN-05, RN-13, RN-34 | Estado **calculado**: devuelto / vencido / activo según las fechas. `renovaciones` como contador (RN-04); la fecha de vencimiento se corre al renovar. |
+| `multa` | RN-05, RN-06 | `tipo`: `retraso`, `reposicion`. `UNIQUE(id_prestamo, tipo)`: un préstamo no genera dos multas del mismo tipo. `estado`: `pendiente`, `pagada`, `anulada`. |
+| `reserva_fisica` | RN-07 a RN-12 | La cola es `ORDER BY fecha_solicitud, id_reserva`. `id_prestamo` enlaza la reserva cumplida con el préstamo que la cumplió. |
+
+### Restricciones que protege la base de datos
+
+1. **Un ejemplar no puede tener dos préstamos abiertos.** Columna generada
+   `ejemplar_abierto AS (IF(fecha_devolucion IS NULL, id_ejemplar, NULL))` con `UNIQUE`.
+   MySQL permite varios NULL en un índice único, así que solo choca entre préstamos abiertos.
+   Es una **segunda barrera**, además del candado del estado del ejemplar (RN-23).
+2. **Un lector no puede tener dos reservas vivas de la misma obra.** El mismo truco:
+   columna generada con `id_libro` cuando el estado es `activa` o `asignada`, y `UNIQUE(id_lector, esa columna)`.
+3. **Coherencia dentro de la fila** con `CHECK`:
+   - préstamo: `fecha_devolucion`, `id_sede_devolucion` e `id_empleado_recibe` son todos NULL o todos no NULL;
+     `fecha_vencimiento >= DATE(fecha_prestamo)`; `renovaciones >= 0`.
+   - reserva: `asignada` ⇒ `id_ejemplar` y `fecha_limite_recogida` no NULL; `cumplida` ⇒ `id_prestamo` no NULL.
+   - multa: `pagada` ⇔ `fecha_pago IS NOT NULL`; `monto > 0`.
+4. **Lo que no puede proteger la BD** (involucra otras tablas o reglas con valores de configuración): límites del tipo
+   de lector, bloqueo (RN-03, RN-43), edad (RN-46), renovación sin reservas (RN-04). Se validan en `lib/actions`, dentro
+   de la transacción.
+
+### Datos que no se guardan en este bloque
+
+- **Estado del préstamo** (activo, vencido, devuelto): se deduce de las fechas (decisión heredada de BD2).
+- **Bloqueo del lector** (RN-03): hay multas `pendiente` o préstamos abiertos con `fecha_vencimiento` pasada.
+- **Edad del lector** (RN-46): `TIMESTAMPDIFF(YEAR, fecha_nacimiento, CURDATE())`.
+- **Posición en la cola** de una reserva: se cuenta, no se guarda.
+
+### Decisiones tomadas al derivar el bloque
+
+- Estado de la cuenta deducido de fechas, sin ENUM → RN-01 actualizada.
+- Vencimiento perezoso de reservas y pedidos → RN-48.
+- Declaración de ejemplar perdido por un empleado, desde una lista calculada → RN-49.

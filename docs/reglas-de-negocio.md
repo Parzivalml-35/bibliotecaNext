@@ -20,7 +20,7 @@
 
 | # | Regla |
 |---|---|
-| RN-01 | El estado de la cuenta **se guarda** (es una decisión o un hecho, no se deduce): `registrada` → `verificada` (confirmó su correo, RN-32) → `validada` (validada en mostrador, D-03); `desactivada` en cualquier momento. |
+| RN-01 | El estado de la cuenta **se deduce de hechos guardados con su fecha**, sin columna de estado: `registrada` (existe la cuenta) → `verificada` (`fecha_verificacion`, RN-32) → `validada` (`fecha_validacion` del lector, D-03); `desactivada` si tiene `fecha_desactivacion`. |
 | RN-02 | Cada lector tiene un **tipo de lector**. El tipo define el máximo de préstamos físicos simultáneos y los días de préstamo (configurables en datos, no en código). |
 | RN-03 | Un lector está **bloqueado para préstamos** mientras tenga multas pendientes o algún préstamo vencido. El bloqueo **se calcula**, no se guarda: al pagar o devolver se desbloquea solo. |
 
@@ -103,7 +103,7 @@
 | # | Convención |
 |---|---|
 | C-01 | Nombres en `snake_case`, minúscula y singular (`lector`, `prestamo_fisico`, `libro_genero`); claves `id_<tabla>`. En MySQL sobre Linux los nombres de tabla distinguen mayúsculas. |
-| C-02 | **Estados como ENUM** (ejemplar, reserva, préstamo digital, traslado, pedido, pago, cuenta), porque cada valor tiene lógica en el código. **Catálogos editables en tablas** (género, sección, editorial, tipo de lector, ciudad, país), porque un administrador los amplía sin tocar código. |
+| C-02 | **Estados como ENUM** (ejemplar, reserva, préstamo digital, traslado, pedido, pago), porque cada valor tiene lógica en el código. **Catálogos editables en tablas** (género, sección, editorial, tipo de lector, ciudad, país), porque un administrador los amplía sin tocar código. |
 | C-03 | `ciudad` en tabla (sedes, direcciones de envío, tarifas). `pais` en tabla, solo para la nacionalidad del autor. Calle y código postal como texto. |
 | C-04 | Las reglas con valores (límites, plazos, montos) viven en **datos** (`tipo_lector` y una tabla de configuración), no en el código. |
 | C-05 | Cambios respecto al modelo de BD2: `Biblioteca` → `sede`; `Usuario` → `cuenta` + `lector`; `Categoria` se descarta a favor de `genero` + `seccion`; los catálogos de estado pasan a ENUM; `Cargo` pasa a rol (ENUM); se agregan ubicación, traslado, préstamo y licencia digital, pedidos, pagos y stock. |
@@ -131,6 +131,8 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 | RN-45 | El tipo de lector define **máximos separados** de reservas físicas y de reservas digitales (complementa RN-12). |
 | RN-46 | Cada libro tiene una **clasificación por edad** (infantil, +15, +18, en tabla). El lector registra su fecha de nacimiento y no puede prestar, reservar ni comprar títulos de una clasificación superior a su edad. La edad **se calcula**, no se guarda. |
 | RN-47 | Un ejemplar devuelto **en su propia sede** vuelve a su estante y queda `disponible` (o se asigna a una reserva, RN-11) sin pasar por `por_ubicar`. Solo las llegadas desde otra sede quedan por ubicar (RN-20). |
+| RN-48 | **Vencimiento perezoso**: antes de operar sobre una obra (y sede, si aplica) se procesan sus vencidos: reservas físicas no recogidas (RN-10), reservas digitales no confirmadas (RN-28) y pedidos no pagados (RN-37). Más adelante se puede sumar una tarea programada que barra todo periódicamente. |
+| RN-49 | Un ejemplar se declara **perdido** por decisión de un empleado, a partir de una lista calculada de préstamos con más de `dias_atraso_perdido` días de atraso. Al declararlo, el ejemplar pasa a `perdido` y se genera la multa de reposición (RN-06). |
 
 ## Pendiente de definir
 
