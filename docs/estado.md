@@ -31,6 +31,7 @@
 | Parte A: `lib/db.ts` (pool mysql2 + server-only), `lib/definitions.ts`, `lib/data/libros.ts` con `connection()`, página mínima con los 16 libros | Hecho |
 | Corrección de codificación: `SET NAMES utf8mb4` en los scripts y BD reconstruida | Hecho |
 | Parte B: catálogo con Tailwind (`components/tarjeta-libro.tsx`, grilla responsive, encabezado en el layout) | Hecho |
+| Documentación de la Fase 1 en el vault (`Biblioteca Next - Fase 1 - Next.js y catálogo`, `Next.js`, `Tailwind`, `SQL`) | Hecho |
 | Verificar el repo en el PC de escritorio solo con el README | **Siguiente** |
 
 ## Próximo paso
@@ -38,8 +39,7 @@
 1. **En el PC de escritorio:** clonar o hacer `git pull`, seguir el README (`.env`, `docker compose up -d --wait`,
    `pnpm install`, `pnpm dev`) y abrir `http://localhost:3000`. Anotar y corregir en el README lo que falle o falte.
    En una sesión nueva de Claude: "lee docs/estado.md y continuemos".
-2. Cerrar la Fase 1 en el vault (`/documentar`): notas `Next.js` (App Router), `Tailwind`, `Desarrollo Web - Biblioteca Next`.
-3. Fase 2: catálogo con búsqueda y filtros en la URL, y la página `/libros/[id]` con disponibilidad y ubicación por sede.
+2. Fase 2: catálogo con búsqueda y filtros en la URL, y la página `/libros/[id]` con disponibilidad y ubicación por sede.
 
 ## Pendientes y avisos
 
