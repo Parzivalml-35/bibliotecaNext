@@ -43,6 +43,11 @@ Un componente nunca escribe SQL.
 
 - Pasos pequeños: **concepto → construcción → verificación → commit**. Explicar el porqué, relacionándolo
   con lo que el usuario ya conoce (Pages Router del curso Next.js Learn).
+- **Al construir con Next.js** (páginas, layouts, componentes, `lib/data`, actions) la explicación debe ser
+  **muy detallada**: bloque por bloque, qué es, qué tecnología lo aporta (JS, TS, React, Next o Tailwind), por qué
+  se escribe así y qué pasa al ejecutarlo; comparar con el Pages Router del curso y explicar las clases de Tailwind
+  (qué CSS generan y por qué se eligen). Dividir los pasos grandes en partes y detenerse entre ellas.
+- Antes de escribir código de Next, consultar la guía en `node_modules/next/dist/docs/` (ver `AGENTS.md`).
 - Dejar las partes repetitivas como ejercicio para el usuario y revisarlas después.
 - Commits y push **solo con confirmación** del usuario; un commit por paso.
 - Al terminar una sesión: actualizar `docs/estado.md`. Al cerrar una fase: sugerir `/documentar`
