@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-09-24 (portátil) — Fase 0 terminada
+**Última actualización:** 2026-09-25 (portátil) — Fase 1 en curso
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -23,17 +23,27 @@
 | `db/consultas.sql`: 12 consultas clave (catálogo, ubicación, lector, cola, traslados, licencias, pedidos, detector), verificadas | Hecho |
 | Reconstrucción completa: schema + seed en volumen vacío, 12 consultas sin errores, detector = 0 | Hecho |
 
+## Fase 1 — Scaffold y primera conexión (en curso)
+
+| Paso | Estado |
+|---|---|
+| Scaffold Next.js 16.3.6 (App Router, TS, Tailwind 4), integrado sin pisar README/CLAUDE.md/.gitignore | Hecho |
+| Parte A: `lib/db.ts` (pool mysql2 + server-only), `lib/definitions.ts`, `lib/data/libros.ts` con `connection()`, página mínima con los 16 libros | Hecho |
+| Corrección de codificación: `SET NAMES utf8mb4` en los scripts y BD reconstruida | Hecho |
+| Parte B: página del catálogo con Tailwind, explicada pieza por pieza | **Siguiente** |
+| Verificar el repo en el PC de escritorio solo con el README | Pendiente |
+
 ## Próximo paso
 
-1. Cerrar la Fase 0 en el vault con `/documentar` (incluye corregir "41 → 40 tablas" en 3 notas y los aprendizajes pendientes).
-2. **Fase 1 — Scaffold y primera conexión:** `create-next-app` (TypeScript, Tailwind, ESLint, App Router), recorrido de
-   lo generado, `lib/db.ts` con el pool de `mysql2` y una primera página que lea datos reales (catálogo, consulta 1).
+Parte B de la Fase 1: diseñar la página del catálogo con Tailwind (tarjetas por libro, color de la sección,
+disponibilidad), explicando cada clase y cada componente.
 
 ## Pendientes y avisos
 
 - Verificar el PC de escritorio: `node -v` (22 LTS), `pnpm -v`, `docker compose version`, `ssh -T git@github.com`.
 - Verificado (MySQL 8.4.11): una columna usada en un `CHECK` no puede tener acciones `ON DELETE/UPDATE` en su FK (`ERROR 3823`).
 - Verificado con dos sesiones simultáneas: sin `FOR UPDATE` una licencia única se prestó dos veces; con `FOR UPDATE` la segunda sesión esperó el `COMMIT` y no prestó. Primero bloquear, después contar.
+- El cliente `mysql` del contenedor se conecta en `latin1`: todo script `.sql` empieza con `SET NAMES utf8mb4;` (si no, las tildes quedan doblemente codificadas: "aÃ±os"). Detectado en la Fase 1 al mostrar los datos en Next.
 - `SUM()` sobre cero filas devuelve NULL, no 0: usar `COALESCE(SUM(...), 0)`.
 - `information_schema.tables.table_rows` es una estadística en caché, no un conteo: usar `COUNT(*)`.
 - En pruebas y seed, nunca escribir ids a mano: `AUTO_INCREMENT` no se revierte con `ROLLBACK`. Usar `LAST_INSERT_ID()` o buscar por un dato único.
