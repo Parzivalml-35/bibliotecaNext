@@ -4,6 +4,8 @@
 -- en la app (lib/data) cada @variable se convierte en un placeholder ? de mysql2.
 -- =====================================================================
 
+SET NAMES utf8mb4;   -- el cliente mysql del contenedor usa latin1 por defecto: ver db/init/01_schema.sql
+
 SET @texto  = 'soledad';              -- búsqueda del catálogo
 SET @isbn   = '9788420471839';        -- Cien años de soledad
 SET @correo = 'luis.gomez@example.com';

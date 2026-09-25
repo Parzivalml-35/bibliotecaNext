@@ -1,3 +1,7 @@
+-- Este archivo está en UTF-8: el cliente mysql del contenedor se conecta en latin1 por defecto y, sin esto,
+-- las letras con tilde quedan doblemente codificadas ("aÃ±os" en vez de "años").
+SET NAMES utf8mb4;
+
 -- =====================================================================
 -- bibliotecaNext — datos de desarrollo (seed)
 -- Libros, autores y editoriales REALES (ISBN de ediciones en español verificados en Open Library, 2026-09-24).

@@ -1,3 +1,7 @@
+-- Este archivo está en UTF-8: el cliente mysql del contenedor se conecta en latin1 por defecto y, sin esto,
+-- las letras con tilde quedan doblemente codificadas ("aÃ±os" en vez de "años").
+SET NAMES utf8mb4;
+
 -- =====================================================================
 -- bibliotecaNext — esquema (MySQL 8.4)
 -- Derivado de docs/modelo-datos.md; cada tabla cita sus reglas (docs/reglas-de-negocio.md).
