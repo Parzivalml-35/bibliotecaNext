@@ -14,7 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Biblioteca Next",
+  // Las páginas hijas ponen su propio título y la plantilla le agrega el sufijo: "Rayuela | Biblioteca Next".
+  title: { default: "Biblioteca Next", template: "%s | Biblioteca Next" },
   description: "Catálogo de la red de bibliotecas: disponibilidad por sede y ubicación de cada libro.",
 };
 

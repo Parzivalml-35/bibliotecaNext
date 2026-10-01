@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-01 (portátil) — Fase 1 en curso; README completado para el PC de escritorio
+**Última actualización:** 2026-10-01 (portátil) — Fase 2 en curso
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -23,7 +23,7 @@
 | `db/consultas.sql`: 12 consultas clave (catálogo, ubicación, lector, cola, traslados, licencias, pedidos, detector), verificadas | Hecho |
 | Reconstrucción completa: schema + seed en volumen vacío, 12 consultas sin errores, detector = 0 | Hecho |
 
-## Fase 1 — Scaffold y primera conexión (en curso)
+## Fase 1 — Scaffold y primera conexión (terminada)
 
 | Paso | Estado |
 |---|---|
@@ -32,14 +32,24 @@
 | Corrección de codificación: `SET NAMES utf8mb4` en los scripts y BD reconstruida | Hecho |
 | Parte B: catálogo con Tailwind (`components/tarjeta-libro.tsx`, grilla responsive, encabezado en el layout) | Hecho |
 | Documentación de la Fase 1 en el vault (`Biblioteca Next - Fase 1 - Next.js y catálogo`, `Next.js`, `Tailwind`, `SQL`) | Hecho |
-| Verificar el repo en el PC de escritorio solo con el README | **Siguiente** |
+| Verificar el repo en el PC de escritorio solo con el README | Hecho (confirmado por el usuario) |
+
+## Fase 2 — Catálogo con búsqueda y "¿dónde está el libro?" (en curso)
+
+Orden acordado: A (detalle del libro) → B (búsqueda en servidor) → C (búsqueda interactiva, paginación, carga y error).
+El libro se identifica en la URL por su **ISBN** (`/libros/9788420471839`): clave natural, estable entre reconstrucciones.
+
+| Paso | Estado |
+|---|---|
+| A1: ruta `app/libros/[isbn]`, `generateMetadata`, `notFound()` + `app/not-found.tsx`, plantilla de títulos, `obtenerLibroPorIsbn` (con `cache()`) y `obtenerDisponibilidadPorSede` | Hecho |
+| A2: diseño de la página del libro con Tailwind y enlaces desde las tarjetas del catálogo | **Siguiente** |
+| B: búsqueda y filtro por sección con `searchParams` | Pendiente |
+| C: búsqueda mientras se escribe, paginación, `loading.tsx`, `error.tsx` | Pendiente |
 
 ## Próximo paso
 
-1. **En el PC de escritorio:** clonar o hacer `git pull`, seguir el README (`.env`, `docker compose up -d --wait`,
-   `pnpm install`, `pnpm dev`) y abrir `http://localhost:3000`. Anotar y corregir en el README lo que falle o falte.
-   En una sesión nueva de Claude: "lee docs/estado.md y continuemos".
-2. Fase 2: catálogo con búsqueda y filtros en la URL, y la página `/libros/[id]` con disponibilidad y ubicación por sede.
+Parte A2: diseñar la página `/libros/[isbn]` con Tailwind (cabecera con el color de la sección, autores y géneros,
+tarjeta por sede con sus estantes) y hacer que cada tarjeta del catálogo enlace a su libro.
 
 ## Pendientes y avisos
 
@@ -47,6 +57,7 @@
 - Verificado (MySQL 8.4.11): una columna usada en un `CHECK` no puede tener acciones `ON DELETE/UPDATE` en su FK (`ERROR 3823`).
 - Verificado con dos sesiones simultáneas: sin `FOR UPDATE` una licencia única se prestó dos veces; con `FOR UPDATE` la segunda sesión esperó el `COMMIT` y no prestó. Primero bloquear, después contar.
 - El cliente `mysql` del contenedor se conecta en `latin1`: todo script `.sql` empieza con `SET NAMES utf8mb4;` (si no, las tildes quedan doblemente codificadas: "aÃ±os"). Detectado en la Fase 1 al mostrar los datos en Next.
+- `pool.execute()` usa sentencias preparadas: en MySQL se contabilizan en `performance_schema.prepared_statements_instances`, no en la tabla de digests. Medido así: `cache()` deja la consulta del libro en 1 ejecución por visita.
 - `SUM()` sobre cero filas devuelve NULL, no 0: usar `COALESCE(SUM(...), 0)`.
 - `information_schema.tables.table_rows` es una estadística en caché, no un conteo: usar `COUNT(*)`.
 - En pruebas y seed, nunca escribir ids a mano: `AUTO_INCREMENT` no se revierte con `ROLLBACK`. Usar `LAST_INSERT_ID()` o buscar por un dato único.
