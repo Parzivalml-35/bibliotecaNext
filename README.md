@@ -4,7 +4,7 @@ Sistema para administrar una red de bibliotecas: catálogo con ubicación físic
 préstamo digital con licencias y venta de libros. Proyecto de aprendizaje con Next.js (App Router),
 TypeScript, Tailwind CSS y MySQL con SQL escrito a mano.
 
-> **Estado:** Fase 0 — diseño del dominio. Todavía no hay aplicación; ver [docs/estado.md](docs/estado.md).
+> **Estado:** Fase 1 — catálogo en Next.js leyendo los libros desde MySQL. Detalle y próximo paso en [docs/estado.md](docs/estado.md).
 
 ## Documentación
 
@@ -13,6 +13,7 @@ TypeScript, Tailwind CSS y MySQL con SQL escrito a mano.
 | [docs/reglas-de-negocio.md](docs/reglas-de-negocio.md) | Cómo funciona el sistema (D-xx, RN-xx, C-xx). Fuente de verdad. |
 | [docs/modelo-datos.md](docs/modelo-datos.md) | Modelo de datos por bloques, derivado de las reglas |
 | [docs/estado.md](docs/estado.md) | En qué fase y paso vamos, y qué sigue |
+| [db/consultas.sql](db/consultas.sql) | Consultas clave de la app, para ejecutar a mano |
 | [CLAUDE.md](CLAUDE.md) | Contexto y reglas de trabajo para Claude Code |
 
 ## Requisitos
@@ -45,7 +46,21 @@ ejecutan con el volumen vacío**; para aplicar cambios de esquema hay que recrea
 docker compose down -v && docker compose up -d --wait
 ```
 
-Pasos que se agregan cuando existan (Fase 1): `pnpm install` y `pnpm dev`.
+Instalar dependencias y arrancar la app (con MySQL ya arriba):
+
+```bash
+pnpm install
+pnpm dev                    # http://localhost:3000
+```
+
+La página de inicio debe mostrar el catálogo con 16 libros (por ejemplo "Cien años de soledad", con su tilde).
+
+Detener todo al terminar:
+
+- La app: `Ctrl+C` en la terminal de `pnpm dev`.
+- MySQL: `docker compose stop` (conserva los datos; `down -v` en cambio **borra** el volumen).
+
+Comprobaciones de código: `pnpm lint` y `pnpm build` (incluye el chequeo de TypeScript).
 
 ## Rutina al trabajar en dos equipos
 

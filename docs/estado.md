@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-09-25 (portátil) — Fase 1 en curso
+**Última actualización:** 2026-10-01 (portátil) — Fase 1 en curso; README completado para el PC de escritorio
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -50,5 +50,3 @@
 - `SUM()` sobre cero filas devuelve NULL, no 0: usar `COALESCE(SUM(...), 0)`.
 - `information_schema.tables.table_rows` es una estadística en caché, no un conteo: usar `COUNT(*)`.
 - En pruebas y seed, nunca escribir ids a mano: `AUTO_INCREMENT` no se revierte con `ROLLBACK`. Usar `LAST_INSERT_ID()` o buscar por un dato único.
-- Fase 1: `create-next-app` puede negarse a crear el proyecto en una carpeta con archivos (este repo ya tiene
-  `docs/`, `README.md`, `CLAUDE.md`…). Supuesto a verificar; si pasa, se genera en una carpeta temporal y se integra.
