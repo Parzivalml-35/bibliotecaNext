@@ -13,6 +13,18 @@ export type LibroResumen = {
   disponibles: number; // ejemplares disponibles en toda la red
 };
 
+// Filtros del catálogo, leídos de la URL (?q=...&seccion=...). Ambos opcionales.
+export type FiltrosCatalogo = {
+  texto?: string; // busca en el título y en los nombres de los autores
+  seccion?: string; // nombre exacto de una sección (ya validado contra la BD)
+};
+
+// Sección de la red (RN-18), para el selector del filtro.
+export type Seccion = {
+  nombre: string;
+  color_hex: string;
+};
+
 export type AutorDeLibro = {
   nombre: string;
   apellido: string;

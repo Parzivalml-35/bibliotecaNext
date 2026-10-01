@@ -43,13 +43,13 @@ El libro se identifica en la URL por su **ISBN** (`/libros/9788420471839`): clav
 |---|---|
 | A1: ruta `app/libros/[isbn]`, `generateMetadata`, `notFound()` + `app/not-found.tsx`, plantilla de títulos, `obtenerLibroPorIsbn` (con `cache()`) y `obtenerDisponibilidadPorSede` | Hecho |
 | A2: diseño de la página del libro (ficha, "¿Dónde está?" con tarjeta por sede), tarjetas del catálogo enlazadas, componentes compartidos `insignia-seccion` e `insignia-disponibilidad` | Hecho |
-| B: búsqueda y filtro por sección con `searchParams` | **Siguiente** |
-| C: búsqueda mientras se escribe, paginación, `loading.tsx`, `error.tsx` | Pendiente |
+| B: búsqueda por título o autor y filtro por sección con `searchParams` y `next/form`; `LIKE` con comodines escapados; sección validada contra la BD | Hecho |
+| C: búsqueda mientras se escribe, paginación, `loading.tsx`, `error.tsx` | **Siguiente** |
 
 ## Próximo paso
 
-Parte B: búsqueda por título o autor y filtro por sección en el catálogo, con los filtros en la URL (`searchParams`),
-consulta parametrizada (escapando los comodines de `LIKE`) y un formulario que funcione sin JavaScript.
+Parte C: primer Client Component (búsqueda mientras se escribe, con debounce y `useRouter`), paginación del catálogo,
+`loading.tsx` (también mejora la navegación a la ruta dinámica `/libros/[isbn]`) y `error.tsx`.
 
 ## Pendientes y avisos
 

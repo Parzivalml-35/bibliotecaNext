@@ -6,33 +6,75 @@ import { pool } from "@/lib/db";
 import type {
   AutorDeLibro,
   DisponibilidadSede,
+  FiltrosCatalogo,
   LibroDetalle,
   LibroResumen,
+  Seccion,
   UbicacionConCopias,
 } from "@/lib/definitions";
 
 // mysql2 exige que el tipo de las filas extienda RowDataPacket.
 type FilaLibroResumen = LibroResumen & RowDataPacket;
+type FilaSeccion = Seccion & RowDataPacket;
 
-// Todos los libros del catálogo con su disponibilidad total (db/consultas.sql, consulta 1, sin filtro).
-export async function obtenerLibros(): Promise<LibroResumen[]> {
+// En LIKE, % y _ son comodines y \ es el carácter de escape. Si el usuario escribe "50%", buscamos
+// literalmente "50%" y no "50 seguido de cualquier cosa": se anteponen \ a esos tres caracteres.
+function escaparLike(texto: string): string {
+  return texto.replace(/[\\%_]/g, (caracter) => `\\${caracter}`);
+}
+
+// Libros del catálogo con su disponibilidad total (db/consultas.sql, consulta 1), filtrados opcionalmente.
+export async function obtenerLibros(filtros: FiltrosCatalogo = {}): Promise<LibroResumen[]> {
   // La disponibilidad cambia con cada préstamo: no se puede prerenderizar en el build.
   // connection() hace que esto se ejecute en cada petición real.
   await connection();
-  const [filas] = await pool.execute<FilaLibroResumen[]>(`
-    SELECT l.id_libro, l.isbn, l.titulo,
-           GROUP_CONCAT(DISTINCT CONCAT(a.nombre, ' ', a.apellido) SEPARATOR ', ') AS autores,
-           g.nombre AS genero, sc.nombre AS seccion, sc.color_hex,
-           (SELECT COUNT(*) FROM ejemplar e
-             WHERE e.id_libro = l.id_libro AND e.estado = 'disponible') AS disponibles
-    FROM libro l
-    JOIN autor_libro al USING (id_libro)
-    JOIN autor a USING (id_autor)
-    JOIN genero g ON g.id_genero = l.id_genero_principal
-    JOIN seccion sc ON sc.id_seccion = g.id_seccion
-    GROUP BY l.id_libro
-    ORDER BY l.titulo
-  `);
+
+  // El WHERE se arma uniendo SOLO fragmentos de SQL escritos aquí; lo que viene del usuario
+  // va siempre en `valores`, que mysql2 envía aparte para cada ?. Nunca se concatena texto del usuario.
+  const condiciones: string[] = [];
+  const valores: string[] = [];
+
+  if (filtros.texto) {
+    const patron = `%${escaparLike(filtros.texto)}%`;
+    // EXISTS en vez de filtrar el JOIN de autores: así un libro de dos autores que coincide por uno
+    // sigue mostrando a ambos en la columna autores.
+    condiciones.push(`(l.titulo LIKE ?
+      OR EXISTS (SELECT 1 FROM autor_libro al2 JOIN autor a2 USING (id_autor)
+                 WHERE al2.id_libro = l.id_libro AND CONCAT(a2.nombre, ' ', a2.apellido) LIKE ?))`);
+    valores.push(patron, patron);
+  }
+
+  if (filtros.seccion) {
+    condiciones.push("sc.nombre = ?");
+    valores.push(filtros.seccion);
+  }
+
+  const where = condiciones.length > 0 ? `WHERE ${condiciones.join(" AND ")}` : "";
+
+  const [filas] = await pool.execute<FilaLibroResumen[]>(
+    `SELECT l.id_libro, l.isbn, l.titulo,
+            GROUP_CONCAT(DISTINCT CONCAT(a.nombre, ' ', a.apellido) SEPARATOR ', ') AS autores,
+            g.nombre AS genero, sc.nombre AS seccion, sc.color_hex,
+            (SELECT COUNT(*) FROM ejemplar e
+              WHERE e.id_libro = l.id_libro AND e.estado = 'disponible') AS disponibles
+     FROM libro l
+     JOIN autor_libro al USING (id_libro)
+     JOIN autor a USING (id_autor)
+     JOIN genero g ON g.id_genero = l.id_genero_principal
+     JOIN seccion sc ON sc.id_seccion = g.id_seccion
+     ${where}
+     GROUP BY l.id_libro
+     ORDER BY l.titulo`,
+    valores,
+  );
+  return filas;
+}
+
+// Las secciones de la red, para el filtro del catálogo.
+export async function obtenerSecciones(): Promise<Seccion[]> {
+  const [filas] = await pool.execute<FilaSeccion[]>(
+    "SELECT nombre, color_hex FROM seccion ORDER BY nombre",
+  );
   return filas;
 }
 
