@@ -44,12 +44,13 @@ El libro se identifica en la URL por su **ISBN** (`/libros/9788420471839`): clav
 | A1: ruta `app/libros/[isbn]`, `generateMetadata`, `notFound()` + `app/not-found.tsx`, plantilla de títulos, `obtenerLibroPorIsbn` (con `cache()`) y `obtenerDisponibilidadPorSede` | Hecho |
 | A2: diseño de la página del libro (ficha, "¿Dónde está?" con tarjeta por sede), tarjetas del catálogo enlazadas, componentes compartidos `insignia-seccion` e `insignia-disponibilidad` | Hecho |
 | B: búsqueda por título o autor y filtro por sección con `searchParams` y `next/form`; `LIKE` con comodines escapados; sección validada contra la BD | Hecho |
-| C: búsqueda mientras se escribe, paginación, `loading.tsx`, `error.tsx` | **Siguiente** |
+| C1: `app/loading.tsx` y `app/libros/[isbn]/loading.tsx` (esqueletos con streaming), `app/error.tsx` con `retry()` (probado deteniendo MySQL) | Hecho |
+| C2: búsqueda mientras se escribe (primer Client Component con estado) y paginación | **Siguiente** |
 
 ## Próximo paso
 
-Parte C: primer Client Component (búsqueda mientras se escribe, con debounce y `useRouter`), paginación del catálogo,
-`loading.tsx` (también mejora la navegación a la ruta dinámica `/libros/[isbn]`) y `error.tsx`.
+Parte C2: buscador que actualiza la URL mientras se escribe (Client Component con `useRouter`, `useSearchParams`,
+debounce y `useTransition`) y paginación del catálogo con `LIMIT`/`OFFSET` parametrizados.
 
 ## Pendientes y avisos
 
@@ -57,6 +58,7 @@ Parte C: primer Client Component (búsqueda mientras se escribe, con debounce y 
 - Verificado (MySQL 8.4.11): una columna usada en un `CHECK` no puede tener acciones `ON DELETE/UPDATE` en su FK (`ERROR 3823`).
 - Verificado con dos sesiones simultáneas: sin `FOR UPDATE` una licencia única se prestó dos veces; con `FOR UPDATE` la segunda sesión esperó el `COMMIT` y no prestó. Primero bloquear, después contar.
 - El cliente `mysql` del contenedor se conecta en `latin1`: todo script `.sql` empieza con `SET NAMES utf8mb4;` (si no, las tildes quedan doblemente codificadas: "aÃ±os"). Detectado en la Fase 1 al mostrar los datos en Next.
+- Next 16: `error.tsx` recibe `retry()` (vuelve a pedir los datos); `reset()` sigue existiendo pero no vuelve a pedirlos. En producción el error de un Server Component llega al cliente con mensaje genérico + `digest`.
 - `pool.execute()` usa sentencias preparadas: en MySQL se contabilizan en `performance_schema.prepared_statements_instances`, no en la tabla de digests. Medido así: `cache()` deja la consulta del libro en 1 ejecución por visita.
 - `SUM()` sobre cero filas devuelve NULL, no 0: usar `COALESCE(SUM(...), 0)`.
 - `information_schema.tables.table_rows` es una estadística en caché, no un conteo: usar `COUNT(*)`.
