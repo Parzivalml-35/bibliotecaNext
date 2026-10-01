@@ -42,14 +42,14 @@ El libro se identifica en la URL por su **ISBN** (`/libros/9788420471839`): clav
 | Paso | Estado |
 |---|---|
 | A1: ruta `app/libros/[isbn]`, `generateMetadata`, `notFound()` + `app/not-found.tsx`, plantilla de títulos, `obtenerLibroPorIsbn` (con `cache()`) y `obtenerDisponibilidadPorSede` | Hecho |
-| A2: diseño de la página del libro con Tailwind y enlaces desde las tarjetas del catálogo | **Siguiente** |
-| B: búsqueda y filtro por sección con `searchParams` | Pendiente |
+| A2: diseño de la página del libro (ficha, "¿Dónde está?" con tarjeta por sede), tarjetas del catálogo enlazadas, componentes compartidos `insignia-seccion` e `insignia-disponibilidad` | Hecho |
+| B: búsqueda y filtro por sección con `searchParams` | **Siguiente** |
 | C: búsqueda mientras se escribe, paginación, `loading.tsx`, `error.tsx` | Pendiente |
 
 ## Próximo paso
 
-Parte A2: diseñar la página `/libros/[isbn]` con Tailwind (cabecera con el color de la sección, autores y géneros,
-tarjeta por sede con sus estantes) y hacer que cada tarjeta del catálogo enlace a su libro.
+Parte B: búsqueda por título o autor y filtro por sección en el catálogo, con los filtros en la URL (`searchParams`),
+consulta parametrizada (escapando los comodines de `LIKE`) y un formulario que funcione sin JavaScript.
 
 ## Pendientes y avisos
 

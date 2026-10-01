@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { InsigniaSeccion } from "@/components/insignia-seccion";
+import { TarjetaSede } from "@/components/tarjeta-sede";
 import { obtenerDisponibilidadPorSede, obtenerLibroPorIsbn } from "@/lib/data/libros";
+import type { DisponibilidadSede } from "@/lib/definitions";
+import { plural } from "@/lib/formato";
 import { esIsbnValido } from "@/lib/isbn";
 
 // Busca el libro de la URL o corta con un 404. La usan generateMetadata y la página;
@@ -28,36 +33,79 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
   const libro = await libroDeLaUrl(isbn);
   const sedes = await obtenerDisponibilidadPorSede(libro.id_libro);
 
-  // Parte A, primera mitad: solo los datos, sin diseño. El diseño con Tailwind viene en la segunda mitad.
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8">
-      <h1>{libro.titulo}</h1>
-      <p>
-        {libro.autores.map((a) => `${a.nombre} ${a.apellido}${a.pais ? ` (${a.pais})` : ""}`).join(", ")}
-      </p>
-      <p>
-        {libro.editorial} · {libro.anio_publicacion ?? "año desconocido"} · {libro.clasificacion} · ISBN {libro.isbn}
-      </p>
-      <p>
-        Sección {libro.seccion} ({libro.color_hex}) · Género {libro.genero}
-        {libro.generos_secundarios.length > 0 && ` · También: ${libro.generos_secundarios.join(", ")}`}
-      </p>
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <Link href="/" className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+        ← Volver al catálogo
+      </Link>
 
-      <h2>¿Dónde está?</h2>
-      <ul>
-        {sedes.map((sede) => (
-          <li key={sede.id_sede}>
-            {sede.sede}: {sede.disponibles} de {sede.total} disponibles
-            <ul>
-              {sede.ubicaciones.map((u) => (
-                <li key={`${u.pasillo}-${u.estante}-${u.nivel}`}>
-                  {u.seccion} – Pasillo {u.pasillo} – Estante {u.estante}, nivel {u.nivel} · {u.copias} copia(s)
+      {/* Ficha del libro */}
+      <article className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div aria-hidden="true" className="h-2" style={{ backgroundColor: libro.color_hex }} />
+
+        <div className="p-6 sm:p-8">
+          <InsigniaSeccion seccion={libro.seccion} color={libro.color_hex} detalle={libro.genero} />
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
+            {libro.titulo}
+          </h1>
+          <p className="mt-2 text-lg text-zinc-600 dark:text-zinc-400">
+            {libro.autores.map((a) => `${a.nombre} ${a.apellido}${a.pais ? ` (${a.pais})` : ""}`).join(", ")}
+          </p>
+
+          {libro.generos_secundarios.length > 0 && (
+            <ul aria-label="Otros géneros" className="mt-4 flex flex-wrap gap-2">
+              {libro.generos_secundarios.map((g) => (
+                <li key={g} className="rounded-full border border-zinc-300 px-2.5 py-0.5 text-sm text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
+                  {g}
                 </li>
               ))}
             </ul>
-          </li>
-        ))}
-      </ul>
+          )}
+
+          {libro.sinopsis && (
+            <p className="mt-6 max-w-prose leading-relaxed text-zinc-700 dark:text-zinc-300">{libro.sinopsis}</p>
+          )}
+
+          {/* <dl>: lista de definiciones, la etiqueta semántica para pares "dato: valor". */}
+          <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-zinc-200 pt-6 sm:grid-cols-4 dark:border-zinc-800">
+            <Dato etiqueta="Editorial" valor={libro.editorial} />
+            <Dato etiqueta="Año de la edición" valor={libro.anio_publicacion?.toString() ?? "Desconocido"} />
+            <Dato etiqueta="Clasificación" valor={libro.clasificacion} />
+            <Dato etiqueta="ISBN" valor={libro.isbn} />
+          </dl>
+        </div>
+      </article>
+
+      {/* ¿Dónde está? — el problema del enunciado de Desarrollo de software */}
+      <section aria-labelledby="donde-esta" className="mt-10">
+        <h2 id="donde-esta" className="text-2xl font-bold tracking-tight">¿Dónde está?</h2>
+        <p className="mt-1 text-zinc-600 dark:text-zinc-400">{resumenDisponibilidad(sedes)}</p>
+
+        <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {sedes.map((sede) => (
+            <li key={sede.id_sede}>
+              <TarjetaSede sede={sede} />
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
+}
+
+function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  return (
+    <div>
+      <dt className="text-sm text-zinc-500 dark:text-zinc-400">{etiqueta}</dt>
+      <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">{valor}</dd>
+    </div>
+  );
+}
+
+// "3 copias disponibles en 2 de 3 sedes" o un mensaje cuando no hay ninguna.
+function resumenDisponibilidad(sedes: DisponibilidadSede[]): string {
+  const disponibles = sedes.reduce((suma, sede) => suma + sede.disponibles, 0);
+  if (disponibles === 0) return "No hay copias disponibles en este momento en ninguna sede.";
+  const sedesConCopias = sedes.filter((sede) => sede.disponibles > 0).length;
+  return `${plural(disponibles, "copia disponible", "copias disponibles")} en ${sedesConCopias} de ${plural(sedes.length, "sede", "sedes")}.`;
 }
