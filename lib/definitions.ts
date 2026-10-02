@@ -19,6 +19,15 @@ export type FiltrosCatalogo = {
   seccion?: string; // nombre exacto de una sección (ya validado contra la BD)
 };
 
+// Una página del catálogo: los libros de esa página y lo necesario para dibujar la paginación.
+export type PaginaCatalogo = {
+  libros: LibroResumen[];
+  total: number; // libros que cumplen el filtro, en todas las páginas
+  pagina: number; // página mostrada (ya ajustada al rango válido)
+  totalPaginas: number;
+  porPagina: number;
+};
+
 // Sección de la red (RN-18), para el selector del filtro.
 export type Seccion = {
   nombre: string;

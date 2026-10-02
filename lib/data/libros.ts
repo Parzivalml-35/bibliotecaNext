@@ -9,6 +9,7 @@ import type {
   FiltrosCatalogo,
   LibroDetalle,
   LibroResumen,
+  PaginaCatalogo,
   Seccion,
   UbicacionConCopias,
 } from "@/lib/definitions";
@@ -23,14 +24,11 @@ function escaparLike(texto: string): string {
   return texto.replace(/[\\%_]/g, (caracter) => `\\${caracter}`);
 }
 
-// Libros del catálogo con su disponibilidad total (db/consultas.sql, consulta 1), filtrados opcionalmente.
-export async function obtenerLibros(filtros: FiltrosCatalogo = {}): Promise<LibroResumen[]> {
-  // La disponibilidad cambia con cada préstamo: no se puede prerenderizar en el build.
-  // connection() hace que esto se ejecute en cada petición real.
-  await connection();
+export const LIBROS_POR_PAGINA = 9;
 
-  // El WHERE se arma uniendo SOLO fragmentos de SQL escritos aquí; lo que viene del usuario
-  // va siempre en `valores`, que mysql2 envía aparte para cada ?. Nunca se concatena texto del usuario.
+// Arma el WHERE del catálogo uniendo SOLO fragmentos de SQL escritos aquí; lo que viene del usuario
+// va siempre en `valores`, que mysql2 envía aparte para cada ?. Lo usan el conteo y la página.
+function construirFiltro(filtros: FiltrosCatalogo): { where: string; valores: string[] } {
   const condiciones: string[] = [];
   const valores: string[] = [];
 
@@ -49,9 +47,38 @@ export async function obtenerLibros(filtros: FiltrosCatalogo = {}): Promise<Libr
     valores.push(filtros.seccion);
   }
 
-  const where = condiciones.length > 0 ? `WHERE ${condiciones.join(" AND ")}` : "";
+  return { where: condiciones.length > 0 ? `WHERE ${condiciones.join(" AND ")}` : "", valores };
+}
 
-  const [filas] = await pool.execute<FilaLibroResumen[]>(
+type FilaTotal = { total: number } & RowDataPacket;
+
+// Una página del catálogo con su disponibilidad (db/consultas.sql, consulta 1), filtrada opcionalmente.
+export async function obtenerPaginaDeLibros(
+  filtros: FiltrosCatalogo = {},
+  paginaPedida = 1,
+): Promise<PaginaCatalogo> {
+  // La disponibilidad cambia con cada préstamo: no se puede prerenderizar en el build.
+  await connection();
+  const { where, valores } = construirFiltro(filtros);
+
+  // 1) Cuántos libros cumplen el filtro (COUNT DISTINCT: los JOIN repiten el libro por autor).
+  const [[{ total }]] = await pool.execute<FilaTotal[]>(
+    `SELECT COUNT(DISTINCT l.id_libro) AS total
+     FROM libro l
+     JOIN genero g ON g.id_genero = l.id_genero_principal
+     JOIN seccion sc ON sc.id_seccion = g.id_seccion
+     ${where}`,
+    valores,
+  );
+
+  // 2) Se ajusta la página al rango válido: ?pagina=99 muestra la última, no una página vacía.
+  const totalPaginas = Math.max(1, Math.ceil(total / LIBROS_POR_PAGINA));
+  const pagina = Math.min(Math.max(1, paginaPedida), totalPaginas);
+  const desde = (pagina - 1) * LIBROS_POR_PAGINA;
+
+  // 3) Solo los libros de esa página. El orden debe ser total (título y, si empata, id):
+  //    con un orden ambiguo, un mismo libro podría aparecer en dos páginas o en ninguna.
+  const [libros] = await pool.execute<FilaLibroResumen[]>(
     `SELECT l.id_libro, l.isbn, l.titulo,
             GROUP_CONCAT(DISTINCT CONCAT(a.nombre, ' ', a.apellido) SEPARATOR ', ') AS autores,
             g.nombre AS genero, sc.nombre AS seccion, sc.color_hex,
@@ -64,10 +91,12 @@ export async function obtenerLibros(filtros: FiltrosCatalogo = {}): Promise<Libr
      JOIN seccion sc ON sc.id_seccion = g.id_seccion
      ${where}
      GROUP BY l.id_libro
-     ORDER BY l.titulo`,
-    valores,
+     ORDER BY l.titulo, l.id_libro
+     LIMIT ? OFFSET ?`,
+    [...valores, LIBROS_POR_PAGINA, desde],
   );
-  return filas;
+
+  return { libros, total, pagina, totalPaginas, porPagina: LIBROS_POR_PAGINA };
 }
 
 // Las secciones de la red, para el filtro del catálogo.

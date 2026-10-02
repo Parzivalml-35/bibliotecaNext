@@ -34,6 +34,7 @@ export function BuscadorCatalogo({ texto, seccion, secciones }: BuscadorCatalogo
       if (limpio) parametros.set(nombre, limpio);
       else parametros.delete(nombre); // sin ?q= vacío en la URL
     }
+    parametros.delete("pagina"); // una búsqueda nueva empieza en la página 1
     const query = parametros.toString();
     // replace: no llena el historial con una entrada por pausa. scroll: false: la página no salta arriba.
     // startTransition: la navegación no bloquea la escritura y `buscando` indica que está en curso.

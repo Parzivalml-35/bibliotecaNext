@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { BuscadorCatalogo } from "@/components/buscador-catalogo";
+import { Paginacion } from "@/components/paginacion";
 import { TarjetaLibro } from "@/components/tarjeta-libro";
-import { obtenerLibros, obtenerSecciones } from "@/lib/data/libros";
+import { obtenerPaginaDeLibros, obtenerSecciones } from "@/lib/data/libros";
 import { plural } from "@/lib/formato";
 
 // Un parámetro de la URL puede faltar (undefined), venir una vez (string) o repetido (?q=a&q=b → string[]).
@@ -9,6 +10,12 @@ import { plural } from "@/lib/formato";
 function textoDeParametro(valor: string | string[] | undefined): string {
   const texto = Array.isArray(valor) ? (valor[0] ?? "") : (valor ?? "");
   return texto.trim().slice(0, 100);
+}
+
+// ?pagina=: un entero desde 1. Cualquier otra cosa ("abc", "-3", "2.5") cuenta como la página 1.
+function numeroDePagina(valor: string): number {
+  const numero = Number(valor);
+  return Number.isInteger(numero) && numero >= 1 ? numero : 1;
 }
 
 // Server Component (por defecto en app/): se ejecuta en el servidor en cada petición.
@@ -22,8 +29,13 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const secciones = await obtenerSecciones();
   const seccion = secciones.some((s) => s.nombre === seccionPedida) ? seccionPedida : "";
 
-  const libros = await obtenerLibros({ texto, seccion });
+  const { libros, total, pagina, totalPaginas, porPagina } = await obtenerPaginaDeLibros(
+    { texto, seccion },
+    numeroDePagina(textoDeParametro(parametros.pagina)),
+  );
   const hayFiltros = texto !== "" || seccion !== "";
+  const desde = (pagina - 1) * porPagina + 1; // posición del primer libro de la página, para el texto
+  const hasta = desde + libros.length - 1;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -31,8 +43,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <h1 className="text-3xl font-bold tracking-tight">Catálogo</h1>
         <p className="mt-1 text-zinc-600 dark:text-zinc-400">
           {hayFiltros
-            ? `${plural(libros.length, "resultado", "resultados")}${texto ? ` para «${texto}»` : ""}${seccion ? ` en ${seccion}` : ""}`
-            : `${plural(libros.length, "título", "títulos")} en la red de bibliotecas`}
+            ? `${plural(total, "resultado", "resultados")}${texto ? ` para «${texto}»` : ""}${seccion ? ` en ${seccion}` : ""}`
+            : `${plural(total, "título", "títulos")} en la red de bibliotecas`}
+          {totalPaginas > 1 && ` · mostrando ${desde}–${hasta}`}
           {hayFiltros && (
             <>
               {" · "}
@@ -50,13 +63,16 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       {libros.length > 0 ? (
         // Mobile first: 1 columna; desde sm (640px) 2; desde lg (1024px) 3.
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {libros.map((libro) => (
-            <li key={libro.id_libro}>
-              <TarjetaLibro libro={libro} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {libros.map((libro) => (
+              <li key={libro.id_libro}>
+                <TarjetaLibro libro={libro} />
+              </li>
+            ))}
+          </ul>
+          <Paginacion pagina={pagina} totalPaginas={totalPaginas} texto={texto} seccion={seccion} />
+        </>
       ) : (
         <div className="rounded-lg border border-dashed border-zinc-300 px-6 py-12 text-center dark:border-zinc-700">
           <p className="font-medium">No encontramos libros con esa búsqueda.</p>

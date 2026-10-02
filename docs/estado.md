@@ -34,7 +34,7 @@
 | Documentación de la Fase 1 en el vault (`Biblioteca Next - Fase 1 - Next.js y catálogo`, `Next.js`, `Tailwind`, `SQL`) | Hecho |
 | Verificar el repo en el PC de escritorio solo con el README | Hecho (confirmado por el usuario) |
 
-## Fase 2 — Catálogo con búsqueda y "¿dónde está el libro?" (en curso)
+## Fase 2 — Catálogo con búsqueda y "¿dónde está el libro?" (terminada, pendiente de documentar)
 
 Orden acordado: A (detalle del libro) → B (búsqueda en servidor) → C (búsqueda interactiva, paginación, carga y error).
 El libro se identifica en la URL por su **ISBN** (`/libros/9788420471839`): clave natural, estable entre reconstrucciones.
@@ -46,12 +46,14 @@ El libro se identifica en la URL por su **ISBN** (`/libros/9788420471839`): clav
 | B: búsqueda por título o autor y filtro por sección con `searchParams` y `next/form`; `LIKE` con comodines escapados; sección validada contra la BD | Hecho |
 | C1: `app/loading.tsx` y `app/libros/[isbn]/loading.tsx` (esqueletos con streaming), `app/error.tsx` con `retry()` (probado deteniendo MySQL) | Hecho |
 | C2a: búsqueda mientras se escribe (`components/buscador-catalogo.tsx` como Client Component: debounce 300 ms, `router.replace`, `useTransition`); sigue funcionando sin JS | Hecho |
-| C2b: paginación del catálogo con `LIMIT`/`OFFSET` parametrizados | **Siguiente** |
+| C2b: paginación (`?pagina=`, 6 por página, `components/paginacion.tsx`); conteo con el mismo filtro, página ajustada al rango, orden total; la búsqueda nueva vuelve a la página 1 | Hecho |
 
 ## Próximo paso
 
-Parte C2b: paginación del catálogo (`?pagina=`), conteo total con el mismo filtro, enlaces de página que conservan
-la búsqueda, y volver a la página 1 cuando cambia la búsqueda.
+1. Cerrar la Fase 2 en el vault (`/documentar`): C2a y C2b en la nota de la fase y en `React`/`Next.js`.
+2. **Fase 3 — Panel de empleado:** decidir la autenticación (Auth.js Credentials o sesión propia con cookie firmada),
+   generar contraseñas de desarrollo para las cuentas del seed, proteger `/panel/*` en el servidor y registrar
+   préstamos y devoluciones con Server Actions + transacciones (RN-02 a RN-05, RN-23).
 
 ## Pendientes y avisos
 
@@ -59,6 +61,7 @@ la búsqueda, y volver a la página 1 cuando cambia la búsqueda.
 - Verificado (MySQL 8.4.11): una columna usada en un `CHECK` no puede tener acciones `ON DELETE/UPDATE` en su FK (`ERROR 3823`).
 - Verificado con dos sesiones simultáneas: sin `FOR UPDATE` una licencia única se prestó dos veces; con `FOR UPDATE` la segunda sesión esperó el `COMMIT` y no prestó. Primero bloquear, después contar.
 - El cliente `mysql` del contenedor se conecta en `latin1`: todo script `.sql` empieza con `SET NAMES utf8mb4;` (si no, las tildes quedan doblemente codificadas: "aÃ±os"). Detectado en la Fase 1 al mostrar los datos en Next.
+- `LIMIT ? OFFSET ?` con `pool.execute()` funciona con números en mysql2 3.24.4 + MySQL 8.4.11 (verificado; el fallo que se recordaba era de versiones anteriores).
 - Next 16: `error.tsx` recibe `retry()` (vuelve a pedir los datos); `reset()` sigue existiendo pero no vuelve a pedirlos. En producción el error de un Server Component llega al cliente con mensaje genérico + `digest`.
 - `pool.execute()` usa sentencias preparadas: en MySQL se contabilizan en `performance_schema.prepared_statements_instances`, no en la tabla de digests. Medido así: `cache()` deja la consulta del libro en 1 ejecución por visita.
 - `SUM()` sobre cero filas devuelve NULL, no 0: usar `COALESCE(SUM(...), 0)`.
