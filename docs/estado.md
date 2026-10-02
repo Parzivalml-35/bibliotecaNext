@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-01 (portátil) — Fase 2 en curso
+**Última actualización:** 2026-10-02 (portátil) — Fase 2 en curso
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -45,12 +45,13 @@ El libro se identifica en la URL por su **ISBN** (`/libros/9788420471839`): clav
 | A2: diseño de la página del libro (ficha, "¿Dónde está?" con tarjeta por sede), tarjetas del catálogo enlazadas, componentes compartidos `insignia-seccion` e `insignia-disponibilidad` | Hecho |
 | B: búsqueda por título o autor y filtro por sección con `searchParams` y `next/form`; `LIKE` con comodines escapados; sección validada contra la BD | Hecho |
 | C1: `app/loading.tsx` y `app/libros/[isbn]/loading.tsx` (esqueletos con streaming), `app/error.tsx` con `retry()` (probado deteniendo MySQL) | Hecho |
-| C2: búsqueda mientras se escribe (primer Client Component con estado) y paginación | **Siguiente** |
+| C2a: búsqueda mientras se escribe (`components/buscador-catalogo.tsx` como Client Component: debounce 300 ms, `router.replace`, `useTransition`); sigue funcionando sin JS | Hecho |
+| C2b: paginación del catálogo con `LIMIT`/`OFFSET` parametrizados | **Siguiente** |
 
 ## Próximo paso
 
-Parte C2: buscador que actualiza la URL mientras se escribe (Client Component con `useRouter`, `useSearchParams`,
-debounce y `useTransition`) y paginación del catálogo con `LIMIT`/`OFFSET` parametrizados.
+Parte C2b: paginación del catálogo (`?pagina=`), conteo total con el mismo filtro, enlaces de página que conservan
+la búsqueda, y volver a la página 1 cuando cambia la búsqueda.
 
 ## Pendientes y avisos
 
