@@ -12,7 +12,12 @@ const estadoInicial: EstadoFormulario = {};
 // Formularios del mostrador con más de un botón: validar lector, anular multa, ubicar ejemplar.
 
 // D-03, RN-70: documento visto en persona + tipo de lector.
-export function FormularioValidar({ idLector, tipos }: { idLector: number; tipos: { id_tipo_lector: number; nombre: string }[] }) {
+// RN-70: el documento viene del registro; el empleado lo corrige solo si no coincide con el original.
+export function FormularioValidar({ idLector, tipos, documento }: {
+  idLector: number;
+  tipos: { id_tipo_lector: number; nombre: string }[];
+  documento: { tipo: string; numero: string };
+}) {
   const [estado, accion, pendiente] = useActionState(validarLector, estadoInicial);
   const v = estado.valores ?? {};
   return (
@@ -21,7 +26,7 @@ export function FormularioValidar({ idLector, tipos }: { idLector: number; tipos
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
           <label htmlFor="tipo_documento" className={claseEtiqueta}>Documento</label>
-          <select id="tipo_documento" name="tipo_documento" defaultValue={v.tipo_documento ?? "CC"} className={claseCampo}>
+          <select id="tipo_documento" name="tipo_documento" defaultValue={v.tipo_documento ?? documento.tipo} className={claseCampo}>
             <option value="CC">CC</option>
             <option value="TI">TI</option>
             <option value="CE">CE</option>
@@ -30,7 +35,7 @@ export function FormularioValidar({ idLector, tipos }: { idLector: number; tipos
         </div>
         <div>
           <label htmlFor="numero_documento" className={claseEtiqueta}>Número</label>
-          <input id="numero_documento" name="numero_documento" required autoComplete="off" defaultValue={v.numero_documento} className={claseCampo} />
+          <input id="numero_documento" name="numero_documento" required autoComplete="off" defaultValue={v.numero_documento ?? documento.numero} className={claseCampo} />
         </div>
         <div>
           <label htmlFor="id_tipo_lector" className={claseEtiqueta}>Tipo de lector</label>

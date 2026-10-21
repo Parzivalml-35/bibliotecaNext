@@ -54,6 +54,13 @@ volver a correrlo **cada vez que se reconstruye la BD**:
 pnpm db:claves-dev
 ```
 
+Generar los PDF de muestra de los libros digitales (`storage/libros/`, fuera de git). Hace falta una vez por
+equipo, o al cambiar las ediciones del seed; sin ellos, el visor de `/leer/[isbn]` responde "No disponible":
+
+```bash
+pnpm archivos:muestra
+```
+
 Con eso se puede iniciar sesión en `/login` con cualquier cuenta `@example.com` del seed y esa contraseña:
 
 | Cuenta | Rol | Qué ve en `/panel` |

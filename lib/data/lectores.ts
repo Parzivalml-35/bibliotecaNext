@@ -16,20 +16,57 @@ export async function existeCuenta(conexion: Conexion, correo: string): Promise<
   return filas.length > 0;
 }
 
+// RN-74: el documento es único en la red. Devuelve el correo de la cuenta dueña (para avisarle) o null.
+export async function correoDelDocumento(conexion: Conexion, tipoDocumento: string, numeroDocumento: string) {
+  const [filas] = await conexion.execute<({ correo: string } & RowDataPacket)[]>(
+    `SELECT c.correo FROM lector l JOIN cuenta c ON c.id_cuenta = l.id_cuenta
+     WHERE l.tipo_documento = ? AND l.numero_documento = ? FOR SHARE`,
+    [tipoDocumento, numeroDocumento],
+  );
+  return filas[0]?.correo ?? null;
+}
+
+export async function existeCiudad(conexion: Conexion, idCiudad: number): Promise<boolean> {
+  const [filas] = await conexion.execute<RowDataPacket[]>("SELECT 1 FROM ciudad WHERE id_ciudad = ?", [idCiudad]);
+  return filas.length > 0;
+}
+
+// Para el formulario de registro (catálogo editable, C-02).
+export async function listarCiudades() {
+  const [filas] = await pool.execute<({ id_ciudad: number; nombre: string; departamento: string } & RowDataPacket)[]>(
+    "SELECT id_ciudad, nombre, departamento FROM ciudad ORDER BY nombre",
+  );
+  return filas;
+}
+
+export type DatosRegistro = {
+  correo: string;
+  passwordHash: string;
+  nombre: string;
+  apellido: string;
+  nacimiento: string;
+  tipoDocumento: string;
+  numeroDocumento: string;
+  telefono: string;
+  calle: string;
+  codigoPostal: string | null;
+  idCiudad: number;
+  tokenHash: string;
+};
+
 // Crea cuenta + lector (con el tipo inicial de la configuración, C-04) + token de verificación, todo con
 // valores calculados en MySQL. Devuelve las horas de validez del enlace, para el mensaje del correo.
-export async function insertarLectorRegistrado(
-  conexion: Conexion,
-  datos: { correo: string; passwordHash: string; nombre: string; apellido: string; nacimiento: string; tokenHash: string },
-): Promise<number> {
+export async function insertarLectorRegistrado(conexion: Conexion, datos: DatosRegistro): Promise<number> {
   const [cuenta] = await conexion.execute<ResultSetHeader>(
     "INSERT INTO cuenta (correo, password_hash) VALUES (?, ?)",
     [datos.correo, datos.passwordHash],
   );
   await conexion.execute(
-    `INSERT INTO lector (id_cuenta, id_tipo_lector, nombre, apellido, fecha_nacimiento)
-     SELECT ?, id_tipo_lector_registro, ?, ?, ? FROM configuracion`,
-    [cuenta.insertId, datos.nombre, datos.apellido, datos.nacimiento],
+    `INSERT INTO lector (id_cuenta, id_tipo_lector, nombre, apellido, fecha_nacimiento, tipo_documento, numero_documento,
+                         telefono, calle, codigo_postal, id_ciudad)
+     SELECT ?, id_tipo_lector_registro, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM configuracion`,
+    [cuenta.insertId, datos.nombre, datos.apellido, datos.nacimiento, datos.tipoDocumento, datos.numeroDocumento,
+     datos.telefono, datos.calle, datos.codigoPostal, datos.idCiudad],
   );
   await conexion.execute(
     `INSERT INTO token_cuenta (id_cuenta, token_hash, tipo, expira_en)
@@ -75,8 +112,10 @@ export type ResumenLector = {
   correo: string;
   tipo_lector: string;
   estado_cuenta: EstadoCuenta; // RN-01: deducido de las fechas
-  tipo_documento: string | null;
-  numero_documento: string | null;
+  tipo_documento: string; // RN-74: obligatorio desde el registro
+  numero_documento: string;
+  telefono: string;
+  direccion: string; // calle, ciudad (RN-74: para ubicar a quien no devuelve)
   edad: number;
   prestamos_vencidos: number; // RN-03
   multas_pendientes: number;
@@ -121,7 +160,8 @@ const SELECT_RESUMEN = `
               WHEN l.fecha_validacion IS NOT NULL THEN 'validada'
               WHEN c.fecha_verificacion IS NOT NULL THEN 'verificada'
               ELSE 'registrada' END AS estado_cuenta,
-         l.tipo_documento, l.numero_documento, TIMESTAMPDIFF(YEAR, l.fecha_nacimiento, CURDATE()) AS edad,
+         l.tipo_documento, l.numero_documento, l.telefono, CONCAT(l.calle, ', ', ci.nombre) AS direccion,
+         TIMESTAMPDIFF(YEAR, l.fecha_nacimiento, CURDATE()) AS edad,
          (SELECT COUNT(*) FROM prestamo_fisico p JOIN ejemplar e ON e.id_ejemplar = p.id_ejemplar
           WHERE p.id_lector = l.id_lector AND p.fecha_devolucion IS NULL AND e.estado <> 'perdido'
             AND p.fecha_vencimiento < CURDATE()) AS prestamos_vencidos,
@@ -131,7 +171,8 @@ const SELECT_RESUMEN = `
           WHERE p.id_lector = l.id_lector AND m.estado = 'pendiente') AS monto_pendiente
   FROM lector l
   JOIN cuenta c ON c.id_cuenta = l.id_cuenta
-  JOIN tipo_lector t ON t.id_tipo_lector = l.id_tipo_lector`;
+  JOIN tipo_lector t ON t.id_tipo_lector = l.id_tipo_lector
+  JOIN ciudad ci ON ci.id_ciudad = l.id_ciudad`;
 
 export async function obtenerResumenLector(idLector: number): Promise<ResumenLector | null> {
   const [filas] = await pool.execute<(ResumenLector & RowDataPacket)[]>(`${SELECT_RESUMEN} WHERE l.id_lector = ?`, [idLector]);
@@ -247,7 +288,7 @@ export async function existeTipoLector(conexion: Conexion, idTipoLector: number)
   return filas.length > 0;
 }
 
-// D-03: quién y cuándo, con documento (lo exige el CHECK ck_lector_validacion).
+// D-03: quién y cuándo. El empleado puede corregir el documento si no coincide con el original (RN-70).
 export async function registrarValidacion(
   conexion: Conexion,
   datos: { idLector: number; tipoDocumento: string; numeroDocumento: string; idTipoLector: number; idEmpleado: number },

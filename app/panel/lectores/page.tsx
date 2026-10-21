@@ -69,12 +69,14 @@ export default async function PaginaLectores({ searchParams }: PageProps<"/panel
         <div>
           <h2 className="text-xl font-semibold">{resumen.nombre}</h2>
           <p className="mb-4 text-sm text-zinc-500">
-            {resumen.correo}{resumen.numero_documento && ` · ${resumen.tipo_documento} ${resumen.numero_documento}`} · {resumen.edad} años
+            {resumen.correo} · {resumen.tipo_documento} {resumen.numero_documento} · {resumen.edad} años
+            <br />Tel. {resumen.telefono} · {resumen.direccion}
           </p>
           {deMostrador && resumen.estado_cuenta === "verificada" && (
             <div className="mb-6 rounded-lg border border-amber-300 p-4 dark:border-amber-800">
-              <p className="mb-3 text-sm font-medium">Validar con el documento original (D-03)</p>
-              <FormularioValidar idLector={resumen.id_lector} tipos={tipos} />
+              <p className="mb-3 text-sm font-medium">Validar: coteja el documento registrado con el original (D-03)</p>
+              <FormularioValidar idLector={resumen.id_lector} tipos={tipos}
+                                 documento={{ tipo: resumen.tipo_documento, numero: resumen.numero_documento }} />
             </div>
           )}
           <ResumenDeLector

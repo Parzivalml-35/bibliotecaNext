@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-21 (portátil) — Fase 4 terminada (pendiente de documentar en el vault)
+**Última actualización:** 2026-10-21 (portátil) — Fase 5 terminada (pendiente de documentar en el vault)
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -63,7 +63,7 @@ revocable al instante), contraseñas con **scrypt** de Node (N=2^17, r=8, p=1) y
 | C: devolución con multa (RN-05), cola de reservas (RN-11), colección flotante (RN-13, RN-20, RN-47) | Hecho |
 | Verificación de punta a punta (formularios enviados sin JS con un script): más de 30 casos de login, permisos, préstamo, devolución, renovación, CSRF y carrera de dos préstamos simultáneos; detector RN-24 = 0 | Hecho |
 
-## Fase 4 — Lector en la web y mostrador completo (terminada)
+## Fase 4 — Lector en la web y mostrador completo (terminada y documentada)
 
 Decisiones (RN-66 a RN-72): multas pagadas **en mostrador o en línea** (pago simulado, tabla `pago` generalizada a
 pedidos y multas); **anular** solo coordinador de la sede del préstamo o administrador, con motivo; al prestar se
@@ -79,24 +79,48 @@ simulado: `db/init/03_catalogo_simulado.sql` (96 libros ficticios, ISBN `999…`
 | C | `/panel/lectores` (buscar, validar, cobrar, anular), `/panel/ubicar` (estante sugerido), `/panel/perdidos` | Hecho |
 | D | `/panel/tablero` (indicadores, traslados sugeridos, detector RN-24) para coordinador y administrador | Hecho |
 | Catálogo | 112 libros, paginación con ventana (`1 … 6 7 8 … 13`) | Hecho |
-| 4b | Límite de intentos (RN-73): tabla `intento_acceso`, rechazo antes de scrypt por correo e IP, límite de registros por IP | Hecho (pendiente de reconstruir la BD y probar) |
+| 4b | Límite de intentos (RN-73): tabla `intento_acceso`, rechazo antes de scrypt por correo e IP, límite de registros por IP | Hecho |
 | Verificación | 56 casos de punta a punta contra `next start` en el puerto 3001 (para leer el correo simulado), BD revisada tras cada bloque; detector RN-24 = 0 | Hecho |
+
+## Fase 5 — Préstamo digital (terminada)
+
+Decisiones del usuario: lectura **solo en la web con su perfil**, sin descarga (visor propio con pdf.js; RN-29
+reescrita con el límite asumido); PDFs de muestra generados por script; la cola se procesa en las acciones y la página
+muestra el turno calculado ("Tomar el préstamo"); con licencia libre se presta al instante y solo se reserva sin
+licencias; basta la cuenta verificada; un lector bloqueado no pide pero sigue leyendo; edad según la clasificación;
+licencias en `/panel/licencias` (administrador de red), subir archivos para después. Además, **RN-74**: documento,
+teléfono y dirección obligatorios desde el registro.
+
+| Bloque | Qué | Estado |
+|---|---|---|
+| 0 | RN-74: registro con documento (CC ≥ 18, TI < 18), teléfono, dirección y ciudad; documento repetido = misma respuesta y aviso al dueño; el mostrador coteja el documento; esquema `lector` con `NOT NULL` | Hecho |
+| A | `lib/data/digital.ts`, `lib/actions/digital.ts`; en `reglas.ts`: `elegirLote` (RN-55), `procesarColaDigital` (RN-28, RN-48), `enviarCorreo` (movido desde `cuenta.ts`) y `TIPOS_DOCUMENTO` | Hecho |
+| B | Sección "Leer en línea" en `/libros/[isbn]` (pedir, reservar, confirmar, tomar el turno, devolver, cancelar) y "Libros digitales" en `/cuenta` | Hecho |
+| C | `app/leer/[isbn]/archivo/route.ts` (sesión + acceso, solo `Sec-Fetch-Dest: empty` del mismo origen, `no-store`), visor `components/visor-pdf.tsx`, `pnpm archivos:muestra` | Hecho |
+| D | `/panel/licencias`: uso por lote y registrar un lote (las licencias nuevas van primero a la cola) | Hecho |
+| Verificación | Registro (8 casos), validación, lectura (7 casos de acceso), cola, RN-55, máximos, bloqueos, edad, ids ajenos, cola detenida, lote nuevo con cola, concurrencia (2 pedidos por la última licencia: 1 gana), visor en Chrome sin ventana | Hecho |
 
 ## Próximo paso
 
-1. Probar en el navegador (con JavaScript): registro, verificar (el enlace sale en la consola de `pnpm dev`), reservar,
-   Mi cuenta, pasarela simulada y el panel completo.
-2. `/documentar` la Fase 4.
-3. Fase 5 (propuesta): préstamo digital (RN-25 a RN-30, RN-44, RN-54 a RN-56).
-4. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
+1. Probar en el navegador: registro con los datos nuevos, leer un libro (`pnpm archivos:muestra` antes), reservar y
+   confirmar, `/panel/licencias` con Laura.
+2. `/documentar` la Fase 5.
+3. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
    verifica una firma HMAC, para pedidos y multas; hoy la pasarela simulada se confirma con un botón).
-5. Fase 7: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
+4. Fase 7: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
    (antes: regla para su multa de reposición: anular si está pendiente, ¿reembolsar si ya se pagó?).
-6. Fase 8: calidad (Lighthouse, accesibilidad, build).
+5. Fase 8: calidad (Lighthouse, accesibilidad, build). Pendiente de la Fase 5: subir archivos PDF desde el panel.
 
 ## Pendientes y avisos
 
-- En el otro PC: **reconstruir la BD** (cambió el esquema y hay un `03_catalogo_simulado.sql` nuevo) y correr `pnpm db:claves-dev`.
+- En el otro PC: `pnpm install` (nuevo: `pdfjs-dist`), **reconstruir la BD** (cambió `lector`), `pnpm db:claves-dev` y `pnpm archivos:muestra`.
+- RN-29, límite asumido: lo que el navegador muestra se puede capturar. La ruta del archivo rechaza abrirlo desde la barra
+  de direcciones (`Sec-Fetch-Dest: document`) y otros sitios, pero un programa fuera del navegador puede inventar esas
+  cabeceras: la protección real es la sesión + el préstamo vigente o la compra.
+- Si dos lectores piden la última licencia a la vez, el que pierde no ve el mensaje de error: la página se vuelve a
+  dibujar con "Reservar" en lugar de "Pedir prestado" (mismo caso de `useActionState` de abajo).
+- Correos simulados enviados dentro de una transacción que luego hace ROLLBACK ya se "enviaron" (consola). Con un
+  proveedor real, enviar después del COMMIT.
 - RN-73 y la IP: Next 16 solo rellena `x-forwarded-for` si la petición no lo trae (`server/base-server.js`), así que un
   cliente puede mandarlo inventado. Se toma la ÚLTIMA entrada (la que agrega un proxy de confianza). Sin proxy delante,
   el límite por IP se puede evadir; el límite por correo no. Al desplegar: proxy que agregue la IP real.

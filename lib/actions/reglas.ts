@@ -13,6 +13,13 @@ import {
   marcarReservaVencida,
   type EstadoEjemplar,
 } from "@/lib/data/circulacion";
+import {
+  asignarReservaDigital,
+  bloquearColaDigital,
+  bloquearLotesDelTitulo,
+  vencerReservasDigitales,
+  type LoteConUso,
+} from "@/lib/data/digital";
 import { enTransaccion } from "@/lib/db";
 import type { EstadoFormulario } from "@/lib/definitions";
 import { exigirEmpleado } from "@/lib/sesion";
@@ -53,6 +60,9 @@ export function idDe(datos: FormData, campo: string): number | null {
   const n = Number(texto(datos, campo));
   return Number.isInteger(n) && n > 0 ? n : null;
 }
+
+// Tipos de documento de lector (ENUM de lector.tipo_documento). Lo usan el registro, la validación y el préstamo.
+export const TIPOS_DOCUMENTO = ["CC", "TI", "CE", "PASAPORTE"];
 
 // RN-33: préstamos, devoluciones, validar, ubicar y cobrar son de bibliotecario y coordinador. El
 // administrador de red no tiene sede (RN-34) y no opera en mostrador.
@@ -173,3 +183,47 @@ export async function ipDeLaPeticion(): Promise<string> {
   const lista = (await headers()).get("x-forwarded-for") ?? "";
   return lista.split(",").map((parte) => parte.trim()).filter(Boolean).at(-1)?.slice(0, 45) ?? "desconocida";
 }
+
+// "Enviar" un correo: no hay proveedor de correo todavía (RN-70), así que se escribe en la consola del
+// servidor. Es el único lugar a cambiar el día que se conecte uno. Ojo: si se llama dentro de una transacción
+// que después hace ROLLBACK, el "correo" ya salió; con un proveedor real se enviaría después del COMMIT.
+export function enviarCorreo(destinatario: string, asunto: string, cuerpo: string) {
+  console.log(`\n[correo simulado] Para: ${destinatario}\nAsunto: ${asunto}\n${cuerpo}\n`);
+}
+
+// ---------------------------------------------------------------------
+// Préstamo digital (RN-28, RN-48, RN-55, RN-56)
+// ---------------------------------------------------------------------
+
+// RN-55: entre los lotes con licencias libres, el que vence antes entre los que cubren el préstamo completo
+// (`dias`); si ninguno lo cubre, el que vence más tarde (y el préstamo se recorta, RN-44). null si no hay libres.
+export function elegirLote(lotes: LoteConUso[], dias: number): LoteConUso | null {
+  const libres = lotes.filter((l) => l.en_uso < l.cantidad);
+  const restante = (l: LoteConUso) => l.segundos_restantes ?? Infinity; // sin vencimiento = el más lejano
+  const cubren = libres.filter((l) => restante(l) >= dias * 86400).sort((a, b) => restante(a) - restante(b));
+  if (cubren.length > 0) return cubren[0];
+  return libres.sort((a, b) => restante(b) - restante(a))[0] ?? null;
+}
+
+// RN-28, RN-48: antes de operar sobre un título, se vencen las reservas asignadas sin confirmar y cada
+// licencia libre se asigna al primero de la cola (con aviso por correo). "La cola manda", como en
+// liberarEjemplar: así una licencia que queda libre nunca la toma alguien que llegó después.
+// Bloquea los lotes del título (orden: lector → lotes → reservas) y devuelve los lotes con su uso ya al día.
+export async function procesarColaDigital(conexion: PoolConnection, idLibro: number, titulo: string): Promise<LoteConUso[]> {
+  let lotes = await bloquearLotesDelTitulo(conexion, idLibro);
+  if (lotes.length === 0) return lotes;
+  if ((await vencerReservasDigitales(conexion, idLibro)) > 0) lotes = await bloquearLotesDelTitulo(conexion, idLibro);
+
+  const cola = await bloquearColaDigital(conexion, idLibro);
+  for (const reserva of cola) {
+    const lote = elegirLote(lotes, reserva.dias_prestamo_digital);
+    if (!lote) break;
+    const limite = await asignarReservaDigital(conexion, reserva.id_reserva_digital, lote.id_licencia);
+    lote.en_uso++; // la reserva asignada retiene la licencia (RN-56)
+    enviarCorreo(reserva.correo, `Ya puedes leer «${titulo}»`,
+      `Hola, ${reserva.nombre}: se liberó una licencia para ti. Confírmala en «Mi cuenta» antes del ${limite}; si no, pasa al siguiente.`);
+  }
+  return lotes;
+}
+
+export const licenciasLibres = (lotes: LoteConUso[]) => lotes.reduce((suma, l) => suma + Math.max(0, l.cantidad - l.en_uso), 0);

@@ -286,20 +286,20 @@ CREATE TABLE lector (
     nombre                 VARCHAR(60) NOT NULL,
     apellido               VARCHAR(60) NOT NULL,
     fecha_nacimiento       DATE NOT NULL,           -- RN-46: la edad se calcula
-    telefono               VARCHAR(20) NULL,
-    calle                  VARCHAR(120) NULL,
+    -- RN-74: identidad y contacto obligatorios desde el registro (verificar la edad y ubicar a quien no
+    -- devuelve un libro). El código postal es opcional.
+    telefono               VARCHAR(20) NOT NULL,
+    calle                  VARCHAR(120) NOT NULL,
     codigo_postal          VARCHAR(10) NULL,
-    id_ciudad              INT UNSIGNED NULL,
-    tipo_documento         ENUM('CC', 'TI', 'CE', 'PASAPORTE') NULL,
-    numero_documento       VARCHAR(20) NULL,
+    id_ciudad              INT UNSIGNED NOT NULL,
+    tipo_documento         ENUM('CC', 'TI', 'CE', 'PASAPORTE') NOT NULL,
+    numero_documento       VARCHAR(20) NOT NULL,
     fecha_validacion       DATETIME NULL,           -- D-03
     id_empleado_validador  INT UNSIGNED NULL,
     CONSTRAINT uq_lector_cuenta UNIQUE (id_cuenta),
     CONSTRAINT uq_lector_documento UNIQUE (tipo_documento, numero_documento),
-    CONSTRAINT ck_lector_documento CHECK ((tipo_documento IS NULL) = (numero_documento IS NULL)),
-    -- Validar = quién y cuándo, y exige documento.
-    CONSTRAINT ck_lector_validacion CHECK ((fecha_validacion IS NULL) = (id_empleado_validador IS NULL)
-                                           AND (fecha_validacion IS NULL OR tipo_documento IS NOT NULL)),
+    -- Validar = quién y cuándo. El documento ya es obligatorio desde el registro (RN-74).
+    CONSTRAINT ck_lector_validacion CHECK ((fecha_validacion IS NULL) = (id_empleado_validador IS NULL)),
     CONSTRAINT fk_lector_cuenta FOREIGN KEY (id_cuenta) REFERENCES cuenta (id_cuenta),
     CONSTRAINT fk_lector_tipo FOREIGN KEY (id_tipo_lector) REFERENCES tipo_lector (id_tipo_lector),
     CONSTRAINT fk_lector_ciudad FOREIGN KEY (id_ciudad) REFERENCES ciudad (id_ciudad),

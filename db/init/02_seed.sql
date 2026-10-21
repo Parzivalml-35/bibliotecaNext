@@ -189,13 +189,13 @@ FROM (VALUES
   ROW('luis.gomez@example.com', 'Estándar', 'Luis', 'Gómez', DATE('1985-07-02'), '300 555 0002', 'Cl. 8 # 4-15', '760002', 'Cali', 'CC', '1000000002', 'marta.torres@example.com', 95),
   ROW('valentina.ospina@example.com', 'Plus', 'Valentina', 'Ospina', DATE('1992-11-23'), '300 555 0003', 'Cl. 15 # 30-11', '760035', 'Cali', 'CC', '1000000003', 'jorge.perez@example.com', 85),
   ROW('andres.mejia@example.com', 'Estándar', 'Andrés', 'Mejía', DATE('1979-01-30'), '300 555 0004', 'Cra. 44 # 5-60', '760036', 'Cali', 'CC', '1000000004', 'marta.torres@example.com', 75),
-  ROW('mateo.cardenas@example.com', 'Infantil', 'Mateo', 'Cárdenas', CURDATE() - INTERVAL 13 YEAR, NULL, 'Cl. 12 # 7-45', '760044', 'Cali', 'TI', '1100000005', 'diego.ramirez@example.com', 55),
-  ROW('sofia.herrera@example.com', 'Estándar', 'Sofía', 'Herrera', DATE('2001-06-09'), '300 555 0006', NULL, NULL, 'Palmira', NULL, NULL, NULL, 0),
-  ROW('camila.torres@example.com', 'Estándar', 'Camila', 'Torres', DATE('2003-09-17'), NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0)
+  ROW('mateo.cardenas@example.com', 'Infantil', 'Mateo', 'Cárdenas', CURDATE() - INTERVAL 13 YEAR, '300 555 0005', 'Cl. 12 # 7-45', '760044', 'Cali', 'TI', '1100000005', 'diego.ramirez@example.com', 55),
+  ROW('sofia.herrera@example.com', 'Estándar', 'Sofía', 'Herrera', DATE('2001-06-09'), '300 555 0006', 'Cl. 30 # 25-18', '763533', 'Palmira', 'CC', '1000000006', NULL, 0),
+  ROW('camila.torres@example.com', 'Estándar', 'Camila', 'Torres', DATE('2003-09-17'), '300 555 0007', 'Cra. 100 # 16-30', NULL, 'Cali', 'CC', '1000000007', NULL, 0)
 ) AS l (correo, tipo, nombre, apellido, nacimiento, tel, calle, cp, ciudad, tipo_doc, num_doc, validador, dias_validado)
 JOIN cuenta c ON c.correo = l.correo
 JOIN tipo_lector t ON t.nombre = l.tipo
-LEFT JOIN ciudad ci ON ci.nombre = l.ciudad;
+JOIN ciudad ci ON ci.nombre = l.ciudad;
 
 SET @ana       = (SELECT id_lector FROM lector JOIN cuenta USING (id_cuenta) WHERE correo = 'ana.ruiz@example.com');
 SET @luis      = (SELECT id_lector FROM lector JOIN cuenta USING (id_cuenta) WHERE correo = 'luis.gomez@example.com');

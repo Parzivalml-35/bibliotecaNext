@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FormularioRegistro } from "@/components/formularios-lector";
+import { listarCiudades } from "@/lib/data/lectores";
 import { obtenerUsuario } from "@/lib/sesion";
 
 export const metadata: Metadata = { title: "Crear cuenta" };
@@ -23,9 +24,9 @@ export default async function PaginaRegistro({ searchParams }: PageProps<"/regis
       ) : (
         <>
           <p className="mt-1 mb-6 text-sm text-zinc-600 dark:text-zinc-400">
-            Con la cuenta verificada puedes reservar libros. Para llevártelos, valida tu documento en cualquier sede.
+            Con la cuenta verificada puedes reservar y leer libros digitales. Para llevarte libros físicos, presenta tu documento en cualquier sede.
           </p>
-          <FormularioRegistro />
+          <FormularioRegistro ciudades={await listarCiudades()} />
         </>
       )}
     </div>

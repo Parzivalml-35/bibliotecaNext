@@ -28,3 +28,6 @@ pnpm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# Diagramas generados por la skill Archify (candidatos, receipts y HTML de trabajo)
+.archify/

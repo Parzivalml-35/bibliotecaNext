@@ -31,14 +31,13 @@ import {
   operar,
   procesarReservasVencidas,
   texto,
+  TIPOS_DOCUMENTO,
 } from "@/lib/actions/reglas";
 
 // Circulación en mostrador: préstamo, devolución, renovación (Fase 3), ubicar y declarar perdido (Fase 4).
 // Cada acción: 1) exige empleado con sede (RN-33, RN-34, RN-35); 2) valida la entrada; 3) aplica las reglas
 // dentro de UNA transacción (RN-23); 4) devuelve un mensaje para useActionState.
 // Todo lo exportado aquí es un endpoint público; los ayudantes viven en lib/actions/reglas.ts.
-
-const TIPOS_DOCUMENTO = ["CC", "TI", "CE", "PASAPORTE"];
 
 // Códigos de barras: letras, números y guion (BN-0001). Se normalizan a mayúsculas.
 function codigoDeBarras(datos: FormData): string | null {

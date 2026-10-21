@@ -8,11 +8,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:claves-dev": "node --env-file=.env scripts/claves-dev.ts"
+    "db:claves-dev": "node --env-file=.env scripts/claves-dev.ts",
+    "archivos:muestra": "node --env-file=.env scripts/archivos-muestra.ts"
   },
   "dependencies": {
     "mysql2": "^3.24.4",
     "next": "16.3.6",
+    "pdfjs-dist": "6.4.299",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1"

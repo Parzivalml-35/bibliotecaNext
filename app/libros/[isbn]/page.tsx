@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { InsigniaSeccion } from "@/components/insignia-seccion";
 import { TarjetaSede } from "@/components/tarjeta-sede";
 import { FormularioReserva } from "@/components/formularios-lector";
+import { SeccionDigital } from "@/components/seccion-digital";
+import { obtenerDisponibilidadDigital, obtenerSituacionDigitalEnTitulo } from "@/lib/data/digital";
 import { obtenerReservaVivaDeObra } from "@/lib/data/lectores";
 import { obtenerDisponibilidadPorSede, obtenerLibroPorIsbn } from "@/lib/data/libros";
 import { obtenerUsuario } from "@/lib/sesion";
@@ -35,7 +37,12 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
   const { isbn } = await params; // en el App Router, params es una Promise
   const libro = await libroDeLaUrl(isbn);
   const [sedes, usuario] = await Promise.all([obtenerDisponibilidadPorSede(libro.id_libro), obtenerUsuario()]);
-  const reservaViva = usuario?.lector ? await obtenerReservaVivaDeObra(usuario.lector.idLector, libro.id_libro) : null;
+  const idLector = usuario?.lector?.idLector;
+  const [reservaViva, digital, situacionDigital] = await Promise.all([
+    idLector ? obtenerReservaVivaDeObra(idLector, libro.id_libro) : null,
+    obtenerDisponibilidadDigital(libro.id_libro),
+    idLector ? obtenerSituacionDigitalEnTitulo(idLector, libro.id_libro) : null,
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -120,6 +127,12 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
           </div>
         )}
       </section>
+
+      {/* RN-25 a RN-30: solo los títulos con edición PDF (RN-54: la primera versión lee solo PDF). */}
+      {digital.tiene_edicion && (
+        <SeccionDigital isbn={libro.isbn} disponibilidad={digital} situacion={situacionDigital} conectado={!!usuario}
+                        esLector={!!usuario?.lector} verificada={!!usuario?.lector?.verificada} />
+      )}
     </div>
   );
 }
