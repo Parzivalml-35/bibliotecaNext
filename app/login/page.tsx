@@ -1,0 +1,42 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { FormularioLogin } from "@/components/formulario-login";
+import { salir } from "@/lib/actions/sesion";
+import { obtenerUsuario } from "@/lib/sesion";
+
+export const metadata: Metadata = { title: "Iniciar sesión" };
+
+// Mensajes que exigirEmpleado() pide mostrar con ?motivo=. Se usa la clave para elegir un texto fijo:
+// lo que venga en la URL nunca se pinta tal cual.
+const MOTIVOS: Record<string, string> = {
+  "sin-panel": "Esa cuenta no tiene acceso al panel de empleados.",
+};
+
+export default async function PaginaLogin({ searchParams }: PageProps<"/login">) {
+  const { motivo } = await searchParams;
+  const usuario = await obtenerUsuario();
+  if (usuario?.empleado) redirect("/panel"); // ya conectado como empleado: nada que hacer aquí
+
+  const aviso = typeof motivo === "string" ? MOTIVOS[motivo] : undefined;
+
+  return (
+    <div className="mx-auto w-full max-w-sm px-4 py-12">
+      <h1 className="text-2xl font-bold tracking-tight">Iniciar sesión</h1>
+      {aviso && <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">{aviso}</p>}
+
+      {usuario ? (
+        // Conectado con una cuenta sin panel (un lector): ofrecer salir para entrar con otra.
+        <div className="mt-6 space-y-4 text-sm">
+          <p>Iniciaste sesión como <strong>{usuario.correo}</strong>.</p>
+          <form action={salir}>
+            <button type="submit" className="font-medium underline underline-offset-4">Cerrar sesión</button>
+          </form>
+        </div>
+      ) : (
+        <div className="mt-6">
+          <FormularioLogin />
+        </div>
+      )}
+    </div>
+  );
+}

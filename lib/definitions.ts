@@ -74,3 +74,46 @@ export type DisponibilidadSede = {
   total: number; // ejemplares de la sede, en cualquier estado
   ubicaciones: UbicacionConCopias[];
 };
+
+// ---------------------------------------------------------------------
+// Fase 3: sesión, panel de empleado y circulación
+// ---------------------------------------------------------------------
+
+export type RolEmpleado = "bibliotecario" | "coordinador" | "admin_red";
+
+// Lo que la app sabe de quien inició sesión (RN-64). Solo datos para la interfaz y los permisos:
+// nunca el hash de la contraseña ni el token.
+export type UsuarioSesion = {
+  idCuenta: number;
+  correo: string;
+  empleado: {
+    idEmpleado: number;
+    nombre: string;
+    apellido: string;
+    rol: RolEmpleado;
+    idSede: number | null; // null solo para admin_red (RN-34)
+    sede: string | null;
+  } | null; // null si la cuenta no tiene perfil de empleado activo
+};
+
+export type EmpleadoSesion = NonNullable<UsuarioSesion["empleado"]>;
+
+// Estado que una Server Action devuelve a su formulario a través de useActionState.
+export type EstadoFormulario = {
+  error?: string; // mensaje para el usuario
+  exito?: string; // confirmación de la operación
+  valores?: Record<string, string>; // lo que escribió, para no borrárselo si hubo error
+};
+
+// Un préstamo abierto como se lista en el panel (db/consultas.sql, consulta 5).
+export type PrestamoAbierto = {
+  id_prestamo: number;
+  codigo_barras: string;
+  titulo: string;
+  lector: string;
+  sede: string;
+  fecha_prestamo: string; // "AAAA-MM-DD" (DATE_FORMAT en SQL)
+  fecha_vencimiento: string;
+  renovaciones: number;
+  dias_atraso: number; // 0 si está al día
+};

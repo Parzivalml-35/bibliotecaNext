@@ -31,6 +31,7 @@
 | RN-04 | Un préstamo se puede **renovar** hasta un número máximo de veces, solo si no está vencido y nadie tiene una reserva activa sobre esa obra. |
 | RN-05 | La **multa por retraso** es un valor por día con un tope máximo. Se genera al devolver el libro. |
 | RN-06 | Si un ejemplar no se devuelve (perdido), se cobra su **valor de reposición**. |
+| RN-65 | Al **renovar** (RN-04), el nuevo vencimiento es el vencimiento actual más los días de préstamo del tipo de lector. "Reserva activa sobre esa obra" = alguna reserva **en cola** (`activa`) por la obra, en cualquier sede; una reserva ya `asignada` no impide renovar. La renovación la registra un empleado de la sede donde se hizo el préstamo (RN-34). |
 
 ## Reservas físicas
 

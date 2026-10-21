@@ -1,5 +1,5 @@
 import "server-only";
-import mysql, { type Pool } from "mysql2/promise";
+import mysql, { type Pool, type PoolConnection } from "mysql2/promise";
 
 // Lee una variable de entorno obligatoria. Si falta, falla con un mensaje claro
 // (por ejemplo, en un equipo nuevo donde aún no se copió .env.example a .env).
@@ -33,4 +33,23 @@ export const pool: Pool = globalConPool.poolBiblioteca ?? crearPool();
 
 if (process.env.NODE_ENV !== "production") {
   globalConPool.poolBiblioteca = pool;
+}
+
+// Ejecuta `trabajo` dentro de una transacción con UNA conexión del pool (una transacción vive en una
+// conexión: con pool.execute() cada sentencia podría ir por una conexión distinta). Si `trabajo` lanza,
+// se deshace todo (ROLLBACK) y el error sigue su camino; si termina bien, COMMIT. Siempre devuelve la
+// conexión al pool. RN-23, RN-37, RN-56: toda operación que cambia el estado de un ejemplar va aquí.
+export async function enTransaccion<T>(trabajo: (conexion: PoolConnection) => Promise<T>): Promise<T> {
+  const conexion = await pool.getConnection();
+  try {
+    await conexion.beginTransaction();
+    const resultado = await trabajo(conexion);
+    await conexion.commit();
+    return resultado;
+  } catch (error) {
+    await conexion.rollback();
+    throw error;
+  } finally {
+    conexion.release();
+  }
 }

@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-08 (portátil) — Fase 3 en curso
+**Última actualización:** 2026-10-21 (portátil) — Fase 3 terminada (pendiente de documentar en el vault)
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -48,29 +48,40 @@ El libro se identifica en la URL por su **ISBN** (`/libros/9788420471839`): clav
 | C2a: búsqueda mientras se escribe (`components/buscador-catalogo.tsx` como Client Component: debounce 300 ms, `router.replace`, `useTransition`); sigue funcionando sin JS | Hecho |
 | C2b: paginación (`?pagina=`, 6 por página, `components/paginacion.tsx`); conteo con el mismo filtro, página ajustada al rango, orden total; la búsqueda nueva vuelve a la página 1 | Hecho |
 
-## Fase 3 — Panel de empleado (en curso)
+## Fase 3 — Panel de empleado (terminada)
 
 Decisiones: **sesión en BD propia** (tabla `sesion`, cookie con token aleatorio, solo su hash SHA-256 en la BD;
 revocable al instante), contraseñas con **scrypt** de Node (N=2^17, r=8, p=1) y contraseñas de desarrollo con
-`pnpm db:claves-dev` (lee `DEV_PASSWORD` del `.env`; nada de contraseñas en el repo). Reglas: RN-62 a RN-64.
+`pnpm db:claves-dev` (lee `DEV_PASSWORD` del `.env`; nada de contraseñas en el repo). Reglas: RN-62 a RN-65.
 
 | Paso | Estado |
 |---|---|
 | A1: reglas RN-62..64, tabla `sesion` y `configuracion.horas_sesion` (BD reconstruida, 41 tablas), `lib/contrasenas.ts`, `scripts/claves-dev.ts` | Hecho |
-| A2: página de login con Server Action y `useActionState`, cookie de sesión y cierre de sesión | **Siguiente** |
-| A3: capa de verificación de sesión (DAL), `/panel` protegido, usuario en el encabezado | Pendiente |
-| B: registrar préstamos (transacción, RN-02 a RN-04, RN-23, RN-43, RN-46) | Pendiente |
-| C: registrar devoluciones y multas (RN-05, RN-11, RN-13, RN-47) | Pendiente |
+| A2: `/login` con Server Action (`lib/actions/sesion.ts`) y `useActionState`; cookie `httpOnly`/`sameSite=lax`; cierre de sesión por POST; mismo mensaje y mismo tiempo (~300 ms) si el correo no existe | Hecho |
+| A3: DAL `lib/sesion.ts` (`obtenerUsuario` con `cache()`, `exigirEmpleado(roles)`), `/panel` protegido en cada página y acción, menú de usuario en el encabezado dentro de `<Suspense>` | Hecho |
+| B: préstamo (`lib/actions/circulacion.ts`) en una transacción (`enTransaccion` en `lib/db.ts`): RN-02, RN-03, RN-10, RN-23, RN-34, RN-43, RN-46, RN-48, D-03; renovación RN-04 + RN-65 | Hecho |
+| C: devolución con multa (RN-05), cola de reservas (RN-11), colección flotante (RN-13, RN-20, RN-47) | Hecho |
+| Verificación de punta a punta (formularios enviados sin JS con un script): más de 30 casos de login, permisos, préstamo, devolución, renovación, CSRF y carrera de dos préstamos simultáneos; detector RN-24 = 0 | Hecho |
 
 ## Próximo paso
 
-Parte A2: `app/login/page.tsx` con un formulario que llama a una Server Action (`lib/actions/sesion.ts`): validar
-correo y contraseña, verificar con `verificarContrasena`, crear la fila en `sesion` y la cookie; cierre de sesión.
-Antes: leer la guía de Server Actions y de `cookies()` de Next 16.
+1. Probar el panel en el navegador (con JavaScript): login, préstamo, devolución, renovar.
+2. `/documentar` la Fase 3 (nota `Biblioteca Next - Fase 3`, conceptos: Server Actions, sesiones, aislamiento de
+   transacciones; materias: Bases de datos 2 y Desarrollo Web).
+3. Fase 4 (reservas, pago de multas, bloqueo de usuarios, tablero): decidir el alcance al empezar.
 
 ## Pendientes y avisos
 
-- En el otro PC: agregar `DEV_PASSWORD` (≥12 caracteres) al `.env`, reconstruir la BD (cambió el esquema) y correr `pnpm db:claves-dev`.
+- **Bug encontrado y corregido (Fase 3):** contar con subconsultas normales dentro de una transacción no ve lo que
+  otra transacción confirmó mientras esta esperaba un candado (`REPEATABLE READ` lee la "foto" tomada en la primera
+  lectura). Dos préstamos simultáneos dejaron a un lector con 3 de 2. Solución: bloquear primero y contar con
+  lecturas con bloqueo (`FOR SHARE`), que leen la última versión confirmada (`situacionDelLector`).
+- `redirect()` en una página que está bajo un `loading.tsx` responde **200** y la redirección viaja en el stream
+  (`NEXT_REDIRECT`): el contenido protegido no se envía, pero el código HTTP no es 3xx. En una Server Action sí es 303.
+- Las fechas del seed son relativas al día de la reconstrucción: tras unos días, los préstamos "al día" vencen.
+  La BD del portátil quedó con los datos de las pruebas del 2026-10-21; para volver a los escenarios, reconstruirla.
+- Todo lo que se exporta de un archivo `"use server"` es un endpoint público: los ayudantes no se exportan.
+- En el otro PC (si aún no se hizo tras la A1): agregar `DEV_PASSWORD` (≥12 caracteres) al `.env`, reconstruir la BD (cambió el esquema) y correr `pnpm db:claves-dev`.
 - scrypt con N=2^17 necesita `maxmem` > 128 MiB: sin él, `RangeError: Invalid scrypt params: … memory limit exceeded`.
 - Node 22.23 ejecuta `.ts` directamente: imports con extensión `.ts`, sin alias `@/` (`"type": "module"` y `allowImportingTsExtensions` en el proyecto).
 - Verificado (MySQL 8.4.11): una columna usada en un `CHECK` no puede tener acciones `ON DELETE/UPDATE` en su FK (`ERROR 3823`).

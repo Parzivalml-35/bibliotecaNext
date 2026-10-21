@@ -4,7 +4,7 @@ Sistema para administrar una red de bibliotecas: catálogo con ubicación físic
 préstamo digital con licencias y venta de libros. Proyecto de aprendizaje con Next.js (App Router),
 TypeScript, Tailwind CSS y MySQL con SQL escrito a mano.
 
-> **Estado:** Fase 3 — panel de empleado (autenticación en curso). Catálogo, detalle del libro y búsqueda ya funcionan. Detalle y próximo paso en [docs/estado.md](docs/estado.md).
+> **Estado:** Fase 3 — panel de empleado (inicio de sesión, préstamos, devoluciones y renovaciones). Catálogo, detalle del libro y búsqueda ya funcionan. Detalle y próximo paso en [docs/estado.md](docs/estado.md).
 
 ## Documentación
 
@@ -54,8 +54,19 @@ volver a correrlo **cada vez que se reconstruye la BD**:
 pnpm db:claves-dev
 ```
 
-Con eso se puede iniciar sesión con cualquier cuenta `@example.com` del seed (por ejemplo `jorge.perez@example.com`,
-coordinador de la Sede Norte) y esa contraseña.
+Con eso se puede iniciar sesión en `/login` con cualquier cuenta `@example.com` del seed y esa contraseña:
+
+| Cuenta | Rol | Qué ve en `/panel` |
+|---|---|---|
+| `jorge.perez@example.com` | Coordinador, Sede Norte | Préstamos, devoluciones y renovaciones de Norte |
+| `marta.torres@example.com` | Bibliotecaria, Sede Sur | Ídem, Sede Sur |
+| `diego.ramirez@example.com` | Bibliotecario, Sede Centro | Ídem, Sede Centro |
+| `laura.castano@example.com` | Administradora de red | Préstamos abiertos de toda la red (no opera en mostrador) |
+| `ana.ruiz@example.com` y demás | Lectores | No entran al panel |
+
+Los préstamos piden el documento del lector (por ejemplo CC `1000000001`, Ana) y el código del ejemplar
+(`BN-0002`). Las fechas del seed son relativas al día en que se construyó la BD: con el paso de los días los
+préstamos "al día" vencen y los lectores quedan bloqueados. Para volver a los escenarios originales, reconstruir la BD.
 
 Instalar dependencias y arrancar la app (con MySQL ya arriba):
 
