@@ -2,11 +2,13 @@
   "name": "biblioteca-next",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:claves-dev": "node --env-file=.env scripts/claves-dev.ts"
   },
   "dependencies": {
     "mysql2": "^3.24.4",

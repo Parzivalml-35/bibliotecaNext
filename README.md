@@ -4,7 +4,7 @@ Sistema para administrar una red de bibliotecas: catálogo con ubicación físic
 préstamo digital con licencias y venta de libros. Proyecto de aprendizaje con Next.js (App Router),
 TypeScript, Tailwind CSS y MySQL con SQL escrito a mano.
 
-> **Estado:** Fase 1 — catálogo en Next.js leyendo los libros desde MySQL. Detalle y próximo paso en [docs/estado.md](docs/estado.md).
+> **Estado:** Fase 3 — panel de empleado (autenticación en curso). Catálogo, detalle del libro y búsqueda ya funcionan. Detalle y próximo paso en [docs/estado.md](docs/estado.md).
 
 ## Documentación
 
@@ -30,7 +30,7 @@ TypeScript, Tailwind CSS y MySQL con SQL escrito a mano.
 ```bash
 git clone git@github.com:Parzivalml-35/bibliotecaNext.git
 cd bibliotecaNext
-cp .env.example .env        # y cambia las contraseñas en .env
+cp .env.example .env        # y cambia las contraseñas en .env (incluida DEV_PASSWORD, mínimo 12 caracteres)
 ```
 
 Levantar MySQL (la primera vez descarga la imagen y ejecuta `db/init/*.sql`):
@@ -44,7 +44,18 @@ ejecutan con el volumen vacío**; para aplicar cambios de esquema hay que recrea
 
 ```bash
 docker compose down -v && docker compose up -d --wait
+pnpm db:claves-dev
 ```
+
+Asignar la contraseña de desarrollo (`DEV_PASSWORD` del `.env`) a las cuentas de prueba del seed. Hay que
+volver a correrlo **cada vez que se reconstruye la BD**:
+
+```bash
+pnpm db:claves-dev
+```
+
+Con eso se puede iniciar sesión con cualquier cuenta `@example.com` del seed (por ejemplo `jorge.perez@example.com`,
+coordinador de la Sede Norte) y esa contraseña.
 
 Instalar dependencias y arrancar la app (con MySQL ya arriba):
 

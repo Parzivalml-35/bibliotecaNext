@@ -176,6 +176,7 @@ CREATE TABLE configuracion (
     minutos_pago_pedido              SMALLINT UNSIGNED NOT NULL,  -- RN-37
     dias_devolucion_compra           SMALLINT UNSIGNED NOT NULL,  -- RN-41
     minimo_sobrante_traslado         TINYINT UNSIGNED NOT NULL,   -- RN-14
+    horas_sesion                     TINYINT UNSIGNED NOT NULL,   -- RN-63
     CONSTRAINT ck_configuracion_unica CHECK (id = 1),
     CONSTRAINT ck_configuracion_multa CHECK (multa_por_dia > 0 AND multa_tope >= multa_por_dia),
     CONSTRAINT ck_configuracion_plazos CHECK (dias_atraso_perdido > 0 AND horas_confirmar_reserva_digital > 0
@@ -221,6 +222,19 @@ CREATE TABLE token_cuenta (
     CONSTRAINT uq_token_hash UNIQUE (token_hash),
     CONSTRAINT ck_token_expira CHECK (expira_en > creado_en),
     CONSTRAINT fk_token_cuenta FOREIGN KEY (id_cuenta) REFERENCES cuenta (id_cuenta) ON DELETE CASCADE
+);
+
+-- RN-63, RN-64 (Fase 3): sesión en BD. La cookie lleva un token aleatorio; aquí solo su hash SHA-256 en hex.
+-- Vigente ⇔ expira_en > NOW(); cerrar sesión = borrar la fila.
+CREATE TABLE sesion (
+    id_sesion   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_cuenta   INT UNSIGNED NOT NULL,
+    token_hash  CHAR(64) NOT NULL,
+    creada_en   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expira_en   DATETIME NOT NULL,
+    CONSTRAINT uq_sesion_token UNIQUE (token_hash),
+    CONSTRAINT ck_sesion_expira CHECK (expira_en > creada_en),
+    CONSTRAINT fk_sesion_cuenta FOREIGN KEY (id_cuenta) REFERENCES cuenta (id_cuenta) ON DELETE CASCADE
 );
 
 -- RN-33, RN-34: rol y sede. El administrador de red no tiene sede; los demás, exactamente una.

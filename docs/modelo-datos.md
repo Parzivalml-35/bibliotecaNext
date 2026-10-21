@@ -149,6 +149,7 @@ erDiagram
     cuenta ||--o| lector : "perfil"
     cuenta ||--o| empleado : "perfil"
     cuenta ||--o{ token_cuenta : "tokens"
+    cuenta ||--o{ sesion : "sesiones"
     tipo_lector ||--o{ lector : "define límites"
     ciudad ||--o{ lector : "vive en"
     sede |o--o{ empleado : "trabaja en"
@@ -174,6 +175,7 @@ erDiagram
         smallint minutos_pago_pedido
         smallint dias_devolucion_compra
         tinyint minimo_sobrante_traslado
+        tinyint horas_sesion
     }
     tipo_lector {
         int id_tipo_lector PK
@@ -201,6 +203,13 @@ erDiagram
         enum tipo
         datetime expira_en
         datetime usado_en "NULL"
+    }
+    sesion {
+        int id_sesion PK
+        int id_cuenta FK
+        char token_hash UK
+        datetime creada_en
+        datetime expira_en
     }
     lector {
         int id_lector PK
@@ -272,6 +281,7 @@ erDiagram
 | `configuracion` | C-04, valores iniciales, RN-14 | **Una sola fila** con columnas tipadas (`CHECK (id = 1)`), en vez de clave-valor: cada valor tiene su tipo y no se puede escribir mal el nombre. |
 | `tipo_lector` | RN-02, RN-12, RN-26, RN-45 | Todos los límites por tipo de lector. |
 | `cuenta` | RN-01, RN-31 | Sin columna de estado: se deduce de `fecha_verificacion`, `lector.fecha_validacion` y `fecha_desactivacion` (RN-01). |
+| `sesion` | RN-63, RN-64 | Agregada en la Fase 3. Como `token_cuenta`: se guarda el **hash** (SHA-256) del token, no el token. Vigente ⇔ `expira_en > NOW()` (calculado). Borrar la cuenta borra sus sesiones (`ON DELETE CASCADE`). |
 | `token_cuenta` | RN-32 | Se guarda el **hash** del token, no el token: si alguien lee la BD, no puede usar los enlaces. `tipo`: `verificar_correo`, `recuperar_contrasena`. Un solo uso (`usado_en`) y vencimiento (`expira_en`). |
 | `lector` | D-03, RN-02, RN-46 | Documento y validación quedan NULL hasta la validación en mostrador. `UNIQUE(tipo_documento, numero_documento)`. El carné de BD2 desaparece: lo identifica la cuenta y, tras validar, el documento. |
 | `empleado` | RN-33, RN-34 | `rol` ENUM: `bibliotecario`, `coordinador`, `admin_red`. `CHECK`: `admin_red` ⇔ `id_sede IS NULL`. `activo` reemplaza a `EstadoEmpleado` de BD2. |

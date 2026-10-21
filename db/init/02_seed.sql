@@ -9,7 +9,8 @@ SET NAMES utf8mb4;
 -- Reglas del seed:
 --   * Nunca ids a mano: se buscan por claves naturales (AUTO_INCREMENT no se revierte con ROLLBACK).
 --   * Fechas relativas a hoy: cada reconstrucción conserva los escenarios (vencido sigue vencido).
---   * password_hash es un marcador que no corresponde a ninguna contraseña; se reemplaza en la Fase 3.
+--   * password_hash es un marcador que no corresponde a ninguna contraseña. En desarrollo se asignan
+--     contraseñas reales con `pnpm db:claves-dev` (lee DEV_PASSWORD del .env; nada de contraseñas en el repo).
 --   * Las clasificaciones por edad de algunos títulos se asignaron para probar RN-46; no son oficiales.
 -- =====================================================================
 
@@ -20,8 +21,8 @@ SET @sin_clave = '!pendiente-fase-3';
 -- ---------------------------------------------------------------------
 INSERT INTO configuracion (id, max_renovaciones, multa_por_dia, multa_tope, dias_atraso_perdido,
                            horas_confirmar_reserva_digital, minutos_pago_pedido, dias_devolucion_compra,
-                           minimo_sobrante_traslado)
-VALUES (1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1);
+                           minimo_sobrante_traslado, horas_sesion)
+VALUES (1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8);
 
 INSERT INTO tipo_lector (nombre, max_prestamos_fisicos, dias_prestamo_fisico, max_prestamos_digitales,
                          dias_prestamo_digital, max_reservas_fisicas, max_reservas_digitales, dias_recoger_reserva)

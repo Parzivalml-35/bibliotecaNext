@@ -85,6 +85,9 @@
 | RN-33 | Roles de empleado: **bibliotecario** (préstamos, devoluciones, ubicar ejemplares, validar lectores, entregar pedidos), **coordinador de sede** (lo anterior + traslados, auditorías de estante y reportes de su sede) y **administrador de red** (catálogo, licencias, precios, secciones, tipos de lector, configuración y empleados). |
 | RN-34 | Bibliotecario y coordinador tienen **una sede asignada** y solo operan en ella; cada operación registra el empleado y la sede. El administrador de red no tiene sede y ve todas. |
 | RN-35 | Los permisos se verifican **en el servidor** en cada operación; ocultar un botón en la interfaz no es una medida de seguridad. |
+| RN-62 | Las contraseñas se guardan con **scrypt** (sal aleatoria por contraseña); junto al hash se guardan sus parámetros, para poder endurecerlos después sin invalidar las contraseñas existentes. |
+| RN-63 | **Sesión en base de datos**: al iniciar sesión se genera un token aleatorio; la cookie lleva el token y la BD guarda solo su hash, con vencimiento de `horas_sesion` (configuración). La cookie es `httpOnly`, `sameSite=lax` y `secure` en producción. |
+| RN-64 | Una sesión vale si existe, no venció y la cuenta no está desactivada; para el panel, además, el perfil de empleado debe estar activo. Se verifica en el servidor en cada petición (RN-35). Cerrar sesión borra la fila; desactivar una cuenta o un empleado deja fuera a sus sesiones en la siguiente petición. |
 
 ## Compras
 
@@ -122,6 +125,7 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 | Minutos para pagar un pedido | 30 |
 | Días para devolver una compra física | 15 |
 | Mínimo de copias disponibles de sobra para sugerir un traslado (RN-14) | 1 |
+| Horas que dura una sesión (RN-63) | 8 |
 
 ## Reglas transversales
 
