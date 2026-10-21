@@ -194,11 +194,17 @@ CREATE TABLE configuracion (
     horas_sesion                     TINYINT UNSIGNED NOT NULL,   -- RN-63
     horas_verificacion_correo        SMALLINT UNSIGNED NOT NULL,  -- RN-70
     id_tipo_lector_registro          INT UNSIGNED NOT NULL,       -- RN-70: tipo de lector al registrarse
+    max_fallos_por_correo            TINYINT UNSIGNED NOT NULL,   -- RN-73
+    max_fallos_por_ip                SMALLINT UNSIGNED NOT NULL,  -- RN-73
+    max_registros_por_ip             TINYINT UNSIGNED NOT NULL,   -- RN-73
+    minutos_ventana_intentos         SMALLINT UNSIGNED NOT NULL,  -- RN-73
     CONSTRAINT ck_configuracion_unica CHECK (id = 1),
     CONSTRAINT ck_configuracion_multa CHECK (multa_por_dia > 0 AND multa_tope >= multa_por_dia),
     CONSTRAINT ck_configuracion_plazos CHECK (dias_atraso_perdido > 0 AND horas_confirmar_reserva_digital > 0
                                               AND minutos_pago_pedido > 0 AND dias_devolucion_compra > 0
                                               AND horas_verificacion_correo > 0),
+    CONSTRAINT ck_configuracion_intentos CHECK (max_fallos_por_correo > 0 AND max_fallos_por_ip > 0
+                                                AND max_registros_por_ip > 0 AND minutos_ventana_intentos > 0),
     CONSTRAINT fk_configuracion_tipo_lector FOREIGN KEY (id_tipo_lector_registro) REFERENCES tipo_lector (id_tipo_lector)
 );
 
@@ -239,6 +245,21 @@ CREATE TABLE sesion (
     CONSTRAINT uq_sesion_token UNIQUE (token_hash),
     CONSTRAINT ck_sesion_expira CHECK (expira_en > creada_en),
     CONSTRAINT fk_sesion_cuenta FOREIGN KEY (id_cuenta) REFERENCES cuenta (id_cuenta) ON DELETE CASCADE
+);
+
+-- RN-73 (Fase 4b): bitácora de intentos de inicio de sesión y registro, para limitar los ataques de fuerza
+-- bruta. Sin FK a cuenta a propósito: también se anotan intentos con correos que no existen. Se purga sola
+-- (las filas de más de un día se borran al anotar una nueva).
+CREATE TABLE intento_acceso (
+    id_intento  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    tipo        ENUM('login', 'registro') NOT NULL,
+    correo      VARCHAR(254) NOT NULL,
+    ip          VARCHAR(45) NOT NULL,          -- 45: el largo máximo de una IPv6 en texto
+    exito       BOOLEAN NOT NULL,
+    fecha       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_intento_correo (tipo, correo, fecha),
+    INDEX idx_intento_ip (tipo, ip, fecha),
+    INDEX idx_intento_fecha (fecha)
 );
 
 -- RN-33, RN-34: rol y sede. El administrador de red no tiene sede; los demás, exactamente una.

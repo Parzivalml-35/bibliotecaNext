@@ -15,7 +15,8 @@ import {
   usarTokenYVerificar,
 } from "@/lib/data/lectores";
 import type { EstadoFormulario } from "@/lib/definitions";
-import { empleadoDeMostrador, ErrorDeRegla, idDe, operar, texto } from "@/lib/actions/reglas";
+import { empleadoDeMostrador, ErrorDeRegla, idDe, ipDeLaPeticion, operar, texto } from "@/lib/actions/reglas";
+import { anotarIntento, registroBloqueado } from "@/lib/data/intentos";
 
 // Registro y verificación de lectores (D-02, RN-32, RN-70) y validación en mostrador (D-03).
 
@@ -44,6 +45,11 @@ export async function registrarLector(_estadoAnterior: EstadoFormulario, datos: 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(nacimiento) || Number.isNaN(fecha.getTime()) || edad < 0 || edad > 120) {
     return { error: "La fecha de nacimiento no es válida.", valores };
   }
+
+  // RN-73: un límite de registros por IP frena la creación masiva de cuentas (y de "correos" enviados).
+  const ip = await ipDeLaPeticion();
+  if (await registroBloqueado(ip)) return { error: "Demasiados registros desde esta conexión. Inténtalo más tarde.", valores };
+  await anotarIntento("registro", correo, ip, true);
 
   // El origen sale de la propia petición (un POST de Server Action trae Origin): el enlace apunta al sitio
   // desde el que se registró, sin variable de entorno nueva.

@@ -180,6 +180,10 @@ erDiagram
         tinyint horas_sesion
         smallint horas_verificacion_correo
         int id_tipo_lector_registro FK
+        tinyint max_fallos_por_correo
+        smallint max_fallos_por_ip
+        tinyint max_registros_por_ip
+        smallint minutos_ventana_intentos
     }
     tipo_lector {
         int id_tipo_lector PK
@@ -289,6 +293,7 @@ erDiagram
 | `tipo_lector` | RN-02, RN-12, RN-26, RN-45 | Todos los límites por tipo de lector. |
 | `cuenta` | RN-01, RN-31 | Sin columna de estado: se deduce de `fecha_verificacion`, `lector.fecha_validacion` y `fecha_desactivacion` (RN-01). |
 | `sesion` | RN-63, RN-64 | Agregada en la Fase 3. Como `token_cuenta`: se guarda el **hash** (SHA-256) del token, no el token. Vigente ⇔ `expira_en > NOW()` (calculado). Borrar la cuenta borra sus sesiones (`ON DELETE CASCADE`). |
+| `intento_acceso` | RN-73 (Fase 4b) | Bitácora de inicios de sesión y registros (correo, IP, éxito, fecha) para limitar la fuerza bruta. **Sin FK** a `cuenta`: también se anotan correos que no existen. Índices por (tipo, correo, fecha) y (tipo, ip, fecha) para contar la ventana; las filas de más de un día se purgan al anotar. |
 | `token_cuenta` | RN-32 | Se guarda el **hash** del token, no el token: si alguien lee la BD, no puede usar los enlaces. `tipo`: `verificar_correo`, `recuperar_contrasena`. Un solo uso (`usado_en`) y vencimiento (`expira_en`). |
 | `lector` | D-03, RN-02, RN-46 | Documento y validación quedan NULL hasta la validación en mostrador. `UNIQUE(tipo_documento, numero_documento)`. El carné de BD2 desaparece: lo identifica la cuenta y, tras validar, el documento. |
 | `empleado` | RN-33, RN-34 | `rol` ENUM: `bibliotecario`, `coordinador`, `admin_red`. `CHECK`: `admin_red` ⇔ `id_sede IS NULL`. `activo` reemplaza a `EstadoEmpleado` de BD2. |

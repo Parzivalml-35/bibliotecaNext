@@ -96,6 +96,7 @@
 | RN-62 | Las contraseñas se guardan con **scrypt** (sal aleatoria por contraseña); junto al hash se guardan sus parámetros, para poder endurecerlos después sin invalidar las contraseñas existentes. |
 | RN-63 | **Sesión en base de datos**: al iniciar sesión se genera un token aleatorio; la cookie lleva el token y la BD guarda solo su hash, con vencimiento de `horas_sesion` (configuración). La cookie es `httpOnly`, `sameSite=lax` y `secure` en producción. |
 | RN-64 | Una sesión vale si existe, no venció y la cuenta no está desactivada; para el panel, además, el perfil de empleado debe estar activo. Se verifica en el servidor en cada petición (RN-35). Cerrar sesión borra la fila; desactivar una cuenta o un empleado deja fuera a sus sesiones en la siguiente petición. |
+| RN-73 | **Límite de intentos**: cada inicio de sesión y cada registro se anota con correo, IP, resultado y fecha. Se rechaza, **sin verificar la contraseña**, un inicio de sesión con más de `max_fallos_por_correo` fallos para ese correo, o más de `max_fallos_por_ip` desde esa IP, dentro de los últimos `minutos_ventana_intentos` (los fallos de un correo anteriores a su último acceso correcto no cuentan). Un registro se rechaza con más de `max_registros_por_ip` desde la misma IP en la ventana. El mensaje no dice si el correo existe. |
 
 ## Compras
 
@@ -136,6 +137,8 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 | Horas que dura una sesión (RN-63) | 8 |
 | Horas para usar el enlace de verificación del correo (RN-70) | 24 |
 | Tipo de lector al registrarse (RN-70) | Estándar |
+| Fallos de inicio de sesión por correo / por IP, y registros por IP (RN-73) | 5 / 20 / 5 |
+| Ventana de conteo de intentos (RN-73) | 15 minutos |
 
 ## Reglas transversales
 

@@ -79,6 +79,7 @@ simulado: `db/init/03_catalogo_simulado.sql` (96 libros ficticios, ISBN `999…`
 | C | `/panel/lectores` (buscar, validar, cobrar, anular), `/panel/ubicar` (estante sugerido), `/panel/perdidos` | Hecho |
 | D | `/panel/tablero` (indicadores, traslados sugeridos, detector RN-24) para coordinador y administrador | Hecho |
 | Catálogo | 112 libros, paginación con ventana (`1 … 6 7 8 … 13`) | Hecho |
+| 4b | Límite de intentos (RN-73): tabla `intento_acceso`, rechazo antes de scrypt por correo e IP, límite de registros por IP | Hecho (pendiente de reconstruir la BD y probar) |
 | Verificación | 56 casos de punta a punta contra `next start` en el puerto 3001 (para leer el correo simulado), BD revisada tras cada bloque; detector RN-24 = 0 | Hecho |
 
 ## Próximo paso
@@ -86,11 +87,19 @@ simulado: `db/init/03_catalogo_simulado.sql` (96 libros ficticios, ISBN `999…`
 1. Probar en el navegador (con JavaScript): registro, verificar (el enlace sale en la consola de `pnpm dev`), reservar,
    Mi cuenta, pasarela simulada y el panel completo.
 2. `/documentar` la Fase 4.
-3. Fase 5 (propuesta): préstamo digital (RN-25 a RN-30, RN-44, RN-54 a RN-56). Después: compras, traslados y auditorías, calidad.
+3. Fase 5 (propuesta): préstamo digital (RN-25 a RN-30, RN-44, RN-54 a RN-56).
+4. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
+   verifica una firma HMAC, para pedidos y multas; hoy la pasarela simulada se confirma con un botón).
+5. Fase 7: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
+   (antes: regla para su multa de reposición: anular si está pendiente, ¿reembolsar si ya se pagó?).
+6. Fase 8: calidad (Lighthouse, accesibilidad, build).
 
 ## Pendientes y avisos
 
 - En el otro PC: **reconstruir la BD** (cambió el esquema y hay un `03_catalogo_simulado.sql` nuevo) y correr `pnpm db:claves-dev`.
+- RN-73 y la IP: Next 16 solo rellena `x-forwarded-for` si la petición no lo trae (`server/base-server.js`), así que un
+  cliente puede mandarlo inventado. Se toma la ÚLTIMA entrada (la que agrega un proxy de confianza). Sin proxy delante,
+  el límite por IP se puede evadir; el límite por correo no. Al desplegar: proxy que agregue la IP real.
 - Tras una Server Action con `revalidatePath`, si el formulario deja de renderizarse (la reserva ya existe, la multa ya
   se pagó), su mensaje de `useActionState` se pierde con él: el resultado se muestra en el contenido nuevo de la página.
 - `notFound()` bajo `loading.tsx` también responde 200 (`NEXT_HTTP_ERROR_FALLBACK;404` en el stream), como `redirect()`.

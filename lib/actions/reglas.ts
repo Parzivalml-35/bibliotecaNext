@@ -1,5 +1,6 @@
 import "server-only";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import type { PoolConnection } from "mysql2/promise";
 import {
   asignarReserva,
@@ -161,4 +162,14 @@ export async function cancelarOtrasReservasDeLaObra(
     canceladas++;
   }
   return canceladas;
+}
+
+// IP de quien hace la petición, para RN-73. Next 16 solo rellena x-forwarded-for con la IP del socket si la
+// petición NO lo trae (node_modules/next/dist/server/base-server.js): un cliente puede mandarlo inventado.
+// Detrás de un proxy que AGREGA la IP real al final (Nginx con proxy_add_x_forwarded_for), la última entrada es
+// la confiable, y por eso se toma esa. Con Next expuesto sin proxy, el límite por IP se puede evadir; el límite
+// por correo no depende de la IP.
+export async function ipDeLaPeticion(): Promise<string> {
+  const lista = (await headers()).get("x-forwarded-for") ?? "";
+  return lista.split(",").map((parte) => parte.trim()).filter(Boolean).at(-1)?.slice(0, 45) ?? "desconocida";
 }

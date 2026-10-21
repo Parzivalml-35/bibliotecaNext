@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { hashearContrasena, verificarContrasena } from "@/lib/contrasenas";
+import { ipDeLaPeticion } from "@/lib/actions/reglas";
+import { anotarIntento, loginBloqueado } from "@/lib/data/intentos";
 import { buscarCuentaPorCorreo } from "@/lib/data/sesiones";
 import type { EstadoFormulario } from "@/lib/definitions";
 import { cerrarSesion, crearSesion } from "@/lib/sesion";
@@ -27,9 +29,17 @@ export async function iniciarSesion(_estadoAnterior: EstadoFormulario, datos: Fo
   // salvo para hacer trabajar a scrypt de más.
   if (correo.length > 254 || contrasena.length > 256) return { error: ERROR_CREDENCIALES, valores };
 
+  // RN-73: con demasiados fallos recientes se rechaza ANTES de scrypt (cada intento cuesta ~300 ms de CPU:
+  // sin esto, el atacante además hace trabajar al servidor). Se cuenta igual exista o no el correo.
+  const ip = await ipDeLaPeticion();
+  if (await loginBloqueado(correo, ip)) {
+    return { error: "Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.", valores };
+  }
+
   const cuenta = await buscarCuentaPorCorreo(correo);
   hashDeRelleno ??= hashearContrasena("relleno-para-igualar-tiempos");
   const correcta = await verificarContrasena(contrasena, cuenta?.password_hash ?? (await hashDeRelleno));
+  await anotarIntento("login", correo, ip, Boolean(cuenta && correcta));
 
   // Mismo mensaje si no existe la cuenta o si la contraseña falla: no se confirma qué correos existen.
   if (!cuenta || !correcta) return { error: ERROR_CREDENCIALES, valores };

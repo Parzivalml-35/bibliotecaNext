@@ -28,8 +28,10 @@ VALUES ('Estándar', 3, 14, 2, 14, 3, 2, 3),
 -- Va después de tipo_lector: id_tipo_lector_registro apunta al tipo con que se registra un lector (RN-70).
 INSERT INTO configuracion (id, max_renovaciones, multa_por_dia, multa_tope, dias_atraso_perdido,
                            horas_confirmar_reserva_digital, minutos_pago_pedido, dias_devolucion_compra,
-                           minimo_sobrante_traslado, horas_sesion, horas_verificacion_correo, id_tipo_lector_registro)
-SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector FROM tipo_lector WHERE nombre = 'Estándar';
+                           minimo_sobrante_traslado, horas_sesion, horas_verificacion_correo, id_tipo_lector_registro,
+                           max_fallos_por_correo, max_fallos_por_ip, max_registros_por_ip, minutos_ventana_intentos)
+SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector, 5, 20, 5, 15
+FROM tipo_lector WHERE nombre = 'Estándar';
 
 INSERT INTO pais (nombre) VALUES
   ('Colombia'), ('Argentina'), ('México'), ('Chile'), ('Perú'), ('Uruguay'), ('Francia'), ('Estados Unidos');
