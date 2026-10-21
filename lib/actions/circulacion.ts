@@ -1,58 +1,44 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import type { PoolConnection } from "mysql2/promise";
 import {
-  asignarReserva,
   bloquearEjemplarPorCodigo,
-  bloquearEjemplarPorId,
   bloquearLectorPorDocumento,
   bloquearPrestamoAbiertoDelEjemplar,
+  bloquearPrestamoParaPerdido,
   bloquearPrestamoParaRenovar,
   bloquearPrimeraEnCola,
   bloquearReservaAsignada,
-  bloquearReservasVencidas,
   cambiarEstadoEjemplar,
   cumplirReserva,
   extenderPrestamo,
   hayReservaEnCola,
   insertarMultaPorRetraso,
+  insertarMultaReposicion,
   insertarPrestamo,
-  marcarReservaVencida,
   registrarDevolucion,
   situacionDelLector,
-  type EstadoEjemplar,
+  ubicacionEsDeSede,
 } from "@/lib/data/circulacion";
-import { enTransaccion } from "@/lib/db";
 import type { EstadoFormulario } from "@/lib/definitions";
 import { fechaCorta, pesos } from "@/lib/formato";
-import { exigirEmpleado } from "@/lib/sesion";
+import {
+  cancelarOtrasReservasDeLaObra,
+  empleadoDeMostrador,
+  ErrorDeRegla,
+  idDe,
+  liberarEjemplar,
+  NOMBRE_ESTADO,
+  operar,
+  procesarReservasVencidas,
+  texto,
+} from "@/lib/actions/reglas";
 
-// Préstamo, devolución y renovación de ejemplares físicos (Fase 3, partes B y C).
+// Circulación en mostrador: préstamo, devolución, renovación (Fase 3), ubicar y declarar perdido (Fase 4).
 // Cada acción: 1) exige empleado con sede (RN-33, RN-34, RN-35); 2) valida la entrada; 3) aplica las reglas
 // dentro de UNA transacción (RN-23); 4) devuelve un mensaje para useActionState.
-// Recordatorio: todo lo exportado aquí es un endpoint público; los ayudantes NO se exportan.
-
-// Una regla de negocio que impide la operación. Se lanza dentro de la transacción para que enTransaccion
-// haga ROLLBACK, y se convierte en un mensaje para el formulario. Cualquier otro error es un fallo real.
-class ErrorDeRegla extends Error {}
-
-// RN-33: préstamos y devoluciones son de bibliotecario y coordinador. El administrador de red no tiene sede
-// (RN-34) y no opera en mostrador.
-const ROLES_DE_MOSTRADOR = ["bibliotecario", "coordinador"] as const;
-
-async function empleadoDeMostrador() {
-  const empleado = await exigirEmpleado([...ROLES_DE_MOSTRADOR]);
-  // El CHECK ck_empleado_sede garantiza que estos roles tienen sede; se comprueba igual para que TS lo sepa.
-  if (empleado.idSede === null) throw new Error("Empleado de mostrador sin sede");
-  return { ...empleado, idSede: empleado.idSede };
-}
+// Todo lo exportado aquí es un endpoint público; los ayudantes viven en lib/actions/reglas.ts.
 
 const TIPOS_DOCUMENTO = ["CC", "TI", "CE", "PASAPORTE"];
-
-function texto(datos: FormData, campo: string): string {
-  return String(datos.get(campo) ?? "").trim();
-}
 
 // Códigos de barras: letras, números y guion (BN-0001). Se normalizan a mayúsculas.
 function codigoDeBarras(datos: FormData): string | null {
@@ -60,85 +46,8 @@ function codigoDeBarras(datos: FormData): string | null {
   return /^[A-Z0-9-]{1,30}$/.test(codigo) ? codigo : null;
 }
 
-// Ejecuta la operación y traduce el resultado. Si es una regla, el mensaje va al formulario; si no,
-// se registra en el servidor y el usuario ve un mensaje genérico (no se filtran detalles internos).
-async function operar(
-  valores: Record<string, string>,
-  trabajo: (conexion: PoolConnection) => Promise<string>,
-): Promise<EstadoFormulario> {
-  try {
-    const exito = await enTransaccion(trabajo);
-    revalidatePath("/panel", "layout"); // el listado del panel y las demás páginas bajo /panel
-    return { exito };
-  } catch (error) {
-    if (error instanceof ErrorDeRegla) return { error: error.message, valores };
-    console.error("Error en una operación de circulación:", error);
-    return { error: "No se pudo completar la operación. Inténtalo de nuevo.", valores };
-  }
-}
-
-// RN-11, RN-20, RN-47: a dónde va un ejemplar que queda libre (devuelto, o apartado para una reserva que
-// venció) en `idSede`. Si hay cola por esa obra en esa sede, se aparta para la primera reserva; si no,
-// vuelve a su estante (si lo tiene en esta sede) o queda por ubicar. Devuelve una frase para el empleado.
-async function liberarEjemplar(
-  conexion: PoolConnection,
-  ejemplar: { id_ejemplar: number; id_libro: number; id_sede: number; id_ubicacion: number | null; ubicacion: string | null },
-  estadoActual: EstadoEjemplar,
-  idSede: number,
-): Promise<string> {
-  // La ubicación es de una sede concreta (FK compuesta): si el ejemplar cambia de sede, la pierde.
-  const mismaSede = ejemplar.id_sede === idSede;
-  const idUbicacion = mismaSede ? ejemplar.id_ubicacion : null;
-
-  const siguiente = await bloquearPrimeraEnCola(conexion, ejemplar.id_libro, idSede);
-  let nuevoEstado: EstadoEjemplar;
-  let destino: string;
-  if (siguiente) {
-    nuevoEstado = "apartado"; // RN-11: antes de dejarlo disponible, la cola
-    destino = `apártalo en mostrador para la reserva de ${siguiente.lector}`;
-  } else if (idUbicacion !== null) {
-    nuevoEstado = "disponible"; // RN-47: en su sede vuelve a su estante sin pasar por "por ubicar"
-    destino = `devuélvelo a su estante (${ejemplar.ubicacion})`;
-  } else {
-    nuevoEstado = "por_ubicar"; // RN-13, RN-20: llegó de otra sede (o no tenía estante)
-    destino = "queda por ubicar en esta sede";
-  }
-
-  // RN-13: colección flotante. El ejemplar pasa a pertenecer a la sede donde queda libre.
-  const cambiado = await cambiarEstadoEjemplar(conexion, ejemplar.id_ejemplar, estadoActual, {
-    estado: nuevoEstado,
-    idSede,
-    idUbicacion,
-  });
-  if (!cambiado) throw new ErrorDeRegla("El ejemplar cambió de estado mientras se registraba. Vuelve a intentarlo.");
-  if (siguiente) await asignarReserva(conexion, siguiente.id_reserva, ejemplar.id_ejemplar, siguiente.dias_recoger_reserva);
-  return destino;
-}
-
-// RN-48: vencimiento perezoso. Antes de operar sobre una obra en una sede, las reservas asignadas que no se
-// recogieron a tiempo pasan a `vencida` y su ejemplar se libera (para el siguiente de la cola, RN-10).
-async function procesarReservasVencidas(conexion: PoolConnection, idLibro: number, idSede: number) {
-  const vencidas = await bloquearReservasVencidas(conexion, idLibro, idSede);
-  for (const reserva of vencidas) {
-    await marcarReservaVencida(conexion, reserva.id_reserva);
-    const ejemplar = await bloquearEjemplarPorId(conexion, reserva.id_ejemplar);
-    if (ejemplar?.estado === "apartado") await liberarEjemplar(conexion, ejemplar, "apartado", ejemplar.id_sede);
-  }
-}
-
-const NOMBRE_ESTADO: Record<EstadoEjemplar, string> = {
-  disponible: "disponible",
-  apartado: "apartado para una reserva",
-  prestado: "prestado",
-  por_ubicar: "por ubicar (aún no tiene estante en esta sede)",
-  en_transito: "en tránsito",
-  en_reparacion: "en reparación",
-  perdido: "perdido",
-  de_baja: "dado de baja",
-};
-
 // ---------------------------------------------------------------------
-// Préstamo (RN-02, RN-03, RN-10, RN-23, RN-34, RN-43, RN-46, RN-48, D-03)
+// Préstamo (RN-02, RN-03, RN-10, RN-23, RN-34, RN-43, RN-46, RN-48, RN-68, RN-69, D-03)
 // ---------------------------------------------------------------------
 export async function prestarEjemplar(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
   const empleado = await empleadoDeMostrador();
@@ -184,14 +93,22 @@ export async function prestarEjemplar(_estadoAnterior: EstadoFormulario, datos: 
       throw new ErrorDeRegla(`«${ejemplar.titulo}» es para ${ejemplar.clasificacion}; ${lector.nombre} tiene ${lector.edad} años.`);
     }
 
-    // Disponible, o apartado para una reserva de ESTE lector (recoger la reserva, RN-10).
-    let reserva = null;
+    // Apartado para una reserva de ESTE lector (recoger la reserva, RN-10), o disponible.
+    let idReservaCumplida: number | null = null;
     if (ejemplar.estado === "apartado") {
-      reserva = await bloquearReservaAsignada(conexion, ejemplar.id_ejemplar);
+      const reserva = await bloquearReservaAsignada(conexion, ejemplar.id_ejemplar);
       if (!reserva || reserva.id_lector !== lector.id_lector) {
         throw new ErrorDeRegla(`El ejemplar ${codigo} está apartado para la reserva de ${reserva?.lector ?? "otro lector"}.`);
       }
-    } else if (ejemplar.estado !== "disponible") {
+      idReservaCumplida = reserva.id_reserva;
+    } else if (ejemplar.estado === "disponible") {
+      // RN-69: la cola manda. Con lectores en cola por esta obra en esta sede, la copia es del primero.
+      const primera = await bloquearPrimeraEnCola(conexion, ejemplar.id_libro, ejemplar.id_sede);
+      if (primera && primera.id_lector !== lector.id_lector) {
+        throw new ErrorDeRegla(`Hay lectores en cola por «${ejemplar.titulo}» en esta sede: la copia es para ${primera.lector}.`);
+      }
+      if (primera) idReservaCumplida = primera.id_reserva; // el primero de la cola se la lleva: reserva cumplida
+    } else {
       throw new ErrorDeRegla(`El ejemplar ${codigo} no se puede prestar: está ${NOMBRE_ESTADO[ejemplar.estado]}.`);
     }
 
@@ -210,9 +127,13 @@ export async function prestarEjemplar(_estadoAnterior: EstadoFormulario, datos: 
       idEmpleado: empleado.idEmpleado,
       dias: lector.dias_prestamo_fisico,
     });
-    if (reserva) await cumplirReserva(conexion, reserva.id_reserva, idPrestamo);
+    if (idReservaCumplida) await cumplirReserva(conexion, idReservaCumplida, idPrestamo, ejemplar.id_ejemplar);
+    // RN-68: si además tenía reservada esta obra en otra sede, esa reserva ya no tiene sentido.
+    const canceladas = await cancelarOtrasReservasDeLaObra(conexion, lector.id_lector, ejemplar.id_libro, idReservaCumplida);
 
-    return `Prestado «${ejemplar.titulo}» (${codigo}) a ${lector.nombre}. Vence el ${fechaCorta(vence)}.${reserva ? " Su reserva quedó cumplida." : ""}`;
+    return `Prestado «${ejemplar.titulo}» (${codigo}) a ${lector.nombre}. Vence el ${fechaCorta(vence)}.` +
+      (idReservaCumplida ? " Su reserva quedó cumplida." : "") +
+      (canceladas > 0 ? " Se canceló su otra reserva de esta obra (RN-68)." : "");
   });
 }
 
@@ -228,6 +149,9 @@ export async function devolverEjemplar(_estadoAnterior: EstadoFormulario, datos:
   return operar(valores, async (conexion) => {
     const ejemplar = await bloquearEjemplarPorCodigo(conexion, codigo);
     if (!ejemplar) throw new ErrorDeRegla(`No existe un ejemplar con el código ${codigo}.`);
+    if (ejemplar.estado === "perdido") {
+      throw new ErrorDeRegla(`El ejemplar ${codigo} está declarado perdido; su recuperación no está implementada todavía.`);
+    }
     const prestamo = await bloquearPrestamoAbiertoDelEjemplar(conexion, ejemplar.id_ejemplar);
     if (!prestamo) throw new ErrorDeRegla(`El ejemplar ${codigo} no tiene un préstamo abierto.`);
 
@@ -254,8 +178,8 @@ export async function devolverEjemplar(_estadoAnterior: EstadoFormulario, datos:
 // ---------------------------------------------------------------------
 export async function renovarPrestamo(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
   const empleado = await empleadoDeMostrador();
-  const idPrestamo = Number(texto(datos, "id_prestamo"));
-  if (!Number.isInteger(idPrestamo) || idPrestamo <= 0) return { error: "Préstamo no válido." };
+  const idPrestamo = idDe(datos, "id_prestamo");
+  if (!idPrestamo) return { error: "Préstamo no válido." };
 
   return operar({}, async (conexion) => {
     const prestamo = await bloquearPrestamoParaRenovar(conexion, idPrestamo);
@@ -272,5 +196,56 @@ export async function renovarPrestamo(_estadoAnterior: EstadoFormulario, datos: 
 
     const vence = await extenderPrestamo(conexion, prestamo.id_prestamo, prestamo.dias_prestamo_fisico);
     return `Renovado. Nuevo vencimiento: ${fechaCorta(vence)}.`;
+  });
+}
+
+// ---------------------------------------------------------------------
+// Ubicar un ejemplar (RN-17, RN-20, RN-69)
+// ---------------------------------------------------------------------
+export async function ubicarEjemplar(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const empleado = await empleadoDeMostrador();
+  const codigo = codigoDeBarras(datos);
+  const idUbicacion = idDe(datos, "id_ubicacion");
+  if (!codigo || !idUbicacion) return { error: "Elige un estante." };
+
+  return operar({}, async (conexion) => {
+    const ejemplar = await bloquearEjemplarPorCodigo(conexion, codigo);
+    if (!ejemplar || ejemplar.id_sede !== empleado.idSede) throw new ErrorDeRegla(`El ejemplar ${codigo} no está en tu sede.`);
+    if (ejemplar.estado !== "por_ubicar") throw new ErrorDeRegla(`El ejemplar ${codigo} ya no está por ubicar.`);
+    // RN-17: solo ubicaciones del catálogo de la sede (el id viene del navegador: se comprueba).
+    const etiqueta = await ubicacionEsDeSede(conexion, idUbicacion, empleado.idSede);
+    if (!etiqueta) throw new ErrorDeRegla("Ese estante no es de tu sede.");
+
+    await procesarReservasVencidas(conexion, ejemplar.id_libro, empleado.idSede); // RN-48
+    // RN-69: si hay cola, queda apartado (con su estante ya asignado) en vez de disponible.
+    const destino = await liberarEjemplar(conexion, ejemplar, "por_ubicar", empleado.idSede, { id: idUbicacion, etiqueta });
+    return `${codigo} («${ejemplar.titulo}») ubicado en ${etiqueta}. Siguiente paso: ${destino}.`;
+  });
+}
+
+// ---------------------------------------------------------------------
+// Declarar perdido (RN-06, RN-49, RN-71)
+// ---------------------------------------------------------------------
+export async function declararPerdido(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const empleado = await empleadoDeMostrador();
+  const idPrestamo = idDe(datos, "id_prestamo");
+  if (!idPrestamo) return { error: "Préstamo no válido." };
+
+  return operar({}, async (conexion) => {
+    const prestamo = await bloquearPrestamoParaPerdido(conexion, idPrestamo);
+    if (!prestamo || prestamo.id_sede_prestamo !== empleado.idSede) throw new ErrorDeRegla("Préstamo no encontrado en tu sede.");
+    // RN-49: solo desde la lista calculada (más de dias_atraso_perdido días). Se vuelve a comprobar aquí.
+    if (prestamo.dias_atraso <= prestamo.dias_atraso_perdido) {
+      throw new ErrorDeRegla(`Solo se declara perdido con más de ${prestamo.dias_atraso_perdido} días de atraso.`);
+    }
+    const cambiado = await cambiarEstadoEjemplar(conexion, prestamo.id_ejemplar, "prestado", {
+      estado: "perdido",
+      idSede: empleado.idSede,
+      idUbicacion: null,
+    });
+    if (!cambiado) throw new ErrorDeRegla("El ejemplar cambió de estado mientras se registraba. Vuelve a intentarlo.");
+    // RN-06: multa de reposición. RN-71: el préstamo queda abierto pero ya no cuenta como vencido.
+    await insertarMultaReposicion(conexion, prestamo.id_prestamo, prestamo.valor_reposicion);
+    return `${prestamo.codigo_barras} («${prestamo.titulo}») declarado perdido. Multa de reposición para ${prestamo.lector}: ${pesos(prestamo.valor_reposicion)}.`;
   });
 }

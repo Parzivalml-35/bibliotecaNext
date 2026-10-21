@@ -49,6 +49,7 @@ export type LibroDetalle = {
   sinopsis: string | null;
   editorial: string;
   clasificacion: string; // ej. "Todo público", "+15" (RN-46)
+  edad_minima: number; // RN-46: para comparar con la edad del lector
   genero: string; // principal: decide sección y color (RN-19)
   seccion: string;
   color_hex: string;
@@ -94,9 +95,15 @@ export type UsuarioSesion = {
     idSede: number | null; // null solo para admin_red (RN-34)
     sede: string | null;
   } | null; // null si la cuenta no tiene perfil de empleado activo
+  lector: {
+    idLector: number;
+    nombre: string;
+    verificada: boolean; // RN-32: sin verificar no reserva ni paga en línea
+  } | null; // null si la cuenta no tiene perfil de lector
 };
 
 export type EmpleadoSesion = NonNullable<UsuarioSesion["empleado"]>;
+export type LectorSesion = NonNullable<UsuarioSesion["lector"]>;
 
 // Estado que una Server Action devuelve a su formulario a través de useActionState.
 export type EstadoFormulario = {

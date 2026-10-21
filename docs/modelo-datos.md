@@ -159,6 +159,8 @@ erDiagram
     empleado ||--o{ prestamo_fisico : "presta / recibe"
     sede ||--o{ prestamo_fisico : "sede de préstamo / devolución"
     prestamo_fisico ||--o{ multa : "genera"
+    tipo_lector ||--o{ configuracion : "tipo al registrarse"
+    empleado |o--o{ multa : "anula"
     lector ||--o{ reserva_fisica : "reserva"
     libro ||--o{ reserva_fisica : "obra"
     sede ||--o{ reserva_fisica : "recoge en"
@@ -176,6 +178,8 @@ erDiagram
         smallint dias_devolucion_compra
         tinyint minimo_sobrante_traslado
         tinyint horas_sesion
+        smallint horas_verificacion_correo
+        int id_tipo_lector_registro FK
     }
     tipo_lector {
         int id_tipo_lector PK
@@ -258,6 +262,9 @@ erDiagram
         datetime fecha_generada
         enum estado
         datetime fecha_pago "NULL"
+        datetime fecha_anulacion "NULL"
+        int id_empleado_anula FK "NULL"
+        varchar motivo_anulacion "NULL"
     }
     reserva_fisica {
         int id_reserva PK
@@ -278,7 +285,7 @@ erDiagram
 
 | Tabla | Reglas | Notas de diseño |
 |---|---|---|
-| `configuracion` | C-04, valores iniciales, RN-14 | **Una sola fila** con columnas tipadas (`CHECK (id = 1)`), en vez de clave-valor: cada valor tiene su tipo y no se puede escribir mal el nombre. |
+| `configuracion` | C-04, valores iniciales, RN-14, RN-70 | **Una sola fila** con columnas tipadas (`CHECK (id = 1)`), en vez de clave-valor: cada valor tiene su tipo y no se puede escribir mal el nombre. Se crea después de `tipo_lector` por la FK `id_tipo_lector_registro` (tipo con que se registra un lector). |
 | `tipo_lector` | RN-02, RN-12, RN-26, RN-45 | Todos los límites por tipo de lector. |
 | `cuenta` | RN-01, RN-31 | Sin columna de estado: se deduce de `fecha_verificacion`, `lector.fecha_validacion` y `fecha_desactivacion` (RN-01). |
 | `sesion` | RN-63, RN-64 | Agregada en la Fase 3. Como `token_cuenta`: se guarda el **hash** (SHA-256) del token, no el token. Vigente ⇔ `expira_en > NOW()` (calculado). Borrar la cuenta borra sus sesiones (`ON DELETE CASCADE`). |
@@ -286,7 +293,7 @@ erDiagram
 | `lector` | D-03, RN-02, RN-46 | Documento y validación quedan NULL hasta la validación en mostrador. `UNIQUE(tipo_documento, numero_documento)`. El carné de BD2 desaparece: lo identifica la cuenta y, tras validar, el documento. |
 | `empleado` | RN-33, RN-34 | `rol` ENUM: `bibliotecario`, `coordinador`, `admin_red`. `CHECK`: `admin_red` ⇔ `id_sede IS NULL`. `activo` reemplaza a `EstadoEmpleado` de BD2. |
 | `prestamo_fisico` | RN-02 a RN-05, RN-13, RN-34 | Estado **calculado**: devuelto / vencido / activo según las fechas. `renovaciones` como contador (RN-04); la fecha de vencimiento se corre al renovar. |
-| `multa` | RN-05, RN-06 | `tipo`: `retraso`, `reposicion`. `UNIQUE(id_prestamo, tipo)`: un préstamo no genera dos multas del mismo tipo. `estado`: `pendiente`, `pagada`, `anulada`. |
+| `multa` | RN-05, RN-06 | `tipo`: `retraso`, `reposicion`. `UNIQUE(id_prestamo, tipo)`: un préstamo no genera dos multas del mismo tipo. `estado`: `pendiente`, `pagada`, `anulada`. RN-67: anular exige `fecha_anulacion`, `id_empleado_anula` y `motivo_anulacion` (los tres o ninguno, `CHECK`). El detalle de cómo se pagó está en `pago` (RN-66). |
 | `reserva_fisica` | RN-07 a RN-12 | La cola es `ORDER BY fecha_solicitud, id_reserva`. `id_prestamo` enlaza la reserva cumplida con el préstamo que la cumplió. |
 
 ### Restricciones que protege la base de datos
@@ -511,6 +518,7 @@ erDiagram
     pedido ||--|{ pedido_detalle : "ítems"
     producto ||--o{ pedido_detalle : ""
     pedido ||--o{ pago : "intentos"
+    multa ||--o{ pago : "intentos (RN-66)"
     pedido ||--o{ devolucion_compra : "devoluciones"
     producto ||--o{ devolucion_compra : ""
     sede ||--o{ devolucion_compra : "recibe"
@@ -569,11 +577,14 @@ erDiagram
     }
     pago {
         int id_pago PK
-        int id_pedido FK
+        int id_pedido FK "NULL"
+        int id_multa FK "NULL"
         decimal monto
         enum metodo
         enum estado
         varchar referencia_externa "NULL"
+        int id_empleado FK "NULL"
+        int id_sede FK "NULL"
         datetime fecha_creacion
         datetime fecha_confirmacion "NULL"
     }
@@ -606,7 +617,7 @@ erDiagram
 | `carrito_item` | RN-57 | `CHECK (cantidad > 0)`. No aparta stock. |
 | `pedido` | RN-37, RN-38, RN-40, RN-58 | `modalidad`: `recoger`, `envio`, `solo_digital`. `estado` con los valores de RN-40. Campos `envio_*` = **copia congelada** de la dirección. `CHECK` por modalidad: `recoger` ⇒ `id_sede` no NULL y `envio_*` NULL; `envio` ⇒ `id_sede` y `envio_*` no NULL; `solo_digital` ⇒ `id_sede` NULL y `costo_envio = 0`. |
 | `pedido_detalle` | RN-39 | `precio_unitario` congelado. `CHECK (cantidad > 0)`. Que un ítem digital tenga cantidad 1 se valida en lógica. |
-| `pago` | D-07, RN-59 | `metodo`: `simulado` (luego se agrega la pasarela). `estado`: `pendiente`, `pagado`, `fallido`, `reembolsado`. Columna generada + `UNIQUE` para un solo `pagado` por pedido. |
+| `pago` | D-07, RN-59, RN-66 | Paga **un pedido o una multa** (`CHECK`: exactamente uno de `id_pedido`, `id_multa`). `metodo`: `simulado` (en línea; luego la pasarela) o `efectivo` (mostrador: exige `id_empleado` e `id_sede` y nace `pagado`). `estado`: `pendiente`, `pagado`, `fallido`, `reembolsado`. Columnas generadas + `UNIQUE` para un solo pago exitoso por pedido y por multa. |
 | `devolucion_compra` | RN-41, RN-60 | Una fila por ítem devuelto. `CHECK (cantidad > 0 AND monto_reembolso >= 0)`. Que no se devuelva más de lo comprado (suma de devoluciones ≤ cantidad del detalle) se valida en lógica. |
 | `acceso_digital` | RN-30, RN-41, RN-61 | La PK `(id_lector, id_libro)` impide comprar dos veces. `fecha_primera_lectura` define "abierto". |
 

@@ -165,24 +165,6 @@ CREATE TABLE ejemplar (
 -- Bloque 2 — Cuentas, lectores, préstamos físicos, reservas y multas
 -- =====================================================================
 
--- C-04 y valores iniciales: una sola fila con columnas tipadas (no clave-valor).
-CREATE TABLE configuracion (
-    id                               TINYINT UNSIGNED PRIMARY KEY DEFAULT 1,
-    max_renovaciones                 TINYINT UNSIGNED NOT NULL,   -- RN-04
-    multa_por_dia                    DECIMAL(10,2) NOT NULL,      -- RN-05
-    multa_tope                       DECIMAL(10,2) NOT NULL,      -- RN-05
-    dias_atraso_perdido              SMALLINT UNSIGNED NOT NULL,  -- RN-49
-    horas_confirmar_reserva_digital  SMALLINT UNSIGNED NOT NULL,  -- RN-28
-    minutos_pago_pedido              SMALLINT UNSIGNED NOT NULL,  -- RN-37
-    dias_devolucion_compra           SMALLINT UNSIGNED NOT NULL,  -- RN-41
-    minimo_sobrante_traslado         TINYINT UNSIGNED NOT NULL,   -- RN-14
-    horas_sesion                     TINYINT UNSIGNED NOT NULL,   -- RN-63
-    CONSTRAINT ck_configuracion_unica CHECK (id = 1),
-    CONSTRAINT ck_configuracion_multa CHECK (multa_por_dia > 0 AND multa_tope >= multa_por_dia),
-    CONSTRAINT ck_configuracion_plazos CHECK (dias_atraso_perdido > 0 AND horas_confirmar_reserva_digital > 0
-                                              AND minutos_pago_pedido > 0 AND dias_devolucion_compra > 0)
-);
-
 -- RN-02, RN-12, RN-26, RN-45: límites por tipo de lector, en datos.
 CREATE TABLE tipo_lector (
     id_tipo_lector           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -196,6 +178,28 @@ CREATE TABLE tipo_lector (
     dias_recoger_reserva     TINYINT UNSIGNED NOT NULL,
     CONSTRAINT uq_tipo_lector_nombre UNIQUE (nombre),
     CONSTRAINT ck_tipo_lector_dias CHECK (dias_prestamo_fisico > 0 AND dias_prestamo_digital > 0 AND dias_recoger_reserva > 0)
+);
+
+-- C-04 y valores iniciales: una sola fila (va después de tipo_lector por la FK de RN-70) con columnas tipadas (no clave-valor).
+CREATE TABLE configuracion (
+    id                               TINYINT UNSIGNED PRIMARY KEY DEFAULT 1,
+    max_renovaciones                 TINYINT UNSIGNED NOT NULL,   -- RN-04
+    multa_por_dia                    DECIMAL(10,2) NOT NULL,      -- RN-05
+    multa_tope                       DECIMAL(10,2) NOT NULL,      -- RN-05
+    dias_atraso_perdido              SMALLINT UNSIGNED NOT NULL,  -- RN-49
+    horas_confirmar_reserva_digital  SMALLINT UNSIGNED NOT NULL,  -- RN-28
+    minutos_pago_pedido              SMALLINT UNSIGNED NOT NULL,  -- RN-37
+    dias_devolucion_compra           SMALLINT UNSIGNED NOT NULL,  -- RN-41
+    minimo_sobrante_traslado         TINYINT UNSIGNED NOT NULL,   -- RN-14
+    horas_sesion                     TINYINT UNSIGNED NOT NULL,   -- RN-63
+    horas_verificacion_correo        SMALLINT UNSIGNED NOT NULL,  -- RN-70
+    id_tipo_lector_registro          INT UNSIGNED NOT NULL,       -- RN-70: tipo de lector al registrarse
+    CONSTRAINT ck_configuracion_unica CHECK (id = 1),
+    CONSTRAINT ck_configuracion_multa CHECK (multa_por_dia > 0 AND multa_tope >= multa_por_dia),
+    CONSTRAINT ck_configuracion_plazos CHECK (dias_atraso_perdido > 0 AND horas_confirmar_reserva_digital > 0
+                                              AND minutos_pago_pedido > 0 AND dias_devolucion_compra > 0
+                                              AND horas_verificacion_correo > 0),
+    CONSTRAINT fk_configuracion_tipo_lector FOREIGN KEY (id_tipo_lector_registro) REFERENCES tipo_lector (id_tipo_lector)
 );
 
 -- RN-01, RN-31: la persona que inicia sesión. Sin columna de estado: se deduce de las fechas.
@@ -318,11 +322,19 @@ CREATE TABLE multa (
     monto           DECIMAL(10,2) NOT NULL,
     fecha_generada  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     estado          ENUM('pendiente', 'pagada', 'anulada') NOT NULL DEFAULT 'pendiente',
-    fecha_pago      DATETIME NULL,
+    fecha_pago      DATETIME NULL,              -- RN-66: el detalle del pago (canal, empleado, sede) está en `pago`
+    fecha_anulacion     DATETIME NULL,          -- RN-67
+    id_empleado_anula   INT UNSIGNED NULL,
+    motivo_anulacion    VARCHAR(255) NULL,
     CONSTRAINT uq_multa_prestamo_tipo UNIQUE (id_prestamo, tipo),
     CONSTRAINT ck_multa_monto CHECK (monto > 0),
     CONSTRAINT ck_multa_pago CHECK ((estado = 'pagada') = (fecha_pago IS NOT NULL)),
-    CONSTRAINT fk_multa_prestamo FOREIGN KEY (id_prestamo) REFERENCES prestamo_fisico (id_prestamo)
+    -- RN-67: anular = quién, cuándo y por qué; las tres juntas o ninguna.
+    CONSTRAINT ck_multa_anulacion CHECK ((estado = 'anulada') = (fecha_anulacion IS NOT NULL)
+                                         AND (fecha_anulacion IS NULL) = (id_empleado_anula IS NULL)
+                                         AND (fecha_anulacion IS NULL) = (motivo_anulacion IS NULL)),
+    CONSTRAINT fk_multa_prestamo FOREIGN KEY (id_prestamo) REFERENCES prestamo_fisico (id_prestamo),
+    CONSTRAINT fk_multa_empleado_anula FOREIGN KEY (id_empleado_anula) REFERENCES empleado (id_empleado)
 );
 
 -- RN-07 a RN-12. Reserva de una OBRA en una SEDE. Cola: ORDER BY fecha_solicitud, id_reserva.
@@ -656,19 +668,34 @@ CREATE TABLE pedido_detalle (
 -- D-07, RN-59: varios intentos por pedido, un solo pago exitoso (pagado o luego reembolsado).
 CREATE TABLE pago (
     id_pago             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    id_pedido           INT UNSIGNED NOT NULL,
+    -- Qué se paga: un pedido (RN-59) o una multa (RN-66). Exactamente uno.
+    id_pedido           INT UNSIGNED NULL,
+    id_multa            INT UNSIGNED NULL,
     monto               DECIMAL(10,2) NOT NULL,
-    metodo              ENUM('simulado') NOT NULL DEFAULT 'simulado',   -- se amplía al conectar la pasarela
+    -- simulado = en línea (D-07, se amplía al conectar la pasarela); efectivo = en mostrador (RN-66).
+    metodo              ENUM('simulado', 'efectivo') NOT NULL DEFAULT 'simulado',
     estado              ENUM('pendiente', 'pagado', 'fallido', 'reembolsado') NOT NULL DEFAULT 'pendiente',
     referencia_externa  VARCHAR(100) NULL,
+    id_empleado         INT UNSIGNED NULL,      -- RN-34: quién cobró en mostrador
+    id_sede             INT UNSIGNED NULL,      -- y en qué sede
     fecha_creacion      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_confirmacion  DATETIME NULL,
     pedido_pagado       INT UNSIGNED AS (IF(estado IN ('pagado', 'reembolsado'), id_pedido, NULL)) VIRTUAL,
+    multa_pagada        INT UNSIGNED AS (IF(estado = 'pagado', id_multa, NULL)) VIRTUAL,
     CONSTRAINT uq_pago_exitoso UNIQUE (pedido_pagado),
+    CONSTRAINT uq_pago_multa_exitoso UNIQUE (multa_pagada),   -- RN-66: un solo pago exitoso por multa
     CONSTRAINT uq_pago_referencia UNIQUE (referencia_externa),
+    CONSTRAINT ck_pago_objeto CHECK ((id_pedido IS NULL) <> (id_multa IS NULL)),
     CONSTRAINT ck_pago_monto CHECK (monto > 0),
     CONSTRAINT ck_pago_confirmacion CHECK ((estado = 'pendiente') = (fecha_confirmacion IS NULL)),
-    CONSTRAINT fk_pago_pedido FOREIGN KEY (id_pedido) REFERENCES pedido (id_pedido)
+    -- En mostrador: empleado y sede, y se cobra en el acto (no queda pendiente). En línea: ni empleado ni sede.
+    CONSTRAINT ck_pago_canal CHECK ((metodo = 'efectivo') = (id_empleado IS NOT NULL)
+                                    AND (id_empleado IS NULL) = (id_sede IS NULL)
+                                    AND (metodo <> 'efectivo' OR estado = 'pagado')),
+    CONSTRAINT fk_pago_pedido FOREIGN KEY (id_pedido) REFERENCES pedido (id_pedido),
+    CONSTRAINT fk_pago_multa FOREIGN KEY (id_multa) REFERENCES multa (id_multa),
+    CONSTRAINT fk_pago_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado),
+    CONSTRAINT fk_pago_sede FOREIGN KEY (id_sede) REFERENCES sede (id_sede)
 );
 
 -- RN-41, RN-60: devolución por ítem, parcial. La FK compuesta al detalle garantiza que el producto

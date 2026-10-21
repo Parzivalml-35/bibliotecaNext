@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FormularioLogin } from "@/components/formulario-login";
 import { salir } from "@/lib/actions/sesion";
@@ -10,6 +11,7 @@ export const metadata: Metadata = { title: "Iniciar sesión" };
 // lo que venga en la URL nunca se pinta tal cual.
 const MOTIVOS: Record<string, string> = {
   "sin-panel": "Esa cuenta no tiene acceso al panel de empleados.",
+  "sin-cuenta-lector": "Esa cuenta no tiene perfil de lector.",
 };
 
 export default async function PaginaLogin({ searchParams }: PageProps<"/login">) {
@@ -33,8 +35,11 @@ export default async function PaginaLogin({ searchParams }: PageProps<"/login">)
           </form>
         </div>
       ) : (
-        <div className="mt-6">
+        <div className="mt-6 space-y-4">
           <FormularioLogin />
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            ¿No tienes cuenta? <Link href="/registro" className="font-medium underline underline-offset-4">Regístrate</Link>
+          </p>
         </div>
       )}
     </div>

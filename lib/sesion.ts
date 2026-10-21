@@ -4,7 +4,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { borrarSesion, buscarSesionVigente, insertarSesion } from "@/lib/data/sesiones";
-import type { EmpleadoSesion, RolEmpleado, UsuarioSesion } from "@/lib/definitions";
+import type { EmpleadoSesion, LectorSesion, RolEmpleado, UsuarioSesion } from "@/lib/definitions";
 
 // Capa de acceso a la sesión (la "DAL" de la guía de autenticación de Next). Todo lo que necesite saber
 // quién está conectado pasa por aquí: páginas, layouts y Server Actions. RN-35, RN-63, RN-64.
@@ -65,6 +65,10 @@ export const obtenerUsuario = cache(async (): Promise<UsuarioSesion | null> => {
             idSede: fila.id_sede,
             sede: fila.sede,
           },
+    lector:
+      fila.id_lector === null
+        ? null
+        : { idLector: fila.id_lector, nombre: fila.nombre_lector!, verificada: fila.verificada === 1 },
   };
 });
 
@@ -77,4 +81,13 @@ export async function exigirEmpleado(roles?: RolEmpleado[]): Promise<EmpleadoSes
   if (!usuario.empleado) redirect("/login?motivo=sin-panel");
   if (roles && !roles.includes(usuario.empleado.rol)) redirect("/panel?motivo=sin-permiso");
   return usuario.empleado;
+}
+
+// Para páginas y acciones del lector ("Mi cuenta", reservar, pagar en línea). Devuelve también idCuenta,
+// porque las comprobaciones de dueño (¿esta multa es mía?) se hacen contra la sesión, nunca contra el navegador.
+export async function exigirLector(): Promise<LectorSesion & { idCuenta: number }> {
+  const usuario = await obtenerUsuario();
+  if (!usuario) redirect("/login");
+  if (!usuario.lector) redirect("/login?motivo=sin-cuenta-lector");
+  return { ...usuario.lector, idCuenta: usuario.idCuenta };
 }

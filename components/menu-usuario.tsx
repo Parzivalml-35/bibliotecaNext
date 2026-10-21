@@ -16,12 +16,17 @@ export async function MenuUsuario() {
     );
   }
 
-  const nombre = usuario.empleado ? `${usuario.empleado.nombre} ${usuario.empleado.apellido}` : usuario.correo;
+  const nombre = usuario.empleado
+    ? `${usuario.empleado.nombre} ${usuario.empleado.apellido}`
+    : (usuario.lector?.nombre ?? usuario.correo);
 
   return (
     <div className="flex items-center gap-4 text-sm">
       {usuario.empleado && (
         <Link href="/panel" className="font-medium hover:underline hover:underline-offset-4">Panel</Link>
+      )}
+      {usuario.lector && (
+        <Link href="/cuenta" className="font-medium hover:underline hover:underline-offset-4">Mi cuenta</Link>
       )}
       {/* hidden sm:inline: en pantallas pequeñas el nombre se oculta para que quepa el resto */}
       <span className="hidden text-zinc-600 sm:inline dark:text-zinc-400">{nombre}</span>

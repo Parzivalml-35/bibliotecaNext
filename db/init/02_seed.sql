@@ -19,16 +19,17 @@ SET @sin_clave = '!pendiente-fase-3';
 -- ---------------------------------------------------------------------
 -- Configuración y catálogos
 -- ---------------------------------------------------------------------
-INSERT INTO configuracion (id, max_renovaciones, multa_por_dia, multa_tope, dias_atraso_perdido,
-                           horas_confirmar_reserva_digital, minutos_pago_pedido, dias_devolucion_compra,
-                           minimo_sobrante_traslado, horas_sesion)
-VALUES (1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8);
-
 INSERT INTO tipo_lector (nombre, max_prestamos_fisicos, dias_prestamo_fisico, max_prestamos_digitales,
                          dias_prestamo_digital, max_reservas_fisicas, max_reservas_digitales, dias_recoger_reserva)
 VALUES ('Estándar', 3, 14, 2, 14, 3, 2, 3),
        ('Plus',     5, 21, 4, 21, 5, 4, 5),
        ('Infantil', 2, 14, 1,  7, 2, 1, 3);
+
+-- Va después de tipo_lector: id_tipo_lector_registro apunta al tipo con que se registra un lector (RN-70).
+INSERT INTO configuracion (id, max_renovaciones, multa_por_dia, multa_tope, dias_atraso_perdido,
+                           horas_confirmar_reserva_digital, minutos_pago_pedido, dias_devolucion_compra,
+                           minimo_sobrante_traslado, horas_sesion, horas_verificacion_correo, id_tipo_lector_registro)
+SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector FROM tipo_lector WHERE nombre = 'Estándar';
 
 INSERT INTO pais (nombre) VALUES
   ('Colombia'), ('Argentina'), ('México'), ('Chile'), ('Perú'), ('Uruguay'), ('Francia'), ('Estados Unidos');
@@ -236,7 +237,7 @@ FROM (VALUES
   ROW('BN-0028', '9788418797453', 'Sede Centro', 'C', 1, 1, 'disponible',    35000, DATE('2025-03-05')),
   ROW('BN-0029', '9788408053040', 'Sede Norte',  'B', 2, 1, 'disponible',    72000, DATE('2025-02-10')),
   ROW('BN-0030', '9788408053040', 'Sede Centro', 'B', 2, 1, 'disponible',    72000, DATE('2025-03-05')),
-  ROW('BN-0031', '9789682325571', 'Sede Sur',    'B', 1, 2, 'disponible',    48000, DATE('2025-02-10')),
+  ROW('BN-0031', '9789682325571', 'Sede Sur',    'B', 1, 2, 'prestado',      48000, DATE('2025-02-10')),  -- Luis, 36 días de atraso → candidato a perdido (RN-49)
   ROW('BN-0032', '9789682325571', 'Sede Centro', 'B', 1, 1, 'disponible',    48000, DATE('2025-03-05'))
 ) AS v (codigo, isbn, sede, pasillo, estante, nivel, estado, valor, adquirido)
 JOIN libro l ON l.isbn = v.isbn
@@ -254,6 +255,7 @@ SELECT e.id_ejemplar, p.lector, p.sede, p.presta, NOW() - INTERVAL p.hace DAY,
 FROM (VALUES
   ROW('BN-0001', @ana,       @norte, @jorge,  5, NULL, NULL,  NULL),    -- activo, al día
   ROW('BN-0007', @luis,      @sur,   @marta, 30, NULL, NULL,  NULL),    -- vencido hace 16 días → Luis bloqueado (RN-03)
+  ROW('BN-0031', @luis,      @sur,   @marta, 50, NULL, NULL,  NULL),    -- vencido hace 36 días > dias_atraso_perdido (RN-49)
   ROW('BN-0018', @valentina, @sur,   @marta,  3, NULL, NULL,  NULL),    -- activo; genera la cola de Sur
   ROW('BN-0012', @valentina, @norte, @jorge, 20,    8, @sur,  @marta),  -- devuelto a tiempo en OTRA sede (RN-13)
   ROW('BN-0022', @andres,    @sur,   @marta, 40,   21, @sur,  @marta)   -- devuelto 5 días tarde → multa

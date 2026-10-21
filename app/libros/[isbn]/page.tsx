@@ -3,7 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InsigniaSeccion } from "@/components/insignia-seccion";
 import { TarjetaSede } from "@/components/tarjeta-sede";
+import { FormularioReserva } from "@/components/formularios-lector";
+import { obtenerReservaVivaDeObra } from "@/lib/data/lectores";
 import { obtenerDisponibilidadPorSede, obtenerLibroPorIsbn } from "@/lib/data/libros";
+import { obtenerUsuario } from "@/lib/sesion";
 import type { DisponibilidadSede } from "@/lib/definitions";
 import { plural } from "@/lib/formato";
 import { esIsbnValido } from "@/lib/isbn";
@@ -31,7 +34,8 @@ export async function generateMetadata({ params }: PageProps<"/libros/[isbn]">):
 export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]">) {
   const { isbn } = await params; // en el App Router, params es una Promise
   const libro = await libroDeLaUrl(isbn);
-  const sedes = await obtenerDisponibilidadPorSede(libro.id_libro);
+  const [sedes, usuario] = await Promise.all([obtenerDisponibilidadPorSede(libro.id_libro), obtenerUsuario()]);
+  const reservaViva = usuario?.lector ? await obtenerReservaVivaDeObra(usuario.lector.idLector, libro.id_libro) : null;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -88,6 +92,33 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
             </li>
           ))}
         </ul>
+      </section>
+
+      {/* RN-07, RN-72: reservar. Mostrar el formulario es comodidad; las reglas se comprueban en reservarObra. */}
+      <section aria-labelledby="reservar" className="mt-10 max-w-xl rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
+        <h2 id="reservar" className="text-lg font-semibold">Reservar</h2>
+        {!usuario ? (
+          <p className="mt-2 text-sm">
+            <Link href="/login" className="font-medium underline underline-offset-4">Inicia sesión</Link> o{" "}
+            <Link href="/registro" className="font-medium underline underline-offset-4">crea una cuenta</Link> para reservar este libro.
+          </p>
+        ) : !usuario.lector ? (
+          <p className="mt-2 text-sm text-zinc-500">Las reservas son para cuentas de lector.</p>
+        ) : reservaViva ? (
+          <p role="status" className="mt-2 text-sm">
+            Tienes este libro reservado en {reservaViva.sede}:{" "}
+            {reservaViva.estado === "asignada"
+              ? `hay una copia apartada para ti hasta el ${reservaViva.fecha_limite_recogida}.`
+              : `estás en el puesto ${reservaViva.posicion} de la cola.`}{" "}
+            <Link href="/cuenta" className="font-medium underline underline-offset-4">Ver mis reservas</Link>
+          </p>
+        ) : !usuario.lector.verificada ? (
+          <p className="mt-2 text-sm text-zinc-500">Verifica tu correo para poder reservar.</p>
+        ) : (
+          <div className="mt-3">
+            <FormularioReserva isbn={libro.isbn} sedes={sedes} />
+          </div>
+        )}
       </section>
     </div>
   );

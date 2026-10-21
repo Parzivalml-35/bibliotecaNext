@@ -32,6 +32,9 @@
 | RN-05 | La **multa por retraso** es un valor por día con un tope máximo. Se genera al devolver el libro. |
 | RN-06 | Si un ejemplar no se devuelve (perdido), se cobra su **valor de reposición**. |
 | RN-65 | Al **renovar** (RN-04), el nuevo vencimiento es el vencimiento actual más los días de préstamo del tipo de lector. "Reserva activa sobre esa obra" = alguna reserva **en cola** (`activa`) por la obra, en cualquier sede; una reserva ya `asignada` no impide renovar. La renovación la registra un empleado de la sede donde se hizo el préstamo (RN-34). |
+| RN-66 | Una multa se paga **completa** (sin abonos), de dos formas: **en mostrador**, registrada por un empleado (queda el empleado y la sede, RN-34), o **en línea** por el lector desde su cuenta, con el pago simulado de D-07 (`pendiente` → `pagado` o `fallido`). Puede haber varios intentos en línea, pero un solo pago exitoso por multa. |
+| RN-67 | Solo el **coordinador de la sede del préstamo** o el **administrador de red** pueden **anular** una multa pendiente, con un **motivo obligatorio**; se registra quién y cuándo. Una multa pagada no se anula. |
+| RN-71 | Al declarar un ejemplar **perdido** (RN-49), su préstamo queda abierto como registro de que nunca se devolvió, pero **deja de contar** como préstamo abierto o vencido del lector (RN-02, RN-03): lo que lo bloquea es la multa de reposición hasta que la pague. |
 
 ## Reservas físicas
 
@@ -43,6 +46,9 @@
 | RN-10 | Ciclo de la reserva: `activa` (en cola) → `asignada` (ejemplar apartado, lista para recoger) → `cumplida` al recogerla. Si no la recoge en el plazo, pasa a `vencida` y la copia se asigna al siguiente de la cola. El lector puede `cancelar` antes de recoger. |
 | RN-11 | Al **devolver** un ejemplar, antes de dejarlo disponible, el sistema revisa la cola de esa obra en esa sede y, si hay alguien, lo asigna a su reserva. |
 | RN-12 | El tipo de lector define el **máximo de reservas activas** y los **días para recoger**. Un lector bloqueado (RN-03) no puede reservar. |
+| RN-68 | Al **prestar** una obra a un lector, sus otras reservas vivas de esa obra se cancelan solas: en cola → `cancelada`; `asignada` en otra sede → `cancelada` y su ejemplar se libera para el siguiente de la cola (RN-11). No se puede reservar una obra que el lector ya tiene prestada. |
+| RN-69 | **La cola manda**: si en una sede hay reservas en cola por una obra, ninguna copia de esa obra que quede libre en esa sede se presta a otro lector ni queda `disponible`; se asigna a la primera reserva (al devolver, RN-11; al ubicar, RN-20; al vencer otra reserva, RN-48). En mostrador, una copia disponible con cola solo se presta al primero de la cola, y su reserva queda cumplida. |
+| RN-72 | Para **reservar** hace falta la cuenta **verificada** (no hace falta validarla, D-02, RN-32), no estar bloqueado (RN-43), tener cupo de reservas físicas (RN-12, RN-45; cuentan las `activa` y `asignada`) y la edad de la clasificación (RN-46). La sede se elige libremente, aunque no tenga copias (genera traslados sugeridos, RN-14). |
 
 ## Sedes, devoluciones y traslados
 
@@ -83,6 +89,7 @@
 |---|---|
 | RN-31 | Una **cuenta** (correo único, hash de contraseña, estado RN-01) representa a la persona. Los **perfiles** lector y empleado apuntan a la cuenta; una persona puede tener ambos con un solo inicio de sesión. |
 | RN-32 | Al registrarse se envía un **enlace de verificación** con token de un solo uso que vence. Sin verificar el correo no se usan los beneficios. En desarrollo, el enlace se imprime en la consola. |
+| RN-70 | **Registro**: correo, contraseña (mínimo 12 caracteres), nombre, apellido y fecha de nacimiento. Crea la cuenta y el perfil de lector con el tipo de lector inicial de la configuración; el token de verificación vence en `horas_verificacion_correo`. Mientras no haya un proveedor de correo, "enviar" el correo es escribir el enlace en la consola del servidor. La **validación en mostrador** (D-03) exige la cuenta verificada; el empleado registra el documento y puede cambiar el tipo de lector. |
 | RN-33 | Roles de empleado: **bibliotecario** (préstamos, devoluciones, ubicar ejemplares, validar lectores, entregar pedidos), **coordinador de sede** (lo anterior + traslados, auditorías de estante y reportes de su sede) y **administrador de red** (catálogo, licencias, precios, secciones, tipos de lector, configuración y empleados). |
 | RN-34 | Bibliotecario y coordinador tienen **una sede asignada** y solo operan en ella; cada operación registra el empleado y la sede. El administrador de red no tiene sede y ve todas. |
 | RN-35 | Los permisos se verifican **en el servidor** en cada operación; ocultar un botón en la interfaz no es una medida de seguridad. |
@@ -127,6 +134,8 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 | Días para devolver una compra física | 15 |
 | Mínimo de copias disponibles de sobra para sugerir un traslado (RN-14) | 1 |
 | Horas que dura una sesión (RN-63) | 8 |
+| Horas para usar el enlace de verificación del correo (RN-70) | 24 |
+| Tipo de lector al registrarse (RN-70) | Estándar |
 
 ## Reglas transversales
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { BotonRenovar } from "@/components/panel/boton-renovar";
+import { BotonAccion } from "@/components/boton-accion";
+import { renovarPrestamo } from "@/lib/actions/circulacion";
 import { obtenerPrestamosAbiertos } from "@/lib/data/circulacion";
 import { fechaCorta, plural } from "@/lib/formato";
 import { exigirEmpleado } from "@/lib/sesion";
@@ -76,7 +77,7 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
                   </td>
                   {puedeRenovar && (
                     <td className="px-4 py-3">
-                      <BotonRenovar idPrestamo={p.id_prestamo} />
+                      <BotonAccion accion={renovarPrestamo} campos={{ id_prestamo: p.id_prestamo }} etiqueta="Renovar" etiquetaPendiente="Renovando…" />
                     </td>
                   )}
                 </tr>

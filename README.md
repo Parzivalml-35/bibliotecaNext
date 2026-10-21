@@ -4,7 +4,7 @@ Sistema para administrar una red de bibliotecas: catálogo con ubicación físic
 préstamo digital con licencias y venta de libros. Proyecto de aprendizaje con Next.js (App Router),
 TypeScript, Tailwind CSS y MySQL con SQL escrito a mano.
 
-> **Estado:** Fase 3 — panel de empleado (inicio de sesión, préstamos, devoluciones y renovaciones). Catálogo, detalle del libro y búsqueda ya funcionan. Detalle y próximo paso en [docs/estado.md](docs/estado.md).
+> **Estado:** Fase 4 — lectores en la web (registro, reservas, Mi cuenta, pago en línea simulado) y mostrador completo (validar, cobrar, anular, ubicar, perdidos, tablero). Catálogo con 112 libros (96 simulados). Detalle y próximo paso en [docs/estado.md](docs/estado.md).
 
 ## Documentación
 
@@ -62,7 +62,10 @@ Con eso se puede iniciar sesión en `/login` con cualquier cuenta `@example.com`
 | `marta.torres@example.com` | Bibliotecaria, Sede Sur | Ídem, Sede Sur |
 | `diego.ramirez@example.com` | Bibliotecario, Sede Centro | Ídem, Sede Centro |
 | `laura.castano@example.com` | Administradora de red | Préstamos abiertos de toda la red (no opera en mostrador) |
-| `ana.ruiz@example.com` y demás | Lectores | No entran al panel |
+| `ana.ruiz@example.com` y demás | Lectores | No entran al panel; usan `/cuenta` y reservan desde la página de cada libro |
+
+**Registro de lectores nuevos** (`/registro`): no hay proveedor de correo, así que el enlace de verificación se escribe
+en la **consola del servidor** (la terminal de `pnpm dev`), en un bloque `[correo simulado]`.
 
 Los préstamos piden el documento del lector (por ejemplo CC `1000000001`, Ana) y el código del ejemplar
 (`BN-0002`). Las fechas del seed son relativas al día en que se construyó la BD: con el paso de los días los
@@ -75,7 +78,7 @@ pnpm install
 pnpm dev                    # http://localhost:3000
 ```
 
-La página de inicio debe mostrar el catálogo con 16 libros (por ejemplo "Cien años de soledad", con su tilde).
+La página de inicio debe mostrar el catálogo con 112 libros en 13 páginas: 16 reales (por ejemplo "Cien años de soledad", con su tilde) y 96 ficticios de `db/init/03_catalogo_simulado.sql` (ISBN que empiezan por `999`).
 
 Detener todo al terminar:
 

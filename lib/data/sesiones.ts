@@ -10,12 +10,14 @@ type FilaCuentaLogin = {
   password_hash: string;
   desactivada: number; // 1/0: MySQL devuelve los booleanos como números
   es_empleado: number; // tiene perfil de empleado activo: decide si al entrar va al panel
+  es_lector: number; // si no es empleado pero es lector, va a "Mi cuenta"
 } & RowDataPacket;
 
 export async function buscarCuentaPorCorreo(correo: string) {
   const [filas] = await pool.execute<FilaCuentaLogin[]>(
     `SELECT c.id_cuenta, c.password_hash, c.fecha_desactivacion IS NOT NULL AS desactivada,
-            EXISTS (SELECT 1 FROM empleado e WHERE e.id_cuenta = c.id_cuenta AND e.activo) AS es_empleado
+            EXISTS (SELECT 1 FROM empleado e WHERE e.id_cuenta = c.id_cuenta AND e.activo) AS es_empleado,
+            EXISTS (SELECT 1 FROM lector l WHERE l.id_cuenta = c.id_cuenta) AS es_lector
      FROM cuenta c WHERE c.correo = ?`,
     [correo],
   );
@@ -47,6 +49,9 @@ type FilaSesion = {
   rol: RolEmpleado | null;
   id_sede: number | null;
   sede: string | null;
+  id_lector: number | null;
+  nombre_lector: string | null;
+  verificada: number;
 } & RowDataPacket;
 
 // RN-64 en una sola consulta: la sesión existe, no venció y la cuenta no está desactivada. El empleado
@@ -54,11 +59,13 @@ type FilaSesion = {
 // (un lector), pero no entra al panel.
 export async function buscarSesionVigente(tokenHash: string) {
   const [filas] = await pool.execute<FilaSesion[]>(
-    `SELECT c.id_cuenta, c.correo, e.id_empleado, e.nombre, e.apellido, e.rol, e.id_sede, sd.nombre AS sede
+    `SELECT c.id_cuenta, c.correo, e.id_empleado, e.nombre, e.apellido, e.rol, e.id_sede, sd.nombre AS sede,
+            lc.id_lector, CONCAT(lc.nombre, ' ', lc.apellido) AS nombre_lector, c.fecha_verificacion IS NOT NULL AS verificada
      FROM sesion s
      JOIN cuenta c ON c.id_cuenta = s.id_cuenta
      LEFT JOIN empleado e ON e.id_cuenta = c.id_cuenta AND e.activo
      LEFT JOIN sede sd ON sd.id_sede = e.id_sede
+     LEFT JOIN lector lc ON lc.id_cuenta = c.id_cuenta
      WHERE s.token_hash = ? AND s.expira_en > NOW() AND c.fecha_desactivacion IS NULL`,
     [tokenHash],
   );

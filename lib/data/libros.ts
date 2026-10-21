@@ -118,7 +118,7 @@ export const obtenerLibroPorIsbn = cache(async (isbn: string): Promise<LibroDeta
   // El ISBN viene de la URL: va como parámetro (?) y mysql2 lo envía separado del SQL. Nunca en el texto.
   const [filas] = await pool.execute<FilaLibroDetalle[]>(
     `SELECT l.id_libro, l.isbn, l.titulo, l.anio_publicacion, l.sinopsis,
-            e.nombre AS editorial, c.nombre AS clasificacion,
+            e.nombre AS editorial, c.nombre AS clasificacion, c.edad_minima,
             g.nombre AS genero, sc.nombre AS seccion, sc.color_hex
      FROM libro l
      JOIN editorial e USING (id_editorial)

@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-21 (portátil) — Fase 3 terminada (pendiente de documentar en el vault)
+**Última actualización:** 2026-10-21 (portátil) — Fase 4 terminada (pendiente de documentar en el vault)
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -48,7 +48,7 @@ El libro se identifica en la URL por su **ISBN** (`/libros/9788420471839`): clav
 | C2a: búsqueda mientras se escribe (`components/buscador-catalogo.tsx` como Client Component: debounce 300 ms, `router.replace`, `useTransition`); sigue funcionando sin JS | Hecho |
 | C2b: paginación (`?pagina=`, 6 por página, `components/paginacion.tsx`); conteo con el mismo filtro, página ajustada al rango, orden total; la búsqueda nueva vuelve a la página 1 | Hecho |
 
-## Fase 3 — Panel de empleado (terminada)
+## Fase 3 — Panel de empleado (terminada y documentada)
 
 Decisiones: **sesión en BD propia** (tabla `sesion`, cookie con token aleatorio, solo su hash SHA-256 en la BD;
 revocable al instante), contraseñas con **scrypt** de Node (N=2^17, r=8, p=1) y contraseñas de desarrollo con
@@ -63,15 +63,38 @@ revocable al instante), contraseñas con **scrypt** de Node (N=2^17, r=8, p=1) y
 | C: devolución con multa (RN-05), cola de reservas (RN-11), colección flotante (RN-13, RN-20, RN-47) | Hecho |
 | Verificación de punta a punta (formularios enviados sin JS con un script): más de 30 casos de login, permisos, préstamo, devolución, renovación, CSRF y carrera de dos préstamos simultáneos; detector RN-24 = 0 | Hecho |
 
+## Fase 4 — Lector en la web y mostrador completo (terminada)
+
+Decisiones (RN-66 a RN-72): multas pagadas **en mostrador o en línea** (pago simulado, tabla `pago` generalizada a
+pedidos y multas); **anular** solo coordinador de la sede del préstamo o administrador, con motivo; al prestar se
+**cancelan** las otras reservas vivas del lector por esa obra; **la cola manda** (una copia que queda libre con cola
+se aparta, también al ubicar); registro con verificación por correo simulado en la consola; un perdido deja de contar
+como préstamo vencido. Esquema: `configuracion` (+2), `multa` (+3, anulación), `pago` (+4, generalizado). Catálogo
+simulado: `db/init/03_catalogo_simulado.sql` (96 libros ficticios, ISBN `999…`, 264 ejemplares).
+
+| Bloque | Qué | Estado |
+|---|---|---|
+| A | `/registro`, `/verificar` (el GET muestra un botón; el POST consume el token), `/cuenta` con préstamos, multas, reservas y motivos de bloqueo | Hecho |
+| B | Reservar desde `/libros/[isbn]` (asignación inmediata o cola), cancelar; posición en la cola | Hecho |
+| C | `/panel/lectores` (buscar, validar, cobrar, anular), `/panel/ubicar` (estante sugerido), `/panel/perdidos` | Hecho |
+| D | `/panel/tablero` (indicadores, traslados sugeridos, detector RN-24) para coordinador y administrador | Hecho |
+| Catálogo | 112 libros, paginación con ventana (`1 … 6 7 8 … 13`) | Hecho |
+| Verificación | 56 casos de punta a punta contra `next start` en el puerto 3001 (para leer el correo simulado), BD revisada tras cada bloque; detector RN-24 = 0 | Hecho |
+
 ## Próximo paso
 
-1. Probar el panel en el navegador (con JavaScript): login, préstamo, devolución, renovar.
-2. `/documentar` la Fase 3 (nota `Biblioteca Next - Fase 3`, conceptos: Server Actions, sesiones, aislamiento de
-   transacciones; materias: Bases de datos 2 y Desarrollo Web).
-3. Fase 4 (reservas, pago de multas, bloqueo de usuarios, tablero): decidir el alcance al empezar.
+1. Probar en el navegador (con JavaScript): registro, verificar (el enlace sale en la consola de `pnpm dev`), reservar,
+   Mi cuenta, pasarela simulada y el panel completo.
+2. `/documentar` la Fase 4.
+3. Fase 5 (propuesta): préstamo digital (RN-25 a RN-30, RN-44, RN-54 a RN-56). Después: compras, traslados y auditorías, calidad.
 
 ## Pendientes y avisos
 
+- En el otro PC: **reconstruir la BD** (cambió el esquema y hay un `03_catalogo_simulado.sql` nuevo) y correr `pnpm db:claves-dev`.
+- Tras una Server Action con `revalidatePath`, si el formulario deja de renderizarse (la reserva ya existe, la multa ya
+  se pagó), su mensaje de `useActionState` se pierde con él: el resultado se muestra en el contenido nuevo de la página.
+- `notFound()` bajo `loading.tsx` también responde 200 (`NEXT_HTTP_ERROR_FALLBACK;404` en el stream), como `redirect()`.
+- `pkill -f` desde la shell de Claude termina con código 144 y mata la propia orden: detener servidores por puerto (`ss -ltnp`).
 - **Bug encontrado y corregido (Fase 3):** contar con subconsultas normales dentro de una transacción no ve lo que
   otra transacción confirmó mientras esta esperaba un candado (`REPEATABLE READ` lee la "foto" tomada en la primera
   lectura). Dos préstamos simultáneos dejaron a un lector con 3 de 2. Solución: bloquear primero y contar con

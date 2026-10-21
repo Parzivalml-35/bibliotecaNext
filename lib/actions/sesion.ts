@@ -41,7 +41,7 @@ export async function iniciarSesion(_estadoAnterior: EstadoFormulario, datos: Fo
   await crearSesion(cuenta.id_cuenta);
 
   // redirect() lanza una excepción que Next convierte en redirección: va FUERA de cualquier try/catch.
-  redirect(cuenta.es_empleado ? "/panel" : "/");
+  redirect(cuenta.es_empleado ? "/panel" : cuenta.es_lector ? "/cuenta" : "/");
 }
 
 export async function salir(): Promise<void> {

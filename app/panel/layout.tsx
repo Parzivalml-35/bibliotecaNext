@@ -11,6 +11,10 @@ export default function LayoutPanel({ children }: LayoutProps<"/panel">) {
         <Link href="/panel" className={enlace}>Préstamos abiertos</Link>
         <Link href="/panel/prestamos" className={enlace}>Nuevo préstamo</Link>
         <Link href="/panel/devoluciones" className={enlace}>Devolución</Link>
+        <Link href="/panel/lectores" className={enlace}>Lectores y multas</Link>
+        <Link href="/panel/ubicar" className={enlace}>Ubicar</Link>
+        <Link href="/panel/perdidos" className={enlace}>Perdidos</Link>
+        <Link href="/panel/tablero" className={enlace}>Tablero</Link>
       </nav>
       {children}
     </div>

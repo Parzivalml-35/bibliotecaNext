@@ -105,8 +105,33 @@ export async function bloquearLectorPorDocumento(conexion: Conexion, tipoDocumen
   return filas[0] ?? null;
 }
 
+type FilaLectorDeCuenta = {
+  id_lector: number;
+  nombre: string;
+  verificada: number; // RN-32, RN-72: para reservar basta la cuenta verificada
+  edad: number;
+  max_reservas_fisicas: number;
+  dias_recoger_reserva: number;
+} & RowDataPacket;
+
+// Igual que bloquearLectorPorDocumento, pero desde la sesión del propio lector (reservas en la web).
+export async function bloquearLectorPorCuenta(conexion: Conexion, idCuenta: number) {
+  const [filas] = await conexion.execute<FilaLectorDeCuenta[]>(
+    `SELECT l.id_lector, CONCAT(l.nombre, ' ', l.apellido) AS nombre, c.fecha_verificacion IS NOT NULL AS verificada,
+            TIMESTAMPDIFF(YEAR, l.fecha_nacimiento, CURDATE()) AS edad, t.max_reservas_fisicas, t.dias_recoger_reserva
+     FROM lector l
+     JOIN cuenta c ON c.id_cuenta = l.id_cuenta
+     JOIN tipo_lector t ON t.id_tipo_lector = l.id_tipo_lector
+     WHERE l.id_cuenta = ? AND c.fecha_desactivacion IS NULL
+     FOR UPDATE OF l`,
+    [idCuenta],
+  );
+  return filas[0] ?? null;
+}
+
 type FilaPrestamosDelLector = { abiertos: number; vencidos: number } & RowDataPacket;
 type FilaMultasDelLector = { pendientes: number } & RowDataPacket;
+type FilaReservasDelLector = { vivas: number } & RowDataPacket;
 
 // RN-02, RN-03 (db/consultas.sql, consulta 4). Se cuenta con LECTURAS CON BLOQUEO (FOR SHARE), no con
 // subconsultas normales: en REPEATABLE READ una lectura normal ve la "foto" que la transacción tomó en su
@@ -115,8 +140,10 @@ type FilaMultasDelLector = { pendientes: number } & RowDataPacket;
 // (Verificado: con subconsultas, dos préstamos simultáneos dejaron a un lector con 3 de 2.)
 export async function situacionDelLector(conexion: Conexion, idLector: number) {
   const [prestamos] = await conexion.execute<FilaPrestamosDelLector[]>(
-    `SELECT COUNT(*) AS abiertos, COALESCE(SUM(fecha_vencimiento < CURDATE()), 0) AS vencidos
-     FROM prestamo_fisico WHERE id_lector = ? AND fecha_devolucion IS NULL
+    // RN-71: el préstamo de un ejemplar declarado perdido ya no cuenta (lo que bloquea es su multa).
+    `SELECT COUNT(*) AS abiertos, COALESCE(SUM(p.fecha_vencimiento < CURDATE()), 0) AS vencidos
+     FROM prestamo_fisico p JOIN ejemplar e ON e.id_ejemplar = p.id_ejemplar
+     WHERE p.id_lector = ? AND p.fecha_devolucion IS NULL AND e.estado <> 'perdido'
      FOR SHARE`,
     [idLector],
   );
@@ -127,7 +154,13 @@ export async function situacionDelLector(conexion: Conexion, idLector: number) {
      FOR SHARE`,
     [idLector],
   );
+  // RN-12, RN-45: reservas físicas vivas (en cola o asignadas).
+  const [reservas] = await conexion.execute<FilaReservasDelLector[]>(
+    "SELECT COUNT(*) AS vivas FROM reserva_fisica WHERE id_lector = ? AND estado IN ('activa', 'asignada') FOR SHARE",
+    [idLector],
+  );
   return {
+    reservasVivas: Number(reservas[0].vivas),
     abiertos: Number(prestamos[0].abiertos),
     vencidos: Number(prestamos[0].vencidos), // SUM devuelve DECIMAL: Number() lo deja en número
     multasPendientes: Number(multas[0].pendientes),
@@ -160,6 +193,7 @@ export async function marcarReservaVencida(conexion: Conexion, idReserva: number
 
 type FilaPrimeraEnCola = {
   id_reserva: number;
+  id_lector: number;
   lector: string;
   dias_recoger_reserva: number; // RN-12: del tipo de lector de quien reservó
 } & RowDataPacket;
@@ -167,7 +201,7 @@ type FilaPrimeraEnCola = {
 // RN-09, RN-11: la primera de la cola por orden de llegada (desempate por id: orden total).
 export async function bloquearPrimeraEnCola(conexion: Conexion, idLibro: number, idSede: number) {
   const [filas] = await conexion.execute<FilaPrimeraEnCola[]>(
-    `SELECT r.id_reserva, CONCAT(l.nombre, ' ', l.apellido) AS lector, t.dias_recoger_reserva
+    `SELECT r.id_reserva, r.id_lector, CONCAT(l.nombre, ' ', l.apellido) AS lector, t.dias_recoger_reserva
      FROM reserva_fisica r
      JOIN lector l ON l.id_lector = r.id_lector
      JOIN tipo_lector t ON t.id_tipo_lector = l.id_tipo_lector
@@ -203,11 +237,98 @@ export async function bloquearReservaAsignada(conexion: Conexion, idEjemplar: nu
   return filas[0] ?? null;
 }
 
-export async function cumplirReserva(conexion: Conexion, idReserva: number, idPrestamo: number) {
+// RN-10 (asignada que se recoge) y RN-69 (la primera de la cola se lleva una copia disponible en mostrador).
+export async function cumplirReserva(conexion: Conexion, idReserva: number, idPrestamo: number, idEjemplar: number) {
   await conexion.execute(
-    "UPDATE reserva_fisica SET estado = 'cumplida', id_prestamo = ?, fecha_cierre = NOW() WHERE id_reserva = ? AND estado = 'asignada'",
-    [idPrestamo, idReserva],
+    `UPDATE reserva_fisica SET estado = 'cumplida', id_prestamo = ?, id_ejemplar = COALESCE(id_ejemplar, ?), fecha_cierre = NOW()
+     WHERE id_reserva = ? AND estado IN ('activa', 'asignada')`,
+    [idPrestamo, idEjemplar, idReserva],
   );
+}
+
+type FilaReservaViva = {
+  id_reserva: number;
+  id_lector: number;
+  id_libro: number;
+  id_sede: number;
+  estado: "activa" | "asignada";
+  id_ejemplar: number | null;
+} & RowDataPacket;
+
+// RN-68: las reservas vivas de un lector por una obra (por la restricción uq_reserva_viva, como mucho una).
+export async function bloquearReservasVivasDelLector(conexion: Conexion, idLector: number, idLibro: number) {
+  const [filas] = await conexion.execute<FilaReservaViva[]>(
+    `SELECT id_reserva, id_lector, id_libro, id_sede, estado, id_ejemplar FROM reserva_fisica
+     WHERE id_lector = ? AND id_libro = ? AND estado IN ('activa', 'asignada')
+     FOR UPDATE`,
+    [idLector, idLibro],
+  );
+  return filas;
+}
+
+export async function bloquearReservaPorId(conexion: Conexion, idReserva: number) {
+  const [filas] = await conexion.execute<FilaReservaViva[]>(
+    "SELECT id_reserva, id_lector, id_libro, id_sede, estado, id_ejemplar FROM reserva_fisica WHERE id_reserva = ? FOR UPDATE",
+    [idReserva],
+  );
+  return filas[0] ?? null;
+}
+
+export async function cancelarReserva(conexion: Conexion, idReserva: number) {
+  await conexion.execute(
+    "UPDATE reserva_fisica SET estado = 'cancelada', fecha_cierre = NOW() WHERE id_reserva = ? AND estado IN ('activa', 'asignada')",
+    [idReserva],
+  );
+}
+
+// RN-09: una copia disponible de la obra en la sede (la primera por id, bloqueada).
+export async function bloquearCopiaDisponible(conexion: Conexion, idLibro: number, idSede: number) {
+  const [filas] = await conexion.execute<({ id_ejemplar: number; id_ubicacion: number | null } & RowDataPacket)[]>(
+    `SELECT id_ejemplar, id_ubicacion FROM ejemplar WHERE id_libro = ? AND id_sede = ? AND estado = 'disponible'
+     ORDER BY id_ejemplar LIMIT 1 FOR UPDATE`,
+    [idLibro, idSede],
+  );
+  return filas[0] ?? null;
+}
+
+// RN-68: no se reserva una obra que el lector ya tiene prestada.
+export async function tienePrestadaLaObra(conexion: Conexion, idLector: number, idLibro: number): Promise<boolean> {
+  const [filas] = await conexion.execute<RowDataPacket[]>(
+    `SELECT 1 FROM prestamo_fisico p JOIN ejemplar e ON e.id_ejemplar = p.id_ejemplar
+     WHERE p.id_lector = ? AND e.id_libro = ? AND p.fecha_devolucion IS NULL AND e.estado <> 'perdido'
+     LIMIT 1 FOR SHARE`,
+    [idLector, idLibro],
+  );
+  return filas.length > 0;
+}
+
+// Reserva nueva: en cola (activa) o asignada de inmediato si hay copia (RN-09). Devuelve el id.
+export async function insertarReserva(
+  conexion: Conexion,
+  datos: { idLector: number; idLibro: number; idSede: number; idEjemplar: number | null; diasParaRecoger: number },
+): Promise<number> {
+  const [resultado] = await conexion.execute<ResultSetHeader>(
+    datos.idEjemplar === null
+      ? "INSERT INTO reserva_fisica (id_lector, id_libro, id_sede) VALUES (?, ?, ?)"
+      : `INSERT INTO reserva_fisica (id_lector, id_libro, id_sede, estado, id_ejemplar, fecha_asignacion, fecha_limite_recogida)
+         VALUES (?, ?, ?, 'asignada', ?, NOW(), NOW() + INTERVAL ? DAY)`,
+    datos.idEjemplar === null
+      ? [datos.idLector, datos.idLibro, datos.idSede]
+      : [datos.idLector, datos.idLibro, datos.idSede, datos.idEjemplar, datos.diasParaRecoger],
+  );
+  return resultado.insertId;
+}
+
+// Posición en la cola de una reserva activa (db/consultas.sql, consulta 6).
+export async function posicionEnCola(conexion: Conexion, idReserva: number): Promise<number> {
+  const [filas] = await conexion.execute<({ posicion: number } & RowDataPacket)[]>(
+    `SELECT COUNT(*) AS posicion FROM reserva_fisica r
+     JOIN reserva_fisica mia ON mia.id_reserva = ?
+     WHERE r.id_libro = mia.id_libro AND r.id_sede = mia.id_sede AND r.estado = 'activa'
+       AND (r.fecha_solicitud, r.id_reserva) <= (mia.fecha_solicitud, mia.id_reserva)`,
+    [idReserva],
+  );
+  return Number(filas[0].posicion);
 }
 
 // RN-04: ¿alguien espera esta obra? Solo cuentan las reservas en cola (activa), en cualquier sede.
@@ -344,9 +465,131 @@ export async function obtenerPrestamosAbiertos(idSede: number | null): Promise<P
      JOIN libro l ON l.id_libro = e.id_libro
      JOIN lector lc ON lc.id_lector = p.id_lector
      JOIN sede sd ON sd.id_sede = p.id_sede_prestamo
-     WHERE p.fecha_devolucion IS NULL ${filtroSede}
+     WHERE p.fecha_devolucion IS NULL AND e.estado <> 'perdido' ${filtroSede}
      ORDER BY p.fecha_vencimiento, p.id_prestamo`,
     idSede === null ? [] : [idSede],
   );
   return filas;
+}
+
+// ---------------------------------------------------------------------
+// Ubicar ejemplares (RN-17, RN-20)
+// ---------------------------------------------------------------------
+
+export type EjemplarPorUbicar = {
+  id_ejemplar: number;
+  codigo_barras: string;
+  titulo: string;
+  seccion: string;
+  color_hex: string;
+  id_ubicacion_sugerida: number | null;
+};
+
+// RN-20: los ejemplares por ubicar de una sede, con un estante SUGERIDO: el de la sección de su género
+// principal que menos ejemplares tiene en esa sede (reparte la carga entre estantes).
+export async function obtenerPorUbicar(idSede: number): Promise<EjemplarPorUbicar[]> {
+  const [filas] = await pool.execute<(EjemplarPorUbicar & RowDataPacket)[]>(
+    `SELECT e.id_ejemplar, e.codigo_barras, l.titulo, sc.nombre AS seccion, sc.color_hex,
+            (SELECT u.id_ubicacion FROM ubicacion u
+             LEFT JOIN ejemplar x ON x.id_ubicacion = u.id_ubicacion
+             WHERE u.id_sede = e.id_sede AND u.id_seccion = g.id_seccion
+             GROUP BY u.id_ubicacion
+             ORDER BY COUNT(x.id_ejemplar), u.pasillo, u.estante, u.nivel
+             LIMIT 1) AS id_ubicacion_sugerida
+     FROM ejemplar e
+     JOIN libro l ON l.id_libro = e.id_libro
+     JOIN genero g ON g.id_genero = l.id_genero_principal
+     JOIN seccion sc ON sc.id_seccion = g.id_seccion
+     WHERE e.id_sede = ? AND e.estado = 'por_ubicar'
+     ORDER BY l.titulo, e.codigo_barras`,
+    [idSede],
+  );
+  return filas;
+}
+
+export type UbicacionDeSede = { id_ubicacion: number; etiqueta: string; seccion: string };
+
+// El catálogo de ubicaciones válidas de una sede (RN-17): de aquí sale el <select>, nunca texto libre.
+export async function obtenerUbicacionesDeSede(idSede: number): Promise<UbicacionDeSede[]> {
+  const [filas] = await pool.execute<(UbicacionDeSede & RowDataPacket)[]>(
+    `SELECT u.id_ubicacion, CONCAT(u.pasillo, '-', u.estante, '-', u.nivel) AS etiqueta, sc.nombre AS seccion
+     FROM ubicacion u JOIN seccion sc ON sc.id_seccion = u.id_seccion
+     WHERE u.id_sede = ? ORDER BY u.pasillo, u.estante, u.nivel`,
+    [idSede],
+  );
+  return filas;
+}
+
+// La ubicación debe ser de la sede del empleado (la FK compuesta de ejemplar también lo exige).
+export async function ubicacionEsDeSede(conexion: Conexion, idUbicacion: number, idSede: number) {
+  const [filas] = await conexion.execute<({ etiqueta: string } & RowDataPacket)[]>(
+    "SELECT CONCAT(pasillo, '-', estante, '-', nivel) AS etiqueta FROM ubicacion WHERE id_ubicacion = ? AND id_sede = ?",
+    [idUbicacion, idSede],
+  );
+  return filas[0]?.etiqueta ?? null;
+}
+
+// ---------------------------------------------------------------------
+// Ejemplares perdidos (RN-06, RN-49, RN-71)
+// ---------------------------------------------------------------------
+
+export type CandidatoAPerdido = {
+  id_prestamo: number;
+  codigo_barras: string;
+  titulo: string;
+  lector: string;
+  dias_atraso: number;
+  valor_reposicion: number;
+};
+
+// db/consultas.sql, consulta 8, por sede del préstamo: más de dias_atraso_perdido días de atraso.
+export async function obtenerCandidatosAPerdido(idSede: number): Promise<CandidatoAPerdido[]> {
+  const [filas] = await pool.execute<(CandidatoAPerdido & RowDataPacket)[]>(
+    `SELECT p.id_prestamo, e.codigo_barras, l.titulo, CONCAT(lc.nombre, ' ', lc.apellido) AS lector,
+            DATEDIFF(CURDATE(), p.fecha_vencimiento) AS dias_atraso, e.valor_reposicion
+     FROM prestamo_fisico p
+     JOIN ejemplar e ON e.id_ejemplar = p.id_ejemplar
+     JOIN libro l ON l.id_libro = e.id_libro
+     JOIN lector lc ON lc.id_lector = p.id_lector
+     CROSS JOIN configuracion cf
+     WHERE p.fecha_devolucion IS NULL AND e.estado = 'prestado' AND p.id_sede_prestamo = ?
+       AND DATEDIFF(CURDATE(), p.fecha_vencimiento) > cf.dias_atraso_perdido
+     ORDER BY dias_atraso DESC`,
+    [idSede],
+  );
+  return filas;
+}
+
+type FilaPrestamoParaPerdido = {
+  id_prestamo: number;
+  id_ejemplar: number;
+  id_sede_prestamo: number;
+  codigo_barras: string;
+  titulo: string;
+  lector: string;
+  valor_reposicion: number;
+  dias_atraso: number;
+  dias_atraso_perdido: number;
+} & RowDataPacket;
+
+export async function bloquearPrestamoParaPerdido(conexion: Conexion, idPrestamo: number) {
+  const [filas] = await conexion.execute<FilaPrestamoParaPerdido[]>(
+    `SELECT p.id_prestamo, p.id_ejemplar, p.id_sede_prestamo, e.codigo_barras, l.titulo,
+            CONCAT(lc.nombre, ' ', lc.apellido) AS lector, e.valor_reposicion,
+            DATEDIFF(CURDATE(), p.fecha_vencimiento) AS dias_atraso, cf.dias_atraso_perdido
+     FROM prestamo_fisico p
+     JOIN ejemplar e ON e.id_ejemplar = p.id_ejemplar
+     JOIN libro l ON l.id_libro = e.id_libro
+     JOIN lector lc ON lc.id_lector = p.id_lector
+     CROSS JOIN configuracion cf
+     WHERE p.id_prestamo = ? AND p.fecha_devolucion IS NULL
+     FOR UPDATE OF p, e`,
+    [idPrestamo],
+  );
+  return filas[0] ?? null;
+}
+
+// RN-06: la multa de reposición es el valor de reposición del ejemplar.
+export async function insertarMultaReposicion(conexion: Conexion, idPrestamo: number, monto: number) {
+  await conexion.execute("INSERT INTO multa (id_prestamo, tipo, monto) VALUES (?, 'reposicion', ?)", [idPrestamo, monto]);
 }
