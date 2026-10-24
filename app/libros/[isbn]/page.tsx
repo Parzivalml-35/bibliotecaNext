@@ -6,11 +6,11 @@ import { TarjetaSede } from "@/components/tarjeta-sede";
 import { FormularioReserva } from "@/components/formularios-lector";
 import { SeccionDigital } from "@/components/seccion-digital";
 import { obtenerDisponibilidadDigital, obtenerSituacionDigitalEnTitulo } from "@/lib/data/digital";
-import { obtenerReservaVivaDeObra } from "@/lib/data/lectores";
+import { obtenerPrestamoAbiertoDeObra, obtenerReservaVivaDeObra } from "@/lib/data/lectores";
 import { obtenerDisponibilidadPorSede, obtenerLibroPorIsbn } from "@/lib/data/libros";
 import { obtenerUsuario } from "@/lib/sesion";
 import type { DisponibilidadSede } from "@/lib/definitions";
-import { plural } from "@/lib/formato";
+import { fechaCorta, plural } from "@/lib/formato";
 import { esIsbnValido } from "@/lib/isbn";
 
 // Busca el libro de la URL o corta con un 404. La usan generateMetadata y la página;
@@ -38,8 +38,9 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
   const libro = await libroDeLaUrl(isbn);
   const [sedes, usuario] = await Promise.all([obtenerDisponibilidadPorSede(libro.id_libro), obtenerUsuario()]);
   const idLector = usuario?.lector?.idLector;
-  const [reservaViva, digital, situacionDigital] = await Promise.all([
+  const [reservaViva, prestamoAbierto, digital, situacionDigital] = await Promise.all([
     idLector ? obtenerReservaVivaDeObra(idLector, libro.id_libro) : null,
+    idLector ? obtenerPrestamoAbiertoDeObra(idLector, libro.id_libro) : null,
     obtenerDisponibilidadDigital(libro.id_libro),
     idLector ? obtenerSituacionDigitalEnTitulo(idLector, libro.id_libro) : null,
   ]);
@@ -111,6 +112,12 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
           </p>
         ) : !usuario.lector ? (
           <p className="mt-2 text-sm text-zinc-500">Las reservas son para cuentas de lector.</p>
+        ) : prestamoAbierto ? (
+          // RN-68, RN-75: quien ya tiene la obra prestada no la reserva (reservarObra también lo rechaza).
+          <p role="status" className="mt-2 text-sm">
+            Ya tienes este libro prestado ({prestamoAbierto.sede}, vence el {fechaCorta(prestamoAbierto.fecha_vencimiento)}).{" "}
+            <Link href="/cuenta" className="font-medium underline underline-offset-4">Ver mis préstamos</Link>
+          </p>
         ) : reservaViva ? (
           <p role="status" className="mt-2 text-sm">
             Tienes este libro reservado en {reservaViva.sede}:{" "}

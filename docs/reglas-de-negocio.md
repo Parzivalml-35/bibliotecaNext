@@ -35,6 +35,7 @@
 | RN-66 | Una multa se paga **completa** (sin abonos), de dos formas: **en mostrador**, registrada por un empleado (queda el empleado y la sede, RN-34), o **en línea** por el lector desde su cuenta, con el pago simulado de D-07 (`pendiente` → `pagado` o `fallido`). Puede haber varios intentos en línea, pero un solo pago exitoso por multa. |
 | RN-67 | Solo el **coordinador de la sede del préstamo** o el **administrador de red** pueden **anular** una multa pendiente, con un **motivo obligatorio**; se registra quién y cuándo. Una multa pagada no se anula. |
 | RN-71 | Al declarar un ejemplar **perdido** (RN-49), su préstamo queda abierto como registro de que nunca se devolvió, pero **deja de contar** como préstamo abierto o vencido del lector (RN-02, RN-03): lo que lo bloquea es la multa de reposición hasta que la pague. |
+| RN-75 | Un lector **no puede tener dos préstamos físicos abiertos de la misma obra**, sin excepciones (ni siquiera la decide un empleado). Un préstamo de un ejemplar perdido no cuenta (RN-71). Es el espejo de RN-68: tampoco se reserva una obra que ya se tiene prestada, y la página del libro lo dice en vez de mostrar el formulario. |
 
 ## Reservas físicas
 

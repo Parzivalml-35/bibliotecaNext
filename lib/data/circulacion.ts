@@ -291,7 +291,7 @@ export async function bloquearCopiaDisponible(conexion: Conexion, idLibro: numbe
   return filas[0] ?? null;
 }
 
-// RN-68: no se reserva una obra que el lector ya tiene prestada.
+// RN-68, RN-75: no se reserva ni se presta otra vez una obra que el lector ya tiene prestada.
 export async function tienePrestadaLaObra(conexion: Conexion, idLector: number, idLibro: number): Promise<boolean> {
   const [filas] = await conexion.execute<RowDataPacket[]>(
     `SELECT 1 FROM prestamo_fisico p JOIN ejemplar e ON e.id_ejemplar = p.id_ejemplar

@@ -258,6 +258,21 @@ export async function obtenerReservaVivaDeObra(idLector: number, idLibro: number
   return filas[0] ?? null;
 }
 
+// El préstamo abierto del lector por una obra, para la página del libro (RN-68, RN-75): si ya la tiene,
+// se dice en vez de ofrecer el formulario de reserva. Mismo criterio que tienePrestadaLaObra (perdidos no cuentan).
+export async function obtenerPrestamoAbiertoDeObra(idLector: number, idLibro: number) {
+  const [filas] = await pool.execute<({ sede: string; fecha_vencimiento: string } & RowDataPacket)[]>(
+    `SELECT sd.nombre AS sede, DATE_FORMAT(p.fecha_vencimiento, '%Y-%m-%d') AS fecha_vencimiento
+     FROM prestamo_fisico p
+     JOIN ejemplar e ON e.id_ejemplar = p.id_ejemplar
+     JOIN sede sd ON sd.id_sede = p.id_sede_prestamo
+     WHERE p.id_lector = ? AND e.id_libro = ? AND p.fecha_devolucion IS NULL AND e.estado <> 'perdido'
+     ORDER BY p.fecha_vencimiento LIMIT 1`,
+    [idLector, idLibro],
+  );
+  return filas[0] ?? null;
+}
+
 // ---------------------------------------------------------------------
 // Validación en mostrador (D-03, RN-70)
 // ---------------------------------------------------------------------

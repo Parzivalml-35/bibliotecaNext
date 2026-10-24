@@ -17,6 +17,7 @@ import {
   insertarPrestamo,
   registrarDevolucion,
   situacionDelLector,
+  tienePrestadaLaObra,
   ubicacionEsDeSede,
 } from "@/lib/data/circulacion";
 import type { EstadoFormulario } from "@/lib/definitions";
@@ -46,7 +47,7 @@ function codigoDeBarras(datos: FormData): string | null {
 }
 
 // ---------------------------------------------------------------------
-// Préstamo (RN-02, RN-03, RN-10, RN-23, RN-34, RN-43, RN-46, RN-48, RN-68, RN-69, D-03)
+// Préstamo (RN-02, RN-03, RN-10, RN-23, RN-34, RN-43, RN-46, RN-48, RN-68, RN-69, RN-75, D-03)
 // ---------------------------------------------------------------------
 export async function prestarEjemplar(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
   const empleado = await empleadoDeMostrador();
@@ -86,6 +87,11 @@ export async function prestarEjemplar(_estadoAnterior: EstadoFormulario, datos: 
     // RN-02
     if (situacion.abiertos >= lector.max_prestamos_fisicos) {
       throw new ErrorDeRegla(`${lector.nombre} ya tiene ${situacion.abiertos} de ${lector.max_prestamos_fisicos} préstamos permitidos.`);
+    }
+    // RN-75: una sola copia de cada obra. Lectura con bloqueo (FOR SHARE) DESPUÉS de bloquear al lector, como
+    // situacionDelLector: si otro mostrador le está prestando otra copia, esta espera su COMMIT y la ve.
+    if (await tienePrestadaLaObra(conexion, lector.id_lector, ejemplar.id_libro)) {
+      throw new ErrorDeRegla(`${lector.nombre} ya tiene prestado «${ejemplar.titulo}»: no se presta otra copia de la misma obra.`);
     }
     // RN-46: la edad se calcula con la fecha de nacimiento.
     if (lector.edad < ejemplar.edad_minima) {
