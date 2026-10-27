@@ -26,6 +26,94 @@ Inspiración, no copia: no se usan imágenes, logos ni textos de las referencias
 | DI-07 | Contraste mínimo **WCAG AA**: 4.5:1 para texto normal y 3:1 para texto grande e íconos, en los tres temas | Los acentos de las referencias no lo cumplen con texto blanco (ver "Acento y botón") |
 | DI-08 | Interfaz hecha de **bloques con borde fino** (estilo captura 3), no de sombras. Ver "Lenguaje de bloques" | Los bordes funcionan igual en los tres temas; las sombras casi no se ven sobre fondo oscuro ni sobre beige |
 | DI-09 | Cuatro **colores de estado** (`success`, `warning`, `danger`, `info`), cada uno con tres tonos por tema. El color nunca es la única señal: siempre va con texto | Las barras y etiquetas de colores de la captura 3 necesitan un significado y contraste en los tres temas |
+| DI-10 | Tres **zonas** (pública, "Mi cuenta" y panel) con el mapa de rutas de abajo. El panel se divide en **secciones por tipo de trabajo**, y cada persona ve **solo las secciones y páginas que su rol puede usar** | Auditoría UX del 2026-10-27 (`docs/auditoria-ux.md`): hoy todos los roles ven los mismos 8 enlaces |
+| DI-11 | **Una sola fuente de permisos**: un archivo `lib/permisos.ts` dice qué roles usan cada página del panel. Lo leen el menú (para mostrar) y `exigirEmpleado` (para verificar, RN-35) | El problema de la auditoría nace de tener dos listas que se escribieron por separado: los enlaces del layout y los roles de cada página |
+| DI-12 | **Avatar** en el menú de usuario: generado con DiceBear por defecto o foto propia (RN-81, RN-82). Si no carga, se muestran las iniciales | Da identidad a la cuenta y sirve de entrada al menú de usuario, como en las referencias |
+
+## Arquitectura de información (DI-10)
+
+Rutas **objetivo**. Las que cambian respecto de hoy se marcan como nuevas o movidas; el detalle de por qué está en
+`docs/auditoria-ux.md`.
+
+### Zona pública
+
+| Ruta | Pantalla | Estado |
+|---|---|---|
+| `/` | Catálogo con búsqueda | Existe |
+| `/libros/[isbn]` | Ficha del libro: dónde está, reservar, leer en línea | Existe |
+| `/login` | Iniciar sesión. Acepta `?siguiente=` (RN-83) | Existe; `?siguiente=` es nuevo |
+| `/registro`, `/verificar` | Crear cuenta y verificar el correo | Existen |
+| `/recuperar` | Pedir el enlace y, con `?token=`, elegir la contraseña nueva (RN-80) | **Nueva** (R7) |
+
+### "Mi cuenta" (cualquier cuenta con perfil de lector)
+
+Una barra de pestañas propia, debajo de la barra superior.
+
+| Ruta | Pestaña | Contenido | Estado |
+|---|---|---|---|
+| `/cuenta` | Resumen | Situación (bloqueos y motivos), lo que vence pronto (RN-76), avisos | Existe; se reparte |
+| `/cuenta/prestamos` | Préstamos y reservas | Préstamos físicos (con renovaciones) y reservas físicas | **Nueva**: sale de `/cuenta` |
+| `/cuenta/digitales` | Digitales | Préstamos y reservas digitales, botón "Leer" | **Nueva**: sale de `/cuenta` |
+| `/cuenta/multas` | Multas | Multas y pago en línea | **Nueva**: sale de `/cuenta` |
+| `/cuenta/pago/[id]` | (sin pestaña) | Pasarela simulada | Existe; se conserva |
+| `/cuenta/perfil` | Perfil | Datos editables (RN-77), avatar (RN-81, RN-82), tema | **Nueva** (R7) |
+| `/cuenta/seguridad` | Seguridad | Contraseña (RN-78) y correo (RN-79) | **Nueva** (R7) |
+| `/leer/[isbn]` | (sin pestañas) | Visor **inmersivo**: barra mínima con volver, título y tema; sin la barra de la app | Existe; cambia el layout |
+
+Un empleado sin perfil de lector no ve "Mi cuenta". El perfil, el avatar y la seguridad son de la **cuenta** (RN-31),
+así que el empleado tiene su versión dentro del panel: `/panel/perfil`, con las mismas piezas.
+
+### Panel (empleados)
+
+Secciones por **tipo de trabajo**, como en los sistemas de bibliotecas (circulación, colección, administración).
+La barra de pestañas del panel muestra solo las secciones del rol; dentro de cada sección, sus páginas.
+
+| Sección | Ruta | Página | Bibliotecario | Coordinador | Admin de red | Estado |
+|---|---|---|:-:|:-:|:-:|---|
+| Mostrador | `/panel/mostrador` | Préstamos abiertos de la sede | ✓ | ✓ | | Movida desde `/panel` |
+| | `/panel/mostrador/prestamo` | Nuevo préstamo | ✓ | ✓ | | Movida desde `/panel/prestamos` |
+| | `/panel/mostrador/devolucion` | Devolución | ✓ | ✓ | | Movida desde `/panel/devoluciones` |
+| | `/panel/mostrador/pedidos` | Entregar pedidos (RN-33) | ✓ | ✓ | | Fase 6 |
+| Lectores | `/panel/lectores` | Buscar lector, validar, multas (anular según RN-67) | ✓ | ✓ | ✓ | Existe |
+| Colección | `/panel/coleccion/ubicar` | Ubicar ejemplares | ✓ | ✓ | | Movida desde `/panel/ubicar` |
+| | `/panel/coleccion/perdidos` | Candidatos a perdido | ✓ | ✓ | | Movida desde `/panel/perdidos` |
+| | `/panel/coleccion/traslados` | Traslados (RN-50 a RN-52) | | ✓ | | Fase de traslados |
+| | `/panel/coleccion/auditorias` | Auditorías de estante (RN-53) | | ✓ | | Fase de traslados |
+| Reportes | `/panel/reportes` | Tablero: indicadores, traslados sugeridos, coherencia | | ✓ (su sede) | ✓ (la red) | Movida desde `/panel/tablero` |
+| Red | `/panel/red/licencias` | Licencias digitales | | | ✓ | Movida desde `/panel/licencias` |
+| | `/panel/red/catalogo` | Libros, autores, editoriales, ediciones digitales | | | ✓ | Fase de administración |
+| | `/panel/red/empleados` | Empleados | | | ✓ | Fase de administración |
+| | `/panel/red/tipos-lector`, `/panel/red/configuracion` | Tipos de lector y configuración | | | ✓ | Fase de administración |
+| (sin sección) | `/panel/perfil` | Perfil, avatar, tema y seguridad del empleado | ✓ | ✓ | ✓ | **Nueva** (R7) |
+
+**`/panel` deja de ser una página**: redirige a la primera sección del rol. El bibliotecario y el coordinador van a
+Mostrador; el administrador, a Reportes. Una persona con los dos perfiles (RN-31) ve "Panel" y "Mi cuenta" en su menú.
+
+Las URL cambian para que la ruta refleje la sección: la pestaña activa se calcula con el inicio de la ruta y cada
+sección puede tener su propio `layout.tsx` con su sub-navegación. Ese layout **solo muestra**; la verificación sigue en
+cada página y en cada acción (RN-35), porque un layout no se vuelve a ejecutar al navegar entre sus páginas.
+
+### Navegación
+
+| Pieza | Contenido | Dónde |
+|---|---|---|
+| Barra superior (todas las páginas, salvo el visor) | Logo · pestañas en píldora: **Catálogo**, **Mi cuenta** (si es lector), **Panel** (si es empleado) · botón de tema · menú de usuario | `app/layout.tsx` |
+| Menú de usuario (sin sesión) | "Iniciar sesión" y "Crear cuenta" | Barra superior |
+| Menú de usuario (con sesión) | Avatar (DI-12) que abre un menú: nombre y correo, Mi cuenta / Panel, Perfil, Seguridad, Salir | Barra superior (`DropdownMenu`) |
+| Sub-navegación | Pestañas de "Mi cuenta" o secciones del panel del rol | Layout de la zona |
+| En el celular | Las pestañas de la barra superior pasan a un menú lateral (`Sheet`); las sub-navegaciones se desplazan en horizontal | — |
+
+### Estados comunes
+
+Cada pantalla resuelve los mismos casos con las mismas piezas:
+
+| Caso | Cómo se ve |
+|---|---|
+| Cargando | Esqueletos con la forma del contenido (ya existen en `components/esqueletos.tsx`) |
+| Vacío | Bloque con borde punteado, una frase que explica y la acción siguiente ("Aún no tienes préstamos. Busca un libro") |
+| Error de una acción | Mensaje junto al formulario, con `danger` y texto (no solo color) |
+| Sin permiso | No debería verse: el menú no muestra lo que el rol no usa. Si se entra por URL, se redirige a la sección del rol con un aviso |
+| Sin sesión | Redirige a `/login?siguiente=<ruta>` (RN-83) |
 
 ## Temas y tokens
 
@@ -168,9 +256,9 @@ shadcn lo usen sin cambios.
 | R0 | Esta ficha |
 | R1 | `shadcn init` (Radix, `new-york`) y revisión de lo que genera |
 | R2 | Tokens de los tres temas en `globals.css`, tipografía, cookie del tema y botón sol, luna y lámpara |
-| R3 | Esqueleto: barra superior con pestañas y menú de usuario |
-| R4 | Componentes base y `Portada` generada |
-| R5 | Pantallas (catálogo, detalle, cuenta, panel, login y registro) y filtro del visor PDF |
-| R6 | Verificación: contraste en los tres temas, teclado, celular |
-| R7 | Mi perfil: avatar, datos y tema guardado en la cuenta. Primero las reglas |
+| R3 | Esqueleto (DI-10, DI-11): barra superior, menú de usuario, `lib/permisos.ts`, rutas del panel por sección con su sub-navegación, `/panel` que redirige por rol, pestañas de "Mi cuenta", `?siguiente=` en el login (RN-83) |
+| R4 | Componentes base, `Portada` generada y estados comunes (vacío, error) |
+| R5 | Pantallas (catálogo, detalle, cuenta repartida en pestañas, panel, login y registro), aviso "por vencer" (RN-76) y filtro del visor PDF |
+| R6 | Verificación: contraste en los tres temas, teclado, celular y recorrido de cada rol (auditoría UX) |
+| R7 | Mi cuenta: perfil y datos (RN-77), contraseña (RN-78), correo (RN-79), recuperar contraseña (RN-80), avatar DiceBear y foto (RN-81, RN-82), tema en la cuenta. Cambia el esquema (ver `modelo-datos.md`) |
 | R8 | Lector EPUB con foliate-js: reglas (RN-54 y seguridad), EPUB de muestra en `archivos:muestra`, `<Visor>` |

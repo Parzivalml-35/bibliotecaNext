@@ -36,6 +36,7 @@
 | RN-67 | Solo el **coordinador de la sede del préstamo** o el **administrador de red** pueden **anular** una multa pendiente, con un **motivo obligatorio**; se registra quién y cuándo. Una multa pagada no se anula. |
 | RN-71 | Al declarar un ejemplar **perdido** (RN-49), su préstamo queda abierto como registro de que nunca se devolvió, pero **deja de contar** como préstamo abierto o vencido del lector (RN-02, RN-03): lo que lo bloquea es la multa de reposición hasta que la pague. |
 | RN-75 | Un lector **no puede tener dos préstamos físicos abiertos de la misma obra**, sin excepciones (ni siquiera la decide un empleado). Un préstamo de un ejemplar perdido no cuenta (RN-71). Es el espejo de RN-68: tampoco se reserva una obra que ya se tiene prestada, y la página del libro lo dice en vez de mostrar el formulario. |
+| RN-76 | Un préstamo físico abierto está **por vencer** cuando faltan `dias_aviso_vencimiento` días o menos para su vencimiento y todavía no venció. Es **solo un aviso**: no bloquea ni cambia nada (el bloqueo es RN-03). El lector lo ve en su cuenta y el empleado en el mostrador, con el color de aviso y el texto de los días que faltan (DI-09 en `diseno.md`). |
 
 ## Reservas físicas
 
@@ -99,6 +100,13 @@
 | RN-64 | Una sesión vale si existe, no venció y la cuenta no está desactivada; para el panel, además, el perfil de empleado debe estar activo. Se verifica en el servidor en cada petición (RN-35). Cerrar sesión borra la fila; desactivar una cuenta o un empleado deja fuera a sus sesiones en la siguiente petición. |
 | RN-73 | **Límite de intentos**: cada inicio de sesión y cada registro se anota con correo, IP, resultado y fecha. Se rechaza, **sin verificar la contraseña**, un inicio de sesión con más de `max_fallos_por_correo` fallos para ese correo, o más de `max_fallos_por_ip` desde esa IP, dentro de los últimos `minutos_ventana_intentos` (los fallos de un correo anteriores a su último acceso correcto no cuentan). Un registro se rechaza con más de `max_registros_por_ip` desde la misma IP en la ventana. El mensaje no dice si el correo existe. |
 | RN-74 | **Datos obligatorios del lector** desde el registro: documento (tipo y número, único en la red), teléfono, dirección (calle y ciudad; el código postal es opcional) y fecha de nacimiento. Sirven para verificar la edad (RN-46), comprobar en mostrador que es una persona real (D-03) y ubicarla si no devuelve un libro o lo pierde (RN-49). El tipo de documento debe ser coherente con la edad: **CC solo desde los 18 años y TI solo antes** (CE y pasaporte, a cualquier edad). Un documento ya registrado recibe la misma respuesta que un correo ya registrado (RN-70) y se avisa al dueño de esa cuenta, para que el registro no revele qué documentos tienen cuenta. |
+| RN-77 | **Datos que cambia el propio lector** desde su cuenta: teléfono, dirección (calle, código postal y ciudad) y preferencias (tema y avatar, RN-81). Se validan igual que en el registro (RN-74). Nombre, apellido, fecha de nacimiento y documento **solo los cambia un empleado en el mostrador**, con el documento original a la vista (D-03, RN-70): son los datos que se verificaron, y la fecha de nacimiento decide la edad (RN-46) y el tipo de documento válido (RN-74). Los datos del perfil de empleado (nombre, rol y sede) los cambia el administrador de red (RN-33). El correo y la contraseña de la cuenta los cambia su dueño (RN-78, RN-79). |
+| RN-78 | **Cambiar la contraseña** desde la sesión exige la contraseña actual. La nueva cumple el mínimo de RN-70 y se guarda según RN-62. Al cambiarla se cierran **las demás sesiones** de la cuenta; la actual sigue abierta. Un fallo con la contraseña actual cuenta como fallo de inicio de sesión para RN-73: así, alguien que encuentre una sesión ajena abierta no puede probar contraseñas sin límite. |
+| RN-79 | **Cambiar el correo** exige la contraseña actual (cuenta para RN-73 como en RN-78) y se confirma con un enlace de un solo uso enviado **al correo nuevo**, guardado como hash y con el vencimiento de RN-70. Hasta confirmarlo, la cuenta sigue con el correo anterior; al confirmarlo se avisa al correo anterior. Si el correo nuevo ya tiene cuenta, la respuesta es la misma que si no la tuviera (como RN-70) y el cambio no se hace; al confirmar se comprueba otra vez que sigue libre. |
+| RN-80 | **Recuperar la contraseña**: se pide el correo y la respuesta es **siempre la misma**, exista o no la cuenta. Si existe y no está desactivada, se envía un enlace de un solo uso (token `recuperar_contrasena`, guardado como hash, RN-32) que vence en `minutos_recuperacion_contrasena`. Pedir un enlace nuevo anula los anteriores sin usar. Abrir el enlace no cambia nada (como la verificación del correo): la contraseña nueva se envía con un formulario. Al cambiarla se cierran **todas** las sesiones de la cuenta. Las solicitudes se anotan en la bitácora de RN-73 y se limitan por correo y por IP con los mismos topes. |
+| RN-81 | **Avatar generado**: toda cuenta tiene avatar. Al crearla (registro o alta de un empleado), el sistema le asigna uno **genérico al azar**: un estilo de la lista permitida y una semilla aleatoria, dibujados en el servidor con DiceBear, sin enviar datos a servicios externos. La semilla no sale del correo ni del id, así que el avatar no revela nada de la persona. Su dueño puede generar otro, elegir otro estilo, subir una foto (RN-82) y volver al generado cuando quiera. Solo se usan estilos con licencia **CC0**, que no exige atribución. |
+| RN-82 | **Foto de avatar**: JPEG, PNG o WebP de hasta `max_kb_avatar` KB. **No se acepta SVG**, porque puede traer scripts. El tipo se comprueba por el contenido del archivo, no por la extensión ni por lo que diga el navegador. El servidor la recorta cuadrada y la **vuelve a codificar** (WebP de 256 px), y así elimina los metadatos (EXIF, que puede traer la ubicación GPS). Se guarda fuera de `public/` con un nombre aleatorio, y la entrega una ruta que exige sesión: la ven su dueño y los empleados. Una foto nueva reemplaza a la anterior, que se borra. Un empleado puede **retirar** una foto inapropiada y la cuenta vuelve a su avatar generado. |
+| RN-83 | **Volver a donde estaba**: cuando una página exige iniciar sesión, el login recibe la ruta de origen (`?siguiente=`) y vuelve a ella al entrar. Solo se aceptan rutas internas: empiezan por `/`, pero no por `//` ni por `/\`. Cualquier otro valor se ignora y se usa el destino por perfil (panel o cuenta), para que el login no sirva para redirigir a otro sitio (*open redirect*). |
 
 ## Compras
 
@@ -141,6 +149,9 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 | Tipo de lector al registrarse (RN-70) | Estándar |
 | Fallos de inicio de sesión por correo / por IP, y registros por IP (RN-73) | 5 / 20 / 5 |
 | Ventana de conteo de intentos (RN-73) | 15 minutos |
+| Días antes del vencimiento para avisar "por vencer" (RN-76) | 3 |
+| Minutos para usar el enlace de recuperación de contraseña (RN-80) | 60 |
+| Tamaño máximo de la foto de avatar (RN-82) | 2048 KB (2 MB) |
 
 ## Reglas transversales
 
@@ -168,4 +179,16 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 
 ## Pendiente de definir
 
-Nada por ahora. Las dudas que aparezcan al modelar las tablas se agregan aquí.
+Las dudas que aparezcan al modelar las tablas se agregan aquí.
+
+**Administración de la red** (fase propia después de la Fase 6; RN-33 ya dice quién la hace). Antes de diseñarla hay
+que decidir:
+
+- **Empleados:** el alta (¿crea la cuenta o se asocia a una que ya existe, RN-31?), el cambio de rol o de sede
+  (¿qué pasa con sus operaciones abiertas?) y la desactivación. ¿Un administrador puede desactivarse a sí mismo? ¿Qué
+  impide quedarse sin ningún administrador activo?
+- **Catálogo:** alta y edición de libros, autores, editoriales y géneros. ¿Un libro con ejemplares o préstamos se puede
+  borrar, o solo dar de baja?
+- **Tipos de lector y configuración:** ¿cambiar un límite o un plazo afecta a los préstamos ya abiertos o solo a los
+  nuevos? ¿Se registra quién cambió qué y cuándo?
+- **Lectores:** desactivar una cuenta de lector (RN-64) y quién puede hacerlo.

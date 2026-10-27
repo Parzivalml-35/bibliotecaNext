@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-26 (PC de escritorio) — Fase R (rediseño) en curso en la rama `feat/rediseno`: R0 y R1 hechos
+**Última actualización:** 2026-10-27 (PC de escritorio) — Fase R (rediseño) en curso en la rama `feat/rediseno`: R0 y R1 hechos, auditoría UX y documentación de navegación, cuenta y avatar
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -103,7 +103,7 @@ teléfono y dirección obligatorios desde el registro.
 
 ## Fase R — Rediseño con shadcn/ui (en curso, rama `feat/rediseno`)
 
-Va antes de la Fase 6. Fuente de verdad: `docs/diseno.md` (DI-01 a DI-09). Decisiones: shadcn sobre **Radix**, preset
+Va antes de la Fase 6. Fuente de verdad: `docs/diseno.md` (DI-01 a DI-12); hallazgos de partida en `docs/auditoria-ux.md`. Decisiones: shadcn sobre **Radix**, preset
 **Maia** con Hugeicons y Figtree; **barra superior** estilo "Books" (sin sidebar); temas **claro, oscuro y lámpara**
 con la preferencia en **cookie** (y en la cuenta en R7); portada generada; bloques con borde fino y barras con rayas
 (estilo YowBooks "My Library"); cuatro colores de estado con contraste AA medido; lector **EPUB con foliate-js** y PDF
@@ -113,12 +113,13 @@ como alternativa, preparado para Readium.
 |---|---|---|
 | R0 | Ficha de diseño `docs/diseno.md`: referencias, decisiones, paletas de los tres temas en oklch con contraste, colores de estado, lenguaje de bloques, lector | Hecho |
 | R1 | `shadcn init -b radix -t next --preset maia` (probado antes en una copia): `components.json`, `lib/utils.ts` (`cn`), `components/ui/button.tsx`, tokens neutros en `globals.css`; Figtree en lugar de Geist Sans (Geist Mono se queda para los códigos) | Hecho |
+| Auditoría | `docs/auditoria-ux.md` (UX-01 a UX-12; la más grave: el menú del panel es igual para todos los roles). Mapa del sitio, secciones del panel por rol y `lib/permisos.ts` como fuente única (DI-10 a DI-12). Reglas nuevas RN-76 a RN-83 (por vencer, datos editables, contraseña, correo, recuperar, avatar DiceBear y foto, `?siguiente=`). Cambios de esquema planificados en `modelo-datos.md` (bloque 2) | Hecho (solo documentación) |
 | R2 | Tres paletas en `globals.css`, `dark:` → `[data-tema="oscuro"]`, cookie del tema leída en el layout, botón sol, luna y lámpara, serif para títulos (`--font-heading`) | Pendiente |
-| R3 | Barra superior con pestañas en píldora y menú de usuario | Pendiente |
+| R3 | Barra superior, menú de usuario, `lib/permisos.ts`, panel por secciones (URL nuevas, `/panel` redirige por rol), pestañas de "Mi cuenta", `?siguiente=` (RN-83) | Pendiente |
 | R4 | Componentes base y `Portada` generada | Pendiente |
-| R5 | Pantallas (35 archivos con `zinc-*` a mano) y filtro del visor PDF | Pendiente |
-| R6 | Verificación: contraste en los tres temas, teclado, celular | Pendiente |
-| R7 | Mi perfil (avatar, datos, tema en la cuenta): primero las reglas | Pendiente |
+| R5 | Pantallas (35 archivos con `zinc-*` a mano), `/cuenta` repartida en pestañas, aviso "por vencer" (RN-76), visor inmersivo y filtro del PDF | Pendiente |
+| R6 | Verificación: contraste en los tres temas, teclado, celular y recorrido de cada rol | Pendiente |
+| R7 | Mi cuenta: datos (RN-77), contraseña (RN-78), correo (RN-79), recuperar (RN-80), avatar DiceBear y foto (RN-81, RN-82), tema en la cuenta. Cambia el esquema. Decidir la librería para recodificar fotos (`sharp` está desactivado en `pnpm-workspace.yaml`) | Pendiente |
 | R8 | Lector EPUB con foliate-js: reglas (RN-54, seguridad del HTML del libro), EPUB de muestra, `<Visor>` | Pendiente |
 
 Efecto temporal de R1: el fondo es blanco, la letra es Figtree y **el modo oscuro automático no funciona** (`dark:`
@@ -126,16 +127,17 @@ ahora espera la clase `.dark`) hasta R2.
 
 ## Próximo paso
 
-1. **R2** de la Fase R (ver arriba). Pregunta abierta para R5: umbral de "préstamo por vencer" (¿3 días?), que iría
-   como regla nueva con el valor en `configuracion` (C-04).
+1. **R2** de la Fase R (ver arriba).
 2. `/documentar`: lo pendiente de la Fase 4 (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque
    de numeración RN-74 entre los dos equipos; después, la Fase R.
 3. Volver a probar RN-75 con la BD reconstruida: otra copia de "Cien años de soledad" a Ana debe rechazarse.
 4. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
    verifica una firma HMAC, para pedidos y multas; hoy la pasarela simulada se confirma con un botón).
-4. Fase 7: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
+5. **Fase 7: administración de la red** (empleados, catálogo, tipos de lector, configuración; RN-33). Antes, decidir
+   las preguntas de "Pendiente de definir" en `reglas-de-negocio.md`.
+6. Fase 8: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
    (antes: regla para su multa de reposición: anular si está pendiente, ¿reembolsar si ya se pagó?).
-5. Fase 8: calidad (Lighthouse, accesibilidad, build). Pendiente de la Fase 5: subir archivos PDF desde el panel.
+7. Fase 9: calidad (Lighthouse, accesibilidad, build). Pendiente de la Fase 5: subir archivos PDF desde el panel.
 
 ## Pendientes y avisos
 

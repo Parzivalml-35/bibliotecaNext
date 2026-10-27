@@ -335,6 +335,27 @@ erDiagram
 - Vencimiento perezoso de reservas y pedidos → RN-48.
 - Declaración de ejemplar perdido por un empleado, desde una lista calculada → RN-49.
 
+### Cambios planificados para "Mi cuenta" (Fase R, paso R7)
+
+Derivados de RN-76 a RN-82 y DI-04. **Todavía no están en `db/init/01_schema.sql`**: se aplican en R7 y se reconstruye
+la BD.
+
+| Tabla | Cambio | Regla |
+|---|---|---|
+| `cuenta` | `avatar_estilo VARCHAR(40) NOT NULL`: estilo de DiceBear, de la lista permitida | RN-81 |
+| `cuenta` | `avatar_semilla CHAR(22) NOT NULL`: semilla aleatoria (16 bytes en base64url), no derivada de datos de la persona | RN-81 |
+| `cuenta` | `avatar_clave VARCHAR(255) NULL` + `UNIQUE`: nombre aleatorio de la foto en el almacenamiento privado. **NULL = usa el generado** (se deduce, no hay columna de tipo; C-02) | RN-82 |
+| `cuenta` | `tema ENUM('claro', 'oscuro', 'lampara') NULL`: preferencia guardada en la cuenta. NULL = sin preferencia, manda la cookie | DI-04 |
+| `token_cuenta` | `tipo` suma `'cambiar_correo'`; nueva columna `correo_nuevo VARCHAR(254) NULL` con `CHECK ((tipo = 'cambiar_correo') = (correo_nuevo IS NOT NULL))` | RN-79 |
+| `configuracion` | `dias_aviso_vencimiento` (3), `minutos_recuperacion_contrasena` (60), `max_kb_avatar` (2048) | RN-76, RN-80, RN-82 |
+
+Por qué el avatar va en `cuenta` y no en `lector`: representa a la **persona** (RN-31), y los empleados también lo tienen.
+El estilo y la semilla se guardan aunque haya foto, para que "volver al generado" recupere el mismo avatar.
+
+Nota técnica para R7: volver a codificar la foto (RN-82) necesita una librería de imágenes en el servidor. `sharp` es
+la habitual (Next la usa para `next/image`), pero hoy su compilación está desactivada en `pnpm-workspace.yaml`
+(`allowBuilds: sharp: false`). Hay que decidirlo en R7.
+
 ## Bloque 3 — Operación de sede: traslados y auditorías
 
 ```mermaid
