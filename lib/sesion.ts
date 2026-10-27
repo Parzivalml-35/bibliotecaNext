@@ -4,7 +4,8 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { borrarSesion, buscarSesionVigente, insertarSesion } from "@/lib/data/sesiones";
-import type { EmpleadoSesion, LectorSesion, RolEmpleado, UsuarioSesion } from "@/lib/definitions";
+import type { EmpleadoSesion, LectorSesion, UsuarioSesion } from "@/lib/definitions";
+import { inicioDe, type Permiso, tienePermiso } from "@/lib/permisos";
 
 // Capa de acceso a la sesión (la "DAL" de la guía de autenticación de Next). Todo lo que necesite saber
 // quién está conectado pasa por aquí: páginas, layouts y Server Actions. RN-35, RN-63, RN-64.
@@ -74,12 +75,14 @@ export const obtenerUsuario = cache(async (): Promise<UsuarioSesion | null> => {
 
 // Para páginas y acciones del panel: devuelve el empleado o corta la petición. redirect() lanza una
 // excepción especial que Next convierte en una redirección: el código de después no se ejecuta.
-// `roles` restringe a ciertos roles (RN-33); sin él, basta con ser empleado activo.
-export async function exigirEmpleado(roles?: RolEmpleado[]): Promise<EmpleadoSesion> {
+// `permiso` (de lib/permisos.ts, DI-11) restringe a los roles que lo tienen; sin él, basta con ser empleado activo.
+// Sin permiso se vuelve al inicio del rol, que siempre es una página que el rol puede abrir.
+export async function exigirEmpleado(permiso?: Permiso): Promise<EmpleadoSesion> {
   const usuario = await obtenerUsuario();
   if (!usuario) redirect("/login");
   if (!usuario.empleado) redirect("/login?motivo=sin-panel");
-  if (roles && !roles.includes(usuario.empleado.rol)) redirect("/panel?motivo=sin-permiso");
+  const { rol } = usuario.empleado;
+  if (permiso && !tienePermiso(rol, permiso)) redirect(`${inicioDe(rol)}?motivo=sin-permiso`);
   return usuario.empleado;
 }
 

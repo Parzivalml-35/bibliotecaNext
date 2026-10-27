@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Nuevo préstamo" };
 
 export default async function PaginaPrestamo() {
   // RN-33: solo bibliotecario y coordinador. La acción lo vuelve a verificar (esta página es solo la puerta).
-  const empleado = await exigirEmpleado(["bibliotecario", "coordinador"]);
+  const empleado = await exigirEmpleado("mostrador");
 
   return (
     <div className="max-w-xl">

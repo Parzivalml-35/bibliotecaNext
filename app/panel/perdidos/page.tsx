@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Ejemplares perdidos" };
 // RN-49: la lista se CALCULA (préstamos con más de dias_atraso_perdido días de atraso); declarar perdido es
 // decisión del empleado, nunca automática.
 export default async function PaginaPerdidos() {
-  const empleado = await exigirEmpleado(["bibliotecario", "coordinador"]);
+  const empleado = await exigirEmpleado("coleccion");
   const candidatos = await obtenerCandidatosAPerdido(empleado.idSede!);
 
   return (

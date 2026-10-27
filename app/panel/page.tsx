@@ -1,27 +1,26 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { BotonAccion } from "@/components/boton-accion";
 import { renovarPrestamo } from "@/lib/actions/circulacion";
 import { obtenerPrestamosAbiertos } from "@/lib/data/circulacion";
 import { fechaCorta, plural } from "@/lib/formato";
+import { inicioDe, tienePermiso } from "@/lib/permisos";
 import { exigirEmpleado } from "@/lib/sesion";
 
 export const metadata: Metadata = { title: "Panel" };
 
 const NOMBRE_ROL = { bibliotecario: "Bibliotecario", coordinador: "Coordinador de sede", admin_red: "Administrador de red" };
 
-const MOTIVOS: Record<string, string> = {
-  "sin-permiso": "Tu rol no permite esa operación.",
-};
-
-export default async function PaginaPanel({ searchParams }: PageProps<"/panel">) {
+export default async function PaginaPanel() {
   // Primero la sesión: si no hay empleado, redirect() corta aquí y no se consulta nada más.
   const empleado = await exigirEmpleado();
-  const { motivo } = await searchParams;
-  const aviso = typeof motivo === "string" ? MOTIVOS[motivo] : undefined;
+  // /panel es la entrada de todos los empleados, pero esta página es del mostrador: quien no lo usa (el
+  // administrador de red) va a su inicio, sin aviso porque no pidió nada indebido. En R3b /panel solo redirige.
+  if (!tienePermiso(empleado.rol, "mostrador")) redirect(inicioDe(empleado.rol));
 
   // RN-34: cada empleado ve su sede; el administrador de red, toda la red.
   const prestamos = await obtenerPrestamosAbiertos(empleado.idSede);
-  const puedeRenovar = empleado.rol !== "admin_red";
+  const puedeRenovar = tienePermiso(empleado.rol, "mostrador");
 
   return (
     <div>
@@ -29,7 +28,6 @@ export default async function PaginaPanel({ searchParams }: PageProps<"/panel">)
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
         {NOMBRE_ROL[empleado.rol]} · {empleado.sede ?? "Toda la red"} · {plural(prestamos.length, "préstamo", "préstamos")}
       </p>
-      {aviso && <p role="alert" className="mt-3 text-sm text-amber-700 dark:text-amber-400">{aviso}</p>}
 
       {prestamos.length === 0 ? (
         <p className="mt-6 rounded-lg border border-dashed border-zinc-300 px-6 py-10 text-center text-sm dark:border-zinc-700">

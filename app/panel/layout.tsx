@@ -1,22 +1,21 @@
-import Link from "next/link";
+import { Suspense } from "react";
+import { AvisoPanel } from "@/components/panel/aviso-panel";
+import { MenuPanel } from "@/components/panel/menu-panel";
 
 // Navegación del panel. Este layout NO verifica la sesión, a propósito: un layout no se vuelve a ejecutar
 // al navegar entre sus páginas (renderizado parcial) y no impide que sus páginas se rendericen. La
-// verificación va en cada página y en cada Server Action (exigirEmpleado, RN-35).
+// verificación va en cada página y en cada Server Action (exigirEmpleado, RN-35). Aquí solo se MUESTRA el menú
+// del rol (DI-11): leer la sesión para eso está bien, decidir con ella quién entra, no.
 export default function LayoutPanel({ children }: LayoutProps<"/panel">) {
-  const enlace = "rounded-md px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800";
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <nav aria-label="Panel de empleado" className="mb-8 flex flex-wrap gap-2 border-b border-zinc-200 pb-4 dark:border-zinc-800">
-        <Link href="/panel" className={enlace}>Préstamos abiertos</Link>
-        <Link href="/panel/prestamos" className={enlace}>Nuevo préstamo</Link>
-        <Link href="/panel/devoluciones" className={enlace}>Devolución</Link>
-        <Link href="/panel/lectores" className={enlace}>Lectores y multas</Link>
-        <Link href="/panel/ubicar" className={enlace}>Ubicar</Link>
-        <Link href="/panel/perdidos" className={enlace}>Perdidos</Link>
-        <Link href="/panel/tablero" className={enlace}>Tablero</Link>
-        <Link href="/panel/licencias" className={enlace}>Licencias digitales</Link>
-      </nav>
+      {/* Fallback del mismo alto que el menú, para que el contenido no salte cuando aparece. */}
+      <Suspense fallback={<div className="mb-8 h-[49px] border-b border-zinc-200 dark:border-zinc-800" />}>
+        <MenuPanel />
+      </Suspense>
+      <Suspense fallback={null}>
+        <AvisoPanel />
+      </Suspense>
       {children}
     </div>
   );

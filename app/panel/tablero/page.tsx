@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Tablero" };
 
 // RN-33: reportes para el coordinador (su sede) y el administrador de red (toda la red).
 export default async function PaginaTablero() {
-  const empleado = await exigirEmpleado(["coordinador", "admin_red"]);
+  const empleado = await exigirEmpleado("reportes");
   const idSede = empleado.idSede; // null para admin_red = toda la red
   const [ind, incoherencias, traslados] = await Promise.all([
     obtenerIndicadores(idSede),

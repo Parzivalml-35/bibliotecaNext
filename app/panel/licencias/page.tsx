@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Licencias digitales" };
 
 // RN-25, RN-33, RN-54 a RN-56: el administrador de red ve el uso de cada lote y registra lotes nuevos.
 export default async function PaginaLicencias() {
-  await exigirEmpleado(["admin_red"]);
+  await exigirEmpleado("red");
   const titulos = await obtenerLicenciasPorTitulo();
   const hoy = new Date().toISOString().slice(0, 10);
 

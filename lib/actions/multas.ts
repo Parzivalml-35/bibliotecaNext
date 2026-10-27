@@ -43,7 +43,7 @@ export async function cobrarMulta(_estadoAnterior: EstadoFormulario, datos: Form
 
 // RN-67: solo coordinador (de la sede del préstamo) o administrador de red, con motivo obligatorio.
 export async function anularMultaConMotivo(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
-  const empleado = await exigirEmpleado(["coordinador", "admin_red"]);
+  const empleado = await exigirEmpleado("anularMultas");
   const idMulta = idDe(datos, "id_multa");
   const motivo = texto(datos, "motivo");
   const valores = { motivo };
@@ -55,7 +55,8 @@ export async function anularMultaConMotivo(_estadoAnterior: EstadoFormulario, da
     async (conexion) => {
       const multa = await bloquearMulta(conexion, idMulta);
       if (!multa) throw new ErrorDeRegla("Multa no encontrada.");
-      if (empleado.rol === "coordinador" && multa.id_sede_prestamo !== empleado.idSede) {
+      // RN-34: quien tiene sede (el coordinador) solo anula multas de préstamos de su sede.
+      if (empleado.idSede !== null && multa.id_sede_prestamo !== empleado.idSede) {
         throw new ErrorDeRegla("Solo el coordinador de la sede donde se hizo el préstamo puede anular esta multa.");
       }
       if (multa.estado !== "pendiente") throw new ErrorDeRegla(`Esa multa ya está ${multa.estado}: no se puede anular.`);

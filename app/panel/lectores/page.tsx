@@ -14,6 +14,7 @@ import {
   obtenerResumenLector,
   obtenerTiposDeLector,
 } from "@/lib/data/lectores";
+import { tienePermiso } from "@/lib/permisos";
 import { exigirEmpleado } from "@/lib/sesion";
 
 export const metadata: Metadata = { title: "Lectores" };
@@ -22,10 +23,11 @@ export const metadata: Metadata = { title: "Lectores" };
 // (RN-66) y, si el rol lo permite, anularlas (RN-67). La búsqueda va en la URL (?q=, ?id=), como el catálogo.
 export default async function PaginaLectores({ searchParams }: PageProps<"/panel/lectores">) {
   // Todo empleado entra: la administradora de red puede anular multas (RN-67) aunque no opere en mostrador.
-  const empleado = await exigirEmpleado();
-  const deMostrador = empleado.rol !== "admin_red";
+  const empleado = await exigirEmpleado("lectores");
+  const deMostrador = tienePermiso(empleado.rol, "mostrador");
+  // RN-67 con RN-34: quien tiene sede (el coordinador) solo anula las de su sede; el administrador, cualquiera.
   const puedeAnular = (idSedePrestamo: number) =>
-    empleado.rol === "admin_red" || (empleado.rol === "coordinador" && idSedePrestamo === empleado.idSede);
+    tienePermiso(empleado.rol, "anularMultas") && (empleado.idSede === null || idSedePrestamo === empleado.idSede);
   const { q, id } = await searchParams;
   const texto = typeof q === "string" ? q.trim().slice(0, 254) : "";
   const idLector = typeof id === "string" && /^\d+$/.test(id) ? Number(id) : null;
