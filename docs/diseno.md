@@ -70,17 +70,17 @@ La barra de pestañas del panel muestra solo las secciones del rol; dentro de ca
 
 | Sección | Ruta | Página | Bibliotecario | Coordinador | Admin de red | Estado |
 |---|---|---|:-:|:-:|:-:|---|
-| Mostrador | `/panel/mostrador` | Préstamos abiertos de la sede | ✓ | ✓ | | Movida desde `/panel` |
-| | `/panel/mostrador/prestamo` | Nuevo préstamo | ✓ | ✓ | | Movida desde `/panel/prestamos` |
-| | `/panel/mostrador/devolucion` | Devolución | ✓ | ✓ | | Movida desde `/panel/devoluciones` |
+| Mostrador | `/panel/mostrador` | Préstamos abiertos de la sede | ✓ | ✓ | | Movida desde `/panel` (R3b) |
+| | `/panel/mostrador/prestamo` | Nuevo préstamo | ✓ | ✓ | | Movida (R3b) |
+| | `/panel/mostrador/devolucion` | Devolución | ✓ | ✓ | | Movida (R3b) |
 | | `/panel/mostrador/pedidos` | Entregar pedidos (RN-33) | ✓ | ✓ | | Fase 6 |
 | Lectores | `/panel/lectores` | Buscar lector, validar, multas (anular según RN-67) | ✓ | ✓ | ✓ | Existe |
-| Colección | `/panel/coleccion/ubicar` | Ubicar ejemplares | ✓ | ✓ | | Movida desde `/panel/ubicar` |
-| | `/panel/coleccion/perdidos` | Candidatos a perdido | ✓ | ✓ | | Movida desde `/panel/perdidos` |
+| Colección | `/panel/coleccion/ubicar` | Ubicar ejemplares | ✓ | ✓ | | Movida (R3b) |
+| | `/panel/coleccion/perdidos` | Candidatos a perdido | ✓ | ✓ | | Movida (R3b) |
 | | `/panel/coleccion/traslados` | Traslados (RN-50 a RN-52) | | ✓ | | Fase de traslados |
 | | `/panel/coleccion/auditorias` | Auditorías de estante (RN-53) | | ✓ | | Fase de traslados |
-| Reportes | `/panel/reportes` | Tablero: indicadores, traslados sugeridos, coherencia | | ✓ (su sede) | ✓ (la red) | Movida desde `/panel/tablero` |
-| Red | `/panel/red/licencias` | Licencias digitales | | | ✓ | Movida desde `/panel/licencias` |
+| Reportes | `/panel/reportes` | Tablero: indicadores, traslados sugeridos, coherencia | | ✓ (su sede) | ✓ (la red) | Movida (R3b) |
+| Red | `/panel/red/licencias` | Licencias digitales | | | ✓ | Movida (R3b) |
 | | `/panel/red/catalogo` | Libros, autores, editoriales, ediciones digitales | | | ✓ | Fase de administración |
 | | `/panel/red/empleados` | Empleados | | | ✓ | Fase de administración |
 | | `/panel/red/tipos-lector`, `/panel/red/configuracion` | Tipos de lector y configuración | | | ✓ | Fase de administración |

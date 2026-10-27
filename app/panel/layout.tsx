@@ -10,7 +10,7 @@ export default function LayoutPanel({ children }: LayoutProps<"/panel">) {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Fallback del mismo alto que el menú, para que el contenido no salte cuando aparece. */}
-      <Suspense fallback={<div className="mb-8 h-[49px] border-b border-zinc-200 dark:border-zinc-800" />}>
+      <Suspense fallback={<div className="mb-8 h-[45px] border-b border-border" />}>
         <MenuPanel />
       </Suspense>
       <Suspense fallback={null}>

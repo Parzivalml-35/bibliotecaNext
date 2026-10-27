@@ -30,28 +30,32 @@ export function tienePermiso(rol: RolEmpleado, permiso: Permiso): boolean {
 }
 
 export type PaginaPanel = { titulo: string; ruta: string; permiso: Permiso };
-export type SeccionPanel = { titulo: string; paginas: PaginaPanel[] };
+// `ruta` es el prefijo de la sección: no es una página (no existe /panel/coleccion); la pestaña enlaza a la
+// primera página que el rol puede abrir.
+export type SeccionPanel = { titulo: string; ruta: string; paginas: PaginaPanel[] };
 
-// Secciones de DI-10 con las rutas de HOY. R3b las mueve a /panel/mostrador, /panel/coleccion, etc.
+// Secciones de DI-10. La ruta de cada página empieza por la de su sección: así la navegación sabe cuál está activa.
 export const SECCIONES_PANEL: SeccionPanel[] = [
   {
     titulo: "Mostrador",
+    ruta: "/panel/mostrador",
     paginas: [
-      { titulo: "Préstamos abiertos", ruta: "/panel", permiso: "mostrador" },
-      { titulo: "Nuevo préstamo", ruta: "/panel/prestamos", permiso: "mostrador" },
-      { titulo: "Devolución", ruta: "/panel/devoluciones", permiso: "mostrador" },
+      { titulo: "Préstamos abiertos", ruta: "/panel/mostrador", permiso: "mostrador" },
+      { titulo: "Nuevo préstamo", ruta: "/panel/mostrador/prestamo", permiso: "mostrador" },
+      { titulo: "Devolución", ruta: "/panel/mostrador/devolucion", permiso: "mostrador" },
     ],
   },
-  { titulo: "Lectores", paginas: [{ titulo: "Lectores y multas", ruta: "/panel/lectores", permiso: "lectores" }] },
+  { titulo: "Lectores", ruta: "/panel/lectores", paginas: [{ titulo: "Lectores y multas", ruta: "/panel/lectores", permiso: "lectores" }] },
   {
     titulo: "Colección",
+    ruta: "/panel/coleccion",
     paginas: [
-      { titulo: "Ubicar", ruta: "/panel/ubicar", permiso: "coleccion" },
-      { titulo: "Perdidos", ruta: "/panel/perdidos", permiso: "coleccion" },
+      { titulo: "Ubicar", ruta: "/panel/coleccion/ubicar", permiso: "coleccion" },
+      { titulo: "Perdidos", ruta: "/panel/coleccion/perdidos", permiso: "coleccion" },
     ],
   },
-  { titulo: "Reportes", paginas: [{ titulo: "Tablero", ruta: "/panel/tablero", permiso: "reportes" }] },
-  { titulo: "Red", paginas: [{ titulo: "Licencias digitales", ruta: "/panel/licencias", permiso: "red" }] },
+  { titulo: "Reportes", ruta: "/panel/reportes", paginas: [{ titulo: "Tablero", ruta: "/panel/reportes", permiso: "reportes" }] },
+  { titulo: "Red", ruta: "/panel/red", paginas: [{ titulo: "Licencias digitales", ruta: "/panel/red/licencias", permiso: "red" }] },
 ];
 
 // Las secciones con solo las páginas que el rol puede abrir; una sección sin páginas no aparece.
@@ -63,9 +67,9 @@ export function seccionesDe(rol: RolEmpleado): SeccionPanel[] {
 // Dónde empieza cada rol (DI-10, UX-07): el mostrador para quien atiende, los reportes para el administrador.
 // Cada inicio tiene que ser una página que el rol puede abrir: si no, exigirEmpleado() redirigiría en bucle.
 const INICIO: Record<RolEmpleado, string> = {
-  bibliotecario: "/panel",
-  coordinador: "/panel",
-  admin_red: "/panel/tablero",
+  bibliotecario: "/panel/mostrador",
+  coordinador: "/panel/mostrador",
+  admin_red: "/panel/reportes",
 };
 
 export function inicioDe(rol: RolEmpleado): string {

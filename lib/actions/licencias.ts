@@ -50,6 +50,6 @@ export async function registrarLote(_estadoAnterior: EstadoFormulario, datos: Fo
         ? `Lote registrado: ${cantidad} licencias de «${libro.titulo}»; ${asignadas} se asignaron a la cola.`
         : `Lote registrado: ${cantidad} licencias de «${libro.titulo}».`;
     },
-    ["/panel/licencias", `/libros/${isbn}`, "/cuenta"],
+    ["/panel/red/licencias", `/libros/${isbn}`, "/cuenta"],
   );
 }
