@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Ubicar ejemplares" };
 // RN-20: los ejemplares que llegaron de otra sede esperan aquí hasta tener estante. No cuentan como
 // disponibles ni se pueden reservar mientras tanto.
 export default async function PaginaUbicar() {
-  const empleado = await exigirEmpleado("coleccion");
+  const empleado = await exigirEmpleado("coleccion", "/panel/coleccion/ubicar");
   const idSede = empleado.idSede!; // estos roles siempre tienen sede (ck_empleado_sede)
   const [pendientes, ubicaciones] = await Promise.all([obtenerPorUbicar(idSede), obtenerUbicacionesDeSede(idSede)]);
 

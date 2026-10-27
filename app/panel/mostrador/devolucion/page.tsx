@@ -5,7 +5,7 @@ import { exigirEmpleado } from "@/lib/sesion";
 export const metadata: Metadata = { title: "Devolución" };
 
 export default async function PaginaDevolucion() {
-  const empleado = await exigirEmpleado("mostrador");
+  const empleado = await exigirEmpleado("mostrador", "/panel/mostrador/devolucion");
 
   return (
     <div className="max-w-xl">

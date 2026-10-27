@@ -73,14 +73,46 @@ export const obtenerUsuario = cache(async (): Promise<UsuarioSesion | null> => {
   };
 });
 
+// RN-83: ¿es una ruta de ESTE sitio? Devuelve la ruta normalizada o null. La usan la página de login (para el campo
+// oculto) y la acción (que la vuelve a validar: una Server Action recibe lo que cualquiera le envíe).
+// Las tres comprobaciones de RN-83 no bastan solas: el navegador borra tabuladores y saltos de línea de una URL, así
+// que "/\t/otro.com" acabaría siendo "//otro.com". Por eso además se interpreta con URL contra un origen inventado:
+// si el resultado cambia de origen, era otro sitio. Se devuelve lo interpretado, no el texto recibido.
+// La misma regla se aplica OTRA VEZ al resultado: URL resuelve los ".." y "/..//otro.com" quedaría en "//otro.com".
+const ORIGEN_DE_PRUEBA = "http://interno.invalid";
+const pareceInterna = (ruta: string) => ruta.startsWith("/") && !ruta.startsWith("//") && !ruta.startsWith("/\\");
+export function rutaInterna(valor: unknown): string | null {
+  if (typeof valor !== "string" || valor.length > 2048 || !pareceInterna(valor)) return null;
+  let url: URL;
+  try {
+    url = new URL(valor, ORIGEN_DE_PRUEBA);
+  } catch {
+    return null;
+  }
+  const ruta = url.pathname + url.search + url.hash;
+  return url.origin === ORIGEN_DE_PRUEBA && pareceInterna(ruta) ? ruta : null;
+}
+
+// A dónde manda exigirLector/exigirEmpleado cuando falta la sesión o el perfil. `siguiente` es la ruta de la página
+// que llama (RN-83): el servidor no conoce la URL actual, así que cada página pasa la suya.
+function urlLogin(siguiente?: string, motivo?: string): string {
+  const parametros = new URLSearchParams();
+  if (motivo) parametros.set("motivo", motivo);
+  const ruta = rutaInterna(siguiente);
+  if (ruta) parametros.set("siguiente", ruta); // URLSearchParams codifica "/", "?" y "&" por nosotros
+  const consulta = parametros.toString();
+  return consulta ? `/login?${consulta}` : "/login";
+}
+
 // Para páginas y acciones del panel: devuelve el empleado o corta la petición. redirect() lanza una
 // excepción especial que Next convierte en una redirección: el código de después no se ejecuta.
 // `permiso` (de lib/permisos.ts, DI-11) restringe a los roles que lo tienen; sin él, basta con ser empleado activo.
 // Sin permiso se vuelve al inicio del rol, que siempre es una página que el rol puede abrir.
-export async function exigirEmpleado(permiso?: Permiso): Promise<EmpleadoSesion> {
+// `siguiente` (RN-83): la ruta de la página, para volver a ella después del login. Las acciones no lo pasan.
+export async function exigirEmpleado(permiso?: Permiso, siguiente?: string): Promise<EmpleadoSesion> {
   const usuario = await obtenerUsuario();
-  if (!usuario) redirect("/login");
-  if (!usuario.empleado) redirect("/login?motivo=sin-panel");
+  if (!usuario) redirect(urlLogin(siguiente));
+  if (!usuario.empleado) redirect(urlLogin(siguiente, "sin-panel"));
   const { rol } = usuario.empleado;
   if (permiso && !tienePermiso(rol, permiso)) redirect(`${inicioDe(rol)}?motivo=sin-permiso`);
   return usuario.empleado;
@@ -88,9 +120,9 @@ export async function exigirEmpleado(permiso?: Permiso): Promise<EmpleadoSesion>
 
 // Para páginas y acciones del lector ("Mi cuenta", reservar, pagar en línea). Devuelve también idCuenta,
 // porque las comprobaciones de dueño (¿esta multa es mía?) se hacen contra la sesión, nunca contra el navegador.
-export async function exigirLector(): Promise<LectorSesion & { idCuenta: number }> {
+export async function exigirLector(siguiente?: string): Promise<LectorSesion & { idCuenta: number }> {
   const usuario = await obtenerUsuario();
-  if (!usuario) redirect("/login");
-  if (!usuario.lector) redirect("/login?motivo=sin-cuenta-lector");
+  if (!usuario) redirect(urlLogin(siguiente));
+  if (!usuario.lector) redirect(urlLogin(siguiente, "sin-cuenta-lector"));
   return { ...usuario.lector, idCuenta: usuario.idCuenta };
 }

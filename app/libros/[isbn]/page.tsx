@@ -107,7 +107,10 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
         <h2 id="reservar" className="text-lg font-semibold">Reservar</h2>
         {!usuario ? (
           <p className="mt-2 text-sm">
-            <Link href="/login" className="font-medium underline underline-offset-4">Inicia sesión</Link> o{" "}
+            {/* RN-83: al entrar vuelve a esta sección de la ficha (#reservar es el id del <h2>). */}
+            <Link href={`/login?siguiente=${encodeURIComponent(`/libros/${isbn}#reservar`)}`} className="font-medium underline underline-offset-4">
+              Inicia sesión
+            </Link>{" "}o{" "}
             <Link href="/registro" className="font-medium underline underline-offset-4">crea una cuenta</Link> para reservar este libro.
           </p>
         ) : !usuario.lector ? (

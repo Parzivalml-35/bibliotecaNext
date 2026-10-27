@@ -12,7 +12,7 @@ const NOMBRE_ROL = { bibliotecario: "Bibliotecario", coordinador: "Coordinador d
 
 export default async function PaginaMostrador() {
   // Primero la sesión: si no hay empleado, redirect() corta aquí y no se consulta nada más.
-  const empleado = await exigirEmpleado("mostrador");
+  const empleado = await exigirEmpleado("mostrador", "/panel/mostrador");
 
   // RN-34: cada empleado ve su sede; el administrador de red, toda la red.
   const prestamos = await obtenerPrestamosAbiertos(empleado.idSede);

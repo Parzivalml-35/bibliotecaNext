@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Mi cuenta" };
 
 export default async function PaginaCuenta() {
   // El lector sale de la sesión, nunca de la URL: /cuenta no recibe ningún id.
-  const lector = await exigirLector();
+  const lector = await exigirLector("/cuenta"); // RN-83: volver aquí después del login
   const [resumen, prestamos, multas, reservas, digital] = await Promise.all([
     obtenerResumenLector(lector.idLector),
     obtenerPrestamosDeLector(lector.idLector),

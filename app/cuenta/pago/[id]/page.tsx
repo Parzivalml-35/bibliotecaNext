@@ -12,8 +12,8 @@ export const metadata: Metadata = { title: "Pasarela de pago (simulada)" };
 // D-07: la "pasarela" simulada. Con una real, aquí se redirigiría al sitio del proveedor y la confirmación
 // llegaría a un Route Handler (webhook) firmado por él. Los estados (pendiente → pagado/fallido) ya son los reales.
 export default async function PaginaPago({ params }: PageProps<"/cuenta/pago/[id]">) {
-  const lector = await exigirLector();
   const { id } = await params;
+  const lector = await exigirLector(`/cuenta/pago/${encodeURIComponent(id)}`); // RN-83
   const idPago = Number(id);
   if (!Number.isInteger(idPago) || idPago <= 0) notFound();
 

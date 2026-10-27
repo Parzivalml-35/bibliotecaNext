@@ -6,7 +6,7 @@ import { ipDeLaPeticion } from "@/lib/actions/reglas";
 import { anotarIntento, loginBloqueado } from "@/lib/data/intentos";
 import { buscarCuentaPorCorreo } from "@/lib/data/sesiones";
 import type { EstadoFormulario } from "@/lib/definitions";
-import { cerrarSesion, crearSesion } from "@/lib/sesion";
+import { cerrarSesion, crearSesion, rutaInterna } from "@/lib/sesion";
 
 // "use server" convierte CADA función exportada de este archivo en un endpoint al que cualquiera puede
 // hacer POST, no solo nuestro formulario. Por eso se valida todo lo que llega y no se exportan ayudantes.
@@ -50,8 +50,11 @@ export async function iniciarSesion(_estadoAnterior: EstadoFormulario, datos: Fo
   await cerrarSesion();
   await crearSesion(cuenta.id_cuenta);
 
+  // RN-83: volver a donde estaba, si es una ruta de este sitio. Se valida OTRA VEZ aunque la página ya lo hizo:
+  // esta acción es un endpoint público y el campo oculto lo puede cambiar cualquiera. Si no vale, el destino por perfil.
+  const siguiente = rutaInterna(datos.get("siguiente"));
   // redirect() lanza una excepción que Next convierte en redirección: va FUERA de cualquier try/catch.
-  redirect(cuenta.es_empleado ? "/panel" : cuenta.es_lector ? "/cuenta" : "/");
+  redirect(siguiente ?? (cuenta.es_empleado ? "/panel" : cuenta.es_lector ? "/cuenta" : "/"));
 }
 
 export async function salir(): Promise<void> {

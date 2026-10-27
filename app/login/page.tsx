@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FormularioLogin } from "@/components/formulario-login";
 import { salir } from "@/lib/actions/sesion";
-import { obtenerUsuario } from "@/lib/sesion";
+import { obtenerUsuario, rutaInterna } from "@/lib/sesion";
 
 export const metadata: Metadata = { title: "Iniciar sesión" };
 
@@ -15,8 +15,11 @@ const MOTIVOS: Record<string, string> = {
 };
 
 export default async function PaginaLogin({ searchParams }: PageProps<"/login">) {
-  const { motivo } = await searchParams;
+  const { motivo, siguiente } = await searchParams;
   const usuario = await obtenerUsuario();
+  // RN-83: a dónde volver al entrar. Se valida aquí para no poner en el formulario algo que no se va a usar,
+  // y la acción lo vuelve a validar (es la que manda).
+  const destino = rutaInterna(siguiente);
   if (usuario?.empleado) redirect("/panel"); // ya conectado como empleado: nada que hacer aquí
 
   const aviso = typeof motivo === "string" ? MOTIVOS[motivo] : undefined;
@@ -36,7 +39,7 @@ export default async function PaginaLogin({ searchParams }: PageProps<"/login">)
         </div>
       ) : (
         <div className="mt-6 space-y-4">
-          <FormularioLogin />
+          <FormularioLogin siguiente={destino} />
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             ¿No tienes cuenta? <Link href="/registro" className="font-medium underline underline-offset-4">Regístrate</Link>
           </p>

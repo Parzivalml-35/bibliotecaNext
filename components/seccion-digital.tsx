@@ -30,7 +30,10 @@ export function SeccionDigital({
   if (!conectado) {
     contenido = (
       <p className="text-sm">
-        <Link href="/login" className="font-medium underline underline-offset-4">Inicia sesión</Link> para leerlo en línea.
+        {/* RN-83: al entrar vuelve a esta sección de la ficha (#leer-en-linea es el id del <h2>). */}
+        <Link href={`/login?siguiente=${encodeURIComponent(`/libros/${isbn}#leer-en-linea`)}`} className="font-medium underline underline-offset-4">
+          Inicia sesión
+        </Link>{" "}para leerlo en línea.
       </p>
     );
   } else if (!esLector || !situacion) {

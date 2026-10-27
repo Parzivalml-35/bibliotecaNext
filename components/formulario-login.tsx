@@ -10,11 +10,13 @@ const estadoInicial: EstadoFormulario = {};
 // Client Component solo por useActionState: el hook guarda lo que devolvió la última ejecución de la
 // acción (el error, el correo escrito) y `pendiente` mientras corre. El formulario funciona igual sin JS:
 // el navegador hace un POST normal y Next responde con la página ya renderizada con ese estado.
-export function FormularioLogin() {
+// `siguiente` (RN-83) viaja en un campo oculto: así funciona también sin JavaScript, como POST normal.
+export function FormularioLogin({ siguiente }: { siguiente: string | null }) {
   const [estado, accion, pendiente] = useActionState(iniciarSesion, estadoInicial);
 
   return (
     <form action={accion} className="space-y-4">
+      {siguiente && <input type="hidden" name="siguiente" value={siguiente} />}
       <div>
         <label htmlFor="correo" className={claseEtiqueta}>Correo</label>
         {/* defaultValue (no value): el campo sigue siendo no controlado. React 19 reinicia el formulario

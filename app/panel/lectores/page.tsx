@@ -23,7 +23,7 @@ export const metadata: Metadata = { title: "Lectores" };
 // (RN-66) y, si el rol lo permite, anularlas (RN-67). La búsqueda va en la URL (?q=, ?id=), como el catálogo.
 export default async function PaginaLectores({ searchParams }: PageProps<"/panel/lectores">) {
   // Todo empleado entra: la administradora de red puede anular multas (RN-67) aunque no opere en mostrador.
-  const empleado = await exigirEmpleado("lectores");
+  const empleado = await exigirEmpleado("lectores", "/panel/lectores");
   const deMostrador = tienePermiso(empleado.rol, "mostrador");
   // RN-67 con RN-34: quien tiene sede (el coordinador) solo anula las de su sede; el administrador, cualquiera.
   const puedeAnular = (idSedePrestamo: number) =>

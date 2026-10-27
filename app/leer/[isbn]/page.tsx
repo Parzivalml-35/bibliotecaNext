@@ -11,8 +11,9 @@ export const metadata: Metadata = { title: "Leer en línea" };
 // RN-29: la página comprueba el acceso para mostrar el visor; el archivo lo vuelve a comprobar su propia ruta
 // (app/leer/[isbn]/archivo/route.ts), porque cualquiera puede pedir esa URL sin pasar por aquí.
 export default async function PaginaLeer({ params }: PageProps<"/leer/[isbn]">) {
-  const lector = await exigirLector();
   const { isbn } = await params;
+  // RN-83: la ruta para volver después del login. encodeURIComponent: el isbn viene de la URL.
+  const lector = await exigirLector(`/leer/${encodeURIComponent(isbn)}`);
   if (!esIsbnValido(isbn)) notFound();
   const acceso = await obtenerAccesoDeLectura(lector.idLector, isbn);
   if (!acceso) notFound(); // sin préstamo vigente ni compra: igual que si no existiera
