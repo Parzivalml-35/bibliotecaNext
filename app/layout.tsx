@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Figtree, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { Suspense } from "react";
 import { MenuUsuario } from "@/components/menu-usuario";
+import { cn } from "@/lib/utils";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// docs/diseno.md, "Tipografía": Figtree para el texto (preset Maia de shadcn) y Geist Mono para los códigos de barras.
+const figtree = Figtree({
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
@@ -25,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={cn("h-full antialiased font-sans", figtree.variable, geistMono.variable)}
     >
       <body className="min-h-full flex flex-col">
         {/* Encabezado compartido: el layout envuelve a todas las páginas de app/. */}

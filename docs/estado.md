@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-21 (portátil) — Fase 5 terminada (pendiente de documentar en el vault)
+**Última actualización:** 2026-10-26 (PC de escritorio) — Fase R (rediseño) en curso en la rama `feat/rediseno`: R0 y R1 hechos
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -98,14 +98,40 @@ teléfono y dirección obligatorios desde el registro.
 | B | Sección "Leer en línea" en `/libros/[isbn]` (pedir, reservar, confirmar, tomar el turno, devolver, cancelar) y "Libros digitales" en `/cuenta` | Hecho |
 | C | `app/leer/[isbn]/archivo/route.ts` (sesión + acceso, solo `Sec-Fetch-Dest: empty` del mismo origen, `no-store`), visor `components/visor-pdf.tsx`, `pnpm archivos:muestra` | Hecho |
 | D | `/panel/licencias`: uso por lote y registrar un lote (las licencias nuevas van primero a la cola) | Hecho |
+| Fix | **RN-75** (encontrado probando en el PC): un lector no puede tener dos préstamos físicos de la misma obra, sin excepciones; espejo de RN-68. Validación en la transacción de `prestarEjemplar` (`tienePrestadaLaObra` con `FOR SHARE`), no con UNIQUE (`id_libro` vive en `ejemplar`); la página del libro muestra "Ya tienes este libro prestado". Commit `d88383f` | Hecho |
 | Verificación | Registro (8 casos), validación, lectura (7 casos de acceso), cola, RN-55, máximos, bloqueos, edad, ids ajenos, cola detenida, lote nuevo con cola, concurrencia (2 pedidos por la última licencia: 1 gana), visor en Chrome sin ventana | Hecho |
+
+## Fase R — Rediseño con shadcn/ui (en curso, rama `feat/rediseno`)
+
+Va antes de la Fase 6. Fuente de verdad: `docs/diseno.md` (DI-01 a DI-09). Decisiones: shadcn sobre **Radix**, preset
+**Maia** con Hugeicons y Figtree; **barra superior** estilo "Books" (sin sidebar); temas **claro, oscuro y lámpara**
+con la preferencia en **cookie** (y en la cuenta en R7); portada generada; bloques con borde fino y barras con rayas
+(estilo YowBooks "My Library"); cuatro colores de estado con contraste AA medido; lector **EPUB con foliate-js** y PDF
+como alternativa, preparado para Readium.
+
+| Paso | Qué | Estado |
+|---|---|---|
+| R0 | Ficha de diseño `docs/diseno.md`: referencias, decisiones, paletas de los tres temas en oklch con contraste, colores de estado, lenguaje de bloques, lector | Hecho |
+| R1 | `shadcn init -b radix -t next --preset maia` (probado antes en una copia): `components.json`, `lib/utils.ts` (`cn`), `components/ui/button.tsx`, tokens neutros en `globals.css`; Figtree en lugar de Geist Sans (Geist Mono se queda para los códigos) | Hecho |
+| R2 | Tres paletas en `globals.css`, `dark:` → `[data-tema="oscuro"]`, cookie del tema leída en el layout, botón sol, luna y lámpara, serif para títulos (`--font-heading`) | Pendiente |
+| R3 | Barra superior con pestañas en píldora y menú de usuario | Pendiente |
+| R4 | Componentes base y `Portada` generada | Pendiente |
+| R5 | Pantallas (35 archivos con `zinc-*` a mano) y filtro del visor PDF | Pendiente |
+| R6 | Verificación: contraste en los tres temas, teclado, celular | Pendiente |
+| R7 | Mi perfil (avatar, datos, tema en la cuenta): primero las reglas | Pendiente |
+| R8 | Lector EPUB con foliate-js: reglas (RN-54, seguridad del HTML del libro), EPUB de muestra, `<Visor>` | Pendiente |
+
+Efecto temporal de R1: el fondo es blanco, la letra es Figtree y **el modo oscuro automático no funciona** (`dark:`
+ahora espera la clase `.dark`) hasta R2.
 
 ## Próximo paso
 
-1. Probar en el navegador: registro con los datos nuevos, leer un libro (`pnpm archivos:muestra` antes), reservar y
-   confirmar, `/panel/licencias` con Laura.
-2. `/documentar` la Fase 5.
-3. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
+1. **R2** de la Fase R (ver arriba). Pregunta abierta para R5: umbral de "préstamo por vencer" (¿3 días?), que iría
+   como regla nueva con el valor en `configuracion` (C-04).
+2. `/documentar`: lo pendiente de la Fase 4 (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque
+   de numeración RN-74 entre los dos equipos; después, la Fase R.
+3. Volver a probar RN-75 con la BD reconstruida: otra copia de "Cien años de soledad" a Ana debe rechazarse.
+4. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
    verifica una firma HMAC, para pedidos y multas; hoy la pasarela simulada se confirma con un botón).
 4. Fase 7: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
    (antes: regla para su multa de reposición: anular si está pendiente, ¿reembolsar si ya se pagó?).
@@ -113,7 +139,8 @@ teléfono y dirección obligatorios desde el registro.
 
 ## Pendientes y avisos
 
-- En el otro PC: `pnpm install` (nuevo: `pdfjs-dist`), **reconstruir la BD** (cambió `lector`), `pnpm db:claves-dev` y `pnpm archivos:muestra`.
+- PC de escritorio: BD reconstruida con el esquema de la Fase 5 y PDF de muestra generados (verificado 2026-10-26).
+- Al pasar la rama `feat/rediseno` al otro equipo: `pnpm install` (shadcn agrega `radix-ui`, `cn`, `class-variance-authority`, `tw-animate-css`, `@hugeicons/*` y `shadcn`).
 - RN-29, límite asumido: lo que el navegador muestra se puede capturar. La ruta del archivo rechaza abrirlo desde la barra
   de direcciones (`Sec-Fetch-Dest: document`) y otros sitios, pero un programa fuera del navegador puede inventar esas
   cabeceras: la protección real es la sesión + el préstamo vigente o la compra.

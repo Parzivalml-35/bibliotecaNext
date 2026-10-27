@@ -17,7 +17,7 @@ Inspiración, no copia: no se usan imágenes, logos ni textos de las referencias
 
 | ID | Decisión | Por qué |
 |---|---|---|
-| DI-01 | Componentes con **shadcn/ui sobre Radix**, estilo `new-york` | Es la base de casi toda la documentación y los ejemplos de shadcn: lo que se lee funciona igual en el código |
+| DI-01 | Componentes con **shadcn/ui sobre Radix**, preset **Maia** (`"style": "radix-maia"`), con íconos **Hugeicons** | Radix: es la base de casi toda la documentación y los ejemplos de shadcn. Maia ("soft and rounded, with generous spacing"): el preset más cercano a YowBooks, con botones en píldora. El preset no se puede cambiar después del `init` |
 | DI-02 | Navegación con **barra superior** (pestañas en píldora y menú de usuario a la derecha), sin sidebar | Estilo "Books". En el celular, las pestañas pasan a un menú (`Sheet`) |
 | DI-03 | Tres temas: **claro**, **oscuro** y **lámpara** (crema cálido). Botón de tres estados: sol, luna y lámpara | La lámpara es para leer con luz cálida |
 | DI-04 | La preferencia de tema se guarda en una **cookie** que el `layout` lee en el servidor (`<html data-tema="…">` desde el primer byte, sin parpadeo). Si hay sesión, también en la cuenta (R7) | Sin dependencias y la preferencia sigue al usuario entre equipos |
@@ -138,8 +138,9 @@ shadcn lo usen sin cambios.
 
 | Uso | Fuente | Nota |
 |---|---|---|
-| Títulos | Serif (propuesta: **Fraunces**, de Google Fonts, cargada con `next/font`) | El toque de biblioteca de "Books". A decidir en R2 |
-| Texto e interfaz | **Geist** (ya instalada) | Se conserva |
+| Títulos | Serif en el token `--font-heading` del preset (propuesta: **Fraunces**, de Google Fonts, cargada con `next/font`) | El toque de biblioteca de "Books". A decidir en R2 |
+| Texto e interfaz | **Figtree** (`--font-sans`, viene con Maia) | Geométrica y redondeada, cercana a YowBooks |
+| Códigos de barras | **Geist Mono** (`--font-mono`) | Se conserva de las fases anteriores |
 
 ## Lector digital (DI-06)
 
