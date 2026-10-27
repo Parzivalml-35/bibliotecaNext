@@ -114,7 +114,7 @@ como alternativa, preparado para Readium.
 | R0 | Ficha de diseño `docs/diseno.md`: referencias, decisiones, paletas de los tres temas en oklch con contraste, colores de estado, lenguaje de bloques, lector | Hecho |
 | R1 | `shadcn init -b radix -t next --preset maia` (probado antes en una copia): `components.json`, `lib/utils.ts` (`cn`), `components/ui/button.tsx`, tokens neutros en `globals.css`; Figtree en lugar de Geist Sans (Geist Mono se queda para los códigos) | Hecho |
 | Auditoría | `docs/auditoria-ux.md` (UX-01 a UX-12; la más grave: el menú del panel es igual para todos los roles). Mapa del sitio, secciones del panel por rol y `lib/permisos.ts` como fuente única (DI-10 a DI-12). Reglas nuevas RN-76 a RN-83 (por vencer, datos editables, contraseña, correo, recuperar, avatar DiceBear y foto, `?siguiente=`). Cambios de esquema planificados en `modelo-datos.md` (bloque 2) | Hecho (solo documentación) |
-| R2 | Tres paletas en `globals.css`, `dark:` → `[data-tema="oscuro"]`, cookie del tema leída en el layout, botón sol, luna y lámpara, serif para títulos (`--font-heading`) | Pendiente |
+| R2 | Tres paletas en `globals.css`, `dark:` → `[data-tema="oscuro"]`, cookie del tema leída por un script del `<head>` (sin cookie, el sistema), botón sol, luna y lámpara, Fraunces para títulos | Hecho (falta revisar los colores en pantalla). `lib/tema.ts`, `components/script-en-linea.tsx`, `components/boton-tema.tsx`. Resuelve UX-12 |
 | R3 | Barra superior, menú de usuario, `lib/permisos.ts`, panel por secciones (URL nuevas, `/panel` redirige por rol), pestañas de "Mi cuenta", `?siguiente=` (RN-83) | Pendiente |
 | R4 | Componentes base y `Portada` generada | Pendiente |
 | R5 | Pantallas (35 archivos con `zinc-*` a mano), `/cuenta` repartida en pestañas, aviso "por vencer" (RN-76), visor inmersivo y filtro del PDF | Pendiente |
@@ -122,12 +122,12 @@ como alternativa, preparado para Readium.
 | R7 | Mi cuenta: datos (RN-77), contraseña (RN-78), correo (RN-79), recuperar (RN-80), avatar DiceBear y foto (RN-81, RN-82), tema en la cuenta. Cambia el esquema. Decidir la librería para recodificar fotos (`sharp` está desactivado en `pnpm-workspace.yaml`) | Pendiente |
 | R8 | Lector EPUB con foliate-js: reglas (RN-54, seguridad del HTML del libro), EPUB de muestra, `<Visor>` | Pendiente |
 
-Efecto temporal de R1: el fondo es blanco, la letra es Figtree y **el modo oscuro automático no funciona** (`dark:`
-ahora espera la clase `.dark`) hasta R2.
+Efecto temporal hasta R5: las pantallas todavía usan `zinc-*` escritos a mano. Se ven bien en claro y oscuro, pero
+en la lámpara las tarjetas y la barra superior quedan blancas (solo el fondo de la página toma el beige).
 
 ## Próximo paso
 
-1. **R2** de la Fase R (ver arriba).
+1. **R3** de la Fase R (ver arriba): `lib/permisos.ts`, panel por secciones, pestañas de Mi cuenta y `?siguiente=`.
 2. `/documentar`: lo pendiente de la Fase 4 (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque
    de numeración RN-74 entre los dos equipos; después, la Fase R.
 3. Volver a probar RN-75 con la BD reconstruida: otra copia de "Cien años de soledad" a Ana debe rechazarse.

@@ -20,7 +20,7 @@ Inspiración, no copia: no se usan imágenes, logos ni textos de las referencias
 | DI-01 | Componentes con **shadcn/ui sobre Radix**, preset **Maia** (`"style": "radix-maia"`), con íconos **Hugeicons** | Radix: es la base de casi toda la documentación y los ejemplos de shadcn. Maia ("soft and rounded, with generous spacing"): el preset más cercano a YowBooks, con botones en píldora. El preset no se puede cambiar después del `init` |
 | DI-02 | Navegación con **barra superior** (pestañas en píldora y menú de usuario a la derecha), sin sidebar | Estilo "Books". En el celular, las pestañas pasan a un menú (`Sheet`) |
 | DI-03 | Tres temas: **claro**, **oscuro** y **lámpara** (crema cálido). Botón de tres estados: sol, luna y lámpara | La lámpara es para leer con luz cálida |
-| DI-04 | La preferencia de tema se guarda en una **cookie** que el `layout` lee en el servidor (`<html data-tema="…">` desde el primer byte, sin parpadeo). Si hay sesión, también en la cuenta (R7) | Sin dependencias y la preferencia sigue al usuario entre equipos |
+| DI-04 | La preferencia de tema se guarda en una **cookie** (`tema`). La lee un **script en línea del `<head>`**, que pone `<html data-tema="…">` antes del primer pintado. **Sin cookie se sigue al sistema** (`prefers-color-scheme`: claro u oscuro; la lámpara solo si se elige). Si hay sesión, la preferencia también se guarda en la cuenta (R7) | Sin dependencias ni parpadeo. Leer la cookie con `cookies()` en el layout raíz volvería dinámica toda la app (guía "Preventing flash before hydration" de Next 16); el script mantiene el layout estático, igual que el `<Suspense>` del menú. Corregido el 2026-10-27: antes decía que el layout la leía en el servidor |
 | DI-05 | Portadas **generadas** (título, autor y color derivado del ISBN) mientras no haya imagen real. Cuando exista, la imagen manda y la generada queda de respaldo | Es lo que hacen los sistemas grandes para los libros sin portada |
 | DI-06 | Lector digital: **EPUB con foliate-js** como formato principal y **PDF como alternativa** (el visor actual con pdf.js se conserva). Preparado para cambiar a Readium (ver más abajo) | El EPUB se reacomoda a la pantalla y toma los colores del tema: es lo que hace posible leer en modo lámpara |
 | DI-07 | Contraste mínimo **WCAG AA**: 4.5:1 para texto normal y 3:1 para texto grande e íconos, en los tres temas | Los acentos de las referencias no lo cumplen con texto blanco (ver "Acento y botón") |
@@ -122,6 +122,19 @@ variables bajo un selector: `:root` (claro), `[data-tema="oscuro"]` y `[data-tem
 sabe qué tema está activo.
 
 Valores **propuestos**, a ajustar en R2 viéndolos en pantalla. Medidos con el algoritmo de contraste de WCAG 2.
+
+En `globals.css` cada tema define solo sus colores base y de estado. Los derivados se escriben una vez en `:root`
+y apuntan a la base: `card-foreground`, `popover` y `popover-foreground`, `secondary` (= `muted`), `input`
+(= `border`), `ring` (= `primary`), `destructive` (= `danger`), los `chart-*` y los `sidebar-*`. Tokens propios
+del proyecto: `decorativo` (el acento sin texto) y `success|warning|danger|info` con `-suave` y `-texto`, que se usan
+como clases (`bg-success-suave text-success-texto`). Cada tema fija también `color-scheme`, para que las barras de
+desplazamiento y los controles nativos sigan el tema.
+
+| Token añadido en R2 | Claro | Lámpara | Oscuro | Contraste |
+|---|---|---|---|---|
+| `muted` (bandeja) | `#EEEBE8` | `#EEE0C8` | `#2A2522` | `muted-foreground` encima: 4.96 · 4.55 · 5.89 |
+| `accent-foreground` | `#8A420A` | `#3B2A1A` | `#F5C08F` | Sobre `accent`: 6.51 · 9.64 · 8.38 |
+| `decorativo` | `#E68124` | `#D9AB61` | `#F0923A` | Sin texto encima |
 
 ### Claro
 
@@ -226,7 +239,7 @@ shadcn lo usen sin cambios.
 
 | Uso | Fuente | Nota |
 |---|---|---|
-| Títulos | Serif en el token `--font-heading` del preset (propuesta: **Fraunces**, de Google Fonts, cargada con `next/font`) | El toque de biblioteca de "Books". A decidir en R2 |
+| Títulos | **Fraunces** (serif variable de Google Fonts, cargada con `next/font` en `--font-fraunces`), en el token `--font-heading`. Se aplica a `h1`, `h2` y `h3` | El toque de biblioteca de "Books". Decidido en R2 |
 | Texto e interfaz | **Figtree** (`--font-sans`, viene con Maia) | Geométrica y redondeada, cercana a YowBooks |
 | Códigos de barras | **Geist Mono** (`--font-mono`) | Se conserva de las fases anteriores |
 
