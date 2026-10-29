@@ -119,7 +119,7 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
           // RN-68, RN-75: quien ya tiene la obra prestada no la reserva (reservarObra también lo rechaza).
           <p role="status" className="mt-2 text-sm">
             Ya tienes este libro prestado ({prestamoAbierto.sede}, vence el {fechaCorta(prestamoAbierto.fecha_vencimiento)}).{" "}
-            <Link href="/cuenta" className="font-medium underline underline-offset-4">Ver mis préstamos</Link>
+            <Link href="/cuenta/prestamos" className="font-medium underline underline-offset-4">Ver mis préstamos</Link>
           </p>
         ) : reservaViva ? (
           <p role="status" className="mt-2 text-sm">
@@ -127,7 +127,7 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
             {reservaViva.estado === "asignada"
               ? `hay una copia apartada para ti hasta el ${reservaViva.fecha_limite_recogida}.`
               : `estás en el puesto ${reservaViva.posicion} de la cola.`}{" "}
-            <Link href="/cuenta" className="font-medium underline underline-offset-4">Ver mis reservas</Link>
+            <Link href="/cuenta/prestamos" className="font-medium underline underline-offset-4">Ver mis reservas</Link>
           </p>
         ) : !usuario.lector.verificada ? (
           <p className="mt-2 text-sm text-zinc-500">Verifica tu correo para poder reservar.</p>

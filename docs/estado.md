@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-27 (PC de escritorio) — Fase R (rediseño) en curso en la rama `feat/rediseno`: R0 y R1 hechos, auditoría UX y documentación de navegación, cuenta y avatar
+**Última actualización:** 2026-10-29 (portátil) — Fase R (rediseño) en curso en la rama `feat/rediseno`: R0 a R3 hechos; sigue R4
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -115,7 +115,7 @@ como alternativa, preparado para Readium.
 | R1 | `shadcn init -b radix -t next --preset maia` (probado antes en una copia): `components.json`, `lib/utils.ts` (`cn`), `components/ui/button.tsx`, tokens neutros en `globals.css`; Figtree en lugar de Geist Sans (Geist Mono se queda para los códigos) | Hecho |
 | Auditoría | `docs/auditoria-ux.md` (UX-01 a UX-12; la más grave: el menú del panel es igual para todos los roles). Mapa del sitio, secciones del panel por rol y `lib/permisos.ts` como fuente única (DI-10 a DI-12). Reglas nuevas RN-76 a RN-83 (por vencer, datos editables, contraseña, correo, recuperar, avatar DiceBear y foto, `?siguiente=`). Cambios de esquema planificados en `modelo-datos.md` (bloque 2) | Hecho (solo documentación) |
 | R2 | Tres paletas en `globals.css`, `dark:` → `[data-tema="oscuro"]`, cookie del tema leída por un script del `<head>` (sin cookie, el sistema), botón sol, luna y lámpara, Fraunces para títulos | Hecho (falta revisar los colores en pantalla). `lib/tema.ts`, `components/script-en-linea.tsx`, `components/boton-tema.tsx`. Resuelve UX-12 |
-| R3 | Barra superior, menú de usuario, `lib/permisos.ts`, panel por secciones (URL nuevas, `/panel` redirige por rol), pestañas de "Mi cuenta", `?siguiente=` (RN-83). Cinco partes: R3a permisos, R3b secciones, R3c `?siguiente=`, R3d barra y menú, R3e pestañas de Mi cuenta | En curso: R3a (permisos), R3b (secciones) y R3c (`?siguiente=`, RN-83: `rutaInterna()` en `lib/sesion.ts`, cada página pasa su ruta, enlaces "Inicia sesión" de la ficha) hechos. R3d hecho: barra superior con tokens, pestañas en píldora por perfil (`NavegacionPrincipal`), menú lateral en el celular (`Sheet`), menú de la cuenta con avatar de iniciales (`DropdownMenu`) e "Iniciar sesión" con `?siguiente=`. Falta R3e (pestañas de Mi cuenta) |
+| R3 | Barra superior, menú de usuario, `lib/permisos.ts`, panel por secciones (URL nuevas, `/panel` redirige por rol), pestañas de "Mi cuenta", `?siguiente=` (RN-83). Cinco partes: R3a permisos, R3b secciones, R3c `?siguiente=`, R3d barra y menú, R3e pestañas de Mi cuenta | Hecho (falta probar R3e con sesión en el navegador). R3a (permisos), R3b (secciones) y R3c (`?siguiente=`, RN-83: `rutaInterna()` en `lib/sesion.ts`, cada página pasa su ruta, enlaces "Inicia sesión" de la ficha) hechos. R3d hecho: barra superior con tokens, pestañas en píldora por perfil (`NavegacionPrincipal`), menú lateral en el celular (`Sheet`), menú de la cuenta con avatar de iniciales (`DropdownMenu`) e "Iniciar sesión" con `?siguiente=`. R3e hecho: `app/cuenta/layout.tsx` con `NavegacionCuenta` (comparación exacta de la ruta: `/cuenta` es prefijo de todas), `/cuenta` repartida en Resumen, `/cuenta/prestamos`, `/cuenta/digitales` y `/cuenta/multas` (resuelve UX-04); `resumen-lector.tsx` exporta sus piezas y el panel las sigue usando juntas |
 | R4 | Componentes base y `Portada` generada | Pendiente |
 | R5 | Pantallas (35 archivos con `zinc-*` a mano), `/cuenta` repartida en pestañas, aviso "por vencer" (RN-76), visor inmersivo y filtro del PDF | Pendiente |
 | R6 | Verificación: contraste en los tres temas, teclado, celular y recorrido de cada rol | Pendiente |
@@ -127,7 +127,7 @@ en la lámpara las tarjetas y la barra superior quedan blancas (solo el fondo de
 
 ## Próximo paso
 
-1. **R3** de la Fase R (ver arriba): `lib/permisos.ts`, panel por secciones, pestañas de Mi cuenta y `?siguiente=`.
+1. Probar R3e con sesión (lector y empleado con `/panel/lectores`); después **R4** de la Fase R: componentes base y `Portada` generada.
 2. `/documentar`: lo pendiente de la Fase 4 (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque
    de numeración RN-74 entre los dos equipos; después, la Fase R.
 3. Volver a probar RN-75 con la BD reconstruida: otra copia de "Cien años de soledad" a Ana debe rechazarse.

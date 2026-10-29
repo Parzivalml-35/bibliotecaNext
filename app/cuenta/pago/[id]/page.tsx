@@ -22,7 +22,8 @@ export default async function PaginaPago({ params }: PageProps<"/cuenta/pago/[id
   if (!pago || pago.id_cuenta_lector !== lector.idCuenta) notFound();
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-12">
+    // El contenedor y el margen de la página los pone app/cuenta/layout.tsx; aquí solo el ancho de la tarjeta.
+    <div className="max-w-md">
       <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Pasarela simulada · no se cobra dinero real</p>
       <h1 className="mt-2 text-2xl font-bold tracking-tight">Pagar {pesos(pago.monto)}</h1>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Multa de «{pago.titulo}» · pago n.º {pago.id_pago}</p>
@@ -37,7 +38,7 @@ export default async function PaginaPago({ params }: PageProps<"/cuenta/pago/[id
       ) : (
         <p role="status" className="mt-6 text-sm">Este pago está <strong>{pago.estado}</strong>.</p>
       )}
-      <p className="mt-8"><Link href="/cuenta" className="text-sm font-medium underline underline-offset-4">Volver a mi cuenta</Link></p>
+      <p className="mt-8"><Link href="/cuenta/multas" className="text-sm font-medium underline underline-offset-4">Volver a mis multas</Link></p>
     </div>
   );
 }
