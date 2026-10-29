@@ -1,30 +1,34 @@
+import { buttonVariants } from "@/components/ui/button";
 import type { EstadoFormulario } from "@/lib/definitions";
+import { cn } from "@/lib/utils";
 
 // Piezas compartidas por los formularios de la Fase 3 (login, préstamo, devolución).
 // Sin "use client": sirven tanto en Server como en Client Components.
+// R4b: los mismos nombres de antes, ahora con los tokens del tema (DI-08, DI-09). Los formularios no cambian.
 
-export const claseEtiqueta = "block text-sm font-medium text-zinc-700 dark:text-zinc-300";
+export const claseEtiqueta = "block text-sm font-medium text-foreground";
 
+// La forma del Input del preset Maia (píldora, borde `input`, anillo `ring` con el foco), escrita como clase para
+// que sirva igual en <input> y en <select>.
 export const claseCampo =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  "mt-1 h-10 w-full min-w-0 rounded-4xl border border-input bg-input/30 px-3 text-base text-foreground transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
 
-// disabled:opacity-60 + disabled:cursor-wait: mientras la acción corre (pending), el botón se ve inactivo.
-export const claseBoton =
-  "rounded-md bg-zinc-900 px-4 py-2 font-medium text-white shadow-sm hover:bg-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-wait disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300";
+// El botón principal de shadcn (buttonVariants) en tamaño grande. Mientras la acción corre (pending), se ve inactivo.
+export const claseBoton = cn(buttonVariants({ size: "lg" }), "disabled:cursor-wait");
 
 // Mensaje de resultado. role="alert" hace que el lector de pantalla lo anuncie apenas aparece (el error
 // llega sin recargar la página); role="status" es la versión cortés, para confirmaciones.
 export function MensajeFormulario({ estado }: { estado: EstadoFormulario }) {
   if (estado.error) {
     return (
-      <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+      <p role="alert" className="rounded-xl border border-danger/40 bg-danger-suave px-3 py-2 text-sm text-danger-texto">
         {estado.error}
       </p>
     );
   }
   if (estado.exito) {
     return (
-      <p role="status" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+      <p role="status" className="rounded-xl border border-success/40 bg-success-suave px-3 py-2 text-sm text-success-texto">
         {estado.exito}
       </p>
     );

@@ -21,7 +21,7 @@ Inspiración, no copia: no se usan imágenes, logos ni textos de las referencias
 | DI-02 | Navegación con **barra superior** (pestañas en píldora y menú de usuario a la derecha), sin sidebar | Estilo "Books". En el celular, las pestañas pasan a un menú (`Sheet`) |
 | DI-03 | Tres temas: **claro**, **oscuro** y **lámpara** (crema cálido). Botón de tres estados: sol, luna y lámpara | La lámpara es para leer con luz cálida |
 | DI-04 | La preferencia de tema se guarda en una **cookie** (`tema`). La lee un **script en línea del `<head>`**, que pone `<html data-tema="…">` antes del primer pintado. **Sin cookie se sigue al sistema** (`prefers-color-scheme`: claro u oscuro; la lámpara solo si se elige). Si hay sesión, la preferencia también se guarda en la cuenta (R7) | Sin dependencias ni parpadeo. Leer la cookie con `cookies()` en el layout raíz volvería dinámica toda la app (guía "Preventing flash before hydration" de Next 16); el script mantiene el layout estático, igual que el `<Suspense>` del menú. Corregido el 2026-10-27: antes decía que el layout la leía en el servidor |
-| DI-05 | Portadas **generadas** (título, autor y color derivado del ISBN) mientras no haya imagen real. Cuando exista, la imagen manda y la generada queda de respaldo | Es lo que hacen los sistemas grandes para los libros sin portada |
+| DI-05 | Portadas **generadas** (título, autor y color derivado del ISBN) mientras no haya imagen real. Cuando exista, la imagen manda y la generada queda de respaldo. Color **igual en los tres temas**: `oklch(0.48 0.080 h)`, con `h` = FNV-1a del ISBN mod 360 (`lib/portada.ts`). Medido en los 360 tonos: cabe en sRGB y el texto blanco da 6.26:1 como mínimo (el autor, al 85 %, 5.02:1). Decidido en R4c | Es lo que hacen los sistemas grandes para los libros sin portada |
 | DI-06 | Lector digital: **EPUB con foliate-js** como formato principal y **PDF como alternativa** (el visor actual con pdf.js se conserva). Preparado para cambiar a Readium (ver más abajo) | El EPUB se reacomoda a la pantalla y toma los colores del tema: es lo que hace posible leer en modo lámpara |
 | DI-07 | Contraste mínimo **WCAG AA**: 4.5:1 para texto normal y 3:1 para texto grande e íconos, en los tres temas | Los acentos de las referencias no lo cumplen con texto blanco (ver "Acento y botón") |
 | DI-08 | Interfaz hecha de **bloques con borde fino** (estilo captura 3), no de sombras. Ver "Lenguaje de bloques" | Los bordes funcionan igual en los tres temas; las sombras casi no se ven sobre fondo oscuro ni sobre beige |
@@ -226,13 +226,13 @@ shadcn lo usen sin cambios.
 
 | Elemento | Cómo se ve | Cómo se construye |
 |---|---|---|
-| Tarjeta | Fondo `card`, borde de 1px `border`, radio `--radius`, sin sombra | `Card` de shadcn con la sombra quitada |
+| Tarjeta | Fondo `card`, borde de 1px `border`, radio del preset Maia (`rounded-2xl`, 1.8 × `--radius`), sin sombra | `Card` de shadcn con `border border-border` en lugar de su `ring-1` (R4a) |
 | Tarjeta seleccionada | Borde de color y fondo teñido (como "Want to Reread") | Borde `primary` (o el color de estado) + fondo `accent`. El borde pide 3:1 porque comunica estado |
 | Bandeja | Bloque `muted` que agrupa tarjetas (la fila de portadas) | Un `div` con `bg-muted` y `rounded` |
 | Encabezado de tarjeta | Una línea fina separa el encabezado del contenido (las citas, "Your Impression") | `border-b` con `border` |
 | Barra con rayas | Barra de progreso con líneas verticales finas encima del color | `Progress` de shadcn + `repeating-linear-gradient` con líneas más claras del mismo color. Las rayas son decorativas: el porcentaje va siempre escrito |
 | Agregar algo nuevo | Borde **punteado** de color con ícono "+" (como "New Folder") | `border-dashed` con `primary` |
-| Etiqueta | Píldora con ícono, fondo suave y texto del estado (como "Skill Booster") | `Badge` de shadcn con variantes por estado |
+| Etiqueta | Píldora con ícono, fondo suave y texto del estado (como "Skill Booster") | `Badge` de shadcn con las variantes `success`, `warning`, `danger` e `info` (R4a) |
 | Línea de tiempo | Línea vertical punteada que une pasos (como "Reading Journey") | `border-l border-dashed`. Uso posible: historial de un préstamo (prestado → renovado → devuelto) |
 
 ## Tipografía
