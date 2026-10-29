@@ -24,9 +24,9 @@ export default async function PaginaPago({ params }: PageProps<"/cuenta/pago/[id
   return (
     // El contenedor y el margen de la página los pone app/cuenta/layout.tsx; aquí solo el ancho de la tarjeta.
     <div className="max-w-md">
-      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Pasarela simulada · no se cobra dinero real</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-warning-texto">Pasarela simulada · no se cobra dinero real</p>
       <h1 className="mt-2 text-2xl font-bold tracking-tight">Pagar {pesos(pago.monto)}</h1>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Multa de «{pago.titulo}» · pago n.º {pago.id_pago}</p>
+      <p className="mt-1 text-sm text-muted-foreground">Multa de «{pago.titulo}» · pago n.º {pago.id_pago}</p>
 
       {pago.estado === "pendiente" ? (
         <div className="mt-6 flex gap-3">

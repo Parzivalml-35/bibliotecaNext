@@ -27,7 +27,7 @@ export default async function PaginaLogin({ searchParams }: PageProps<"/login">)
   return (
     <div className="mx-auto w-full max-w-sm px-4 py-12">
       <h1 className="text-2xl font-bold tracking-tight">Iniciar sesión</h1>
-      {aviso && <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">{aviso}</p>}
+      {aviso && <p className="mt-3 text-sm text-warning-texto">{aviso}</p>}
 
       {usuario ? (
         // Conectado con una cuenta sin panel (un lector): ofrecer salir para entrar con otra.
@@ -40,7 +40,7 @@ export default async function PaginaLogin({ searchParams }: PageProps<"/login">)
       ) : (
         <div className="mt-6 space-y-4">
           <FormularioLogin siguiente={destino} />
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             ¿No tienes cuenta? <Link href="/registro" className="font-medium underline underline-offset-4">Regístrate</Link>
           </p>
         </div>

@@ -184,6 +184,7 @@ erDiagram
         smallint max_fallos_por_ip
         tinyint max_registros_por_ip
         smallint minutos_ventana_intentos
+        tinyint dias_aviso_vencimiento
     }
     tipo_lector {
         int id_tipo_lector PK
@@ -289,7 +290,7 @@ erDiagram
 
 | Tabla | Reglas | Notas de diseño |
 |---|---|---|
-| `configuracion` | C-04, valores iniciales, RN-14, RN-70 | **Una sola fila** con columnas tipadas (`CHECK (id = 1)`), en vez de clave-valor: cada valor tiene su tipo y no se puede escribir mal el nombre. Se crea después de `tipo_lector` por la FK `id_tipo_lector_registro` (tipo con que se registra un lector). |
+| `configuracion` | C-04, valores iniciales, RN-14, RN-70, RN-76 | **Una sola fila** con columnas tipadas (`CHECK (id = 1)`), en vez de clave-valor: cada valor tiene su tipo y no se puede escribir mal el nombre. Se crea después de `tipo_lector` por la FK `id_tipo_lector_registro` (tipo con que se registra un lector). |
 | `tipo_lector` | RN-02, RN-12, RN-26, RN-45 | Todos los límites por tipo de lector. |
 | `cuenta` | RN-01, RN-31 | Sin columna de estado: se deduce de `fecha_verificacion`, `lector.fecha_validacion` y `fecha_desactivacion` (RN-01). |
 | `sesion` | RN-63, RN-64 | Agregada en la Fase 3. Como `token_cuenta`: se guarda el **hash** (SHA-256) del token, no el token. Vigente ⇔ `expira_en > NOW()` (calculado). Borrar la cuenta borra sus sesiones (`ON DELETE CASCADE`). |
@@ -347,7 +348,7 @@ la BD.
 | `cuenta` | `avatar_clave VARCHAR(255) NULL` + `UNIQUE`: nombre aleatorio de la foto en el almacenamiento privado. **NULL = usa el generado** (se deduce, no hay columna de tipo; C-02) | RN-82 |
 | `cuenta` | `tema ENUM('claro', 'oscuro', 'lampara') NULL`: preferencia guardada en la cuenta. NULL = sin preferencia, manda la cookie | DI-04 |
 | `token_cuenta` | `tipo` suma `'cambiar_correo'`; nueva columna `correo_nuevo VARCHAR(254) NULL` con `CHECK ((tipo = 'cambiar_correo') = (correo_nuevo IS NOT NULL))` | RN-79 |
-| `configuracion` | `dias_aviso_vencimiento` (3), `minutos_recuperacion_contrasena` (60), `max_kb_avatar` (2048) | RN-76, RN-80, RN-82 |
+| `configuracion` | `minutos_recuperacion_contrasena` (60), `max_kb_avatar` (2048). `dias_aviso_vencimiento` (3) se adelantó a R5b (2026-10-29) y ya está en el esquema | RN-80, RN-82 |
 
 Por qué el avatar va en `cuenta` y no en `lector`: representa a la **persona** (RN-31), y los empleados también lo tienen.
 El estilo y la semilla se guardan aunque haya foto, para que "volver al generado" recupere el mismo avatar.

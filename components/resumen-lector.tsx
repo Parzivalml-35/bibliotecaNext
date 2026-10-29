@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { EstadoVacio } from "@/components/estado-vacio";
+import { EtiquetaPrestamo } from "@/components/etiqueta-prestamo";
+import { Badge } from "@/components/ui/badge";
 import type { MultaDeLector, PrestamoDeLector, ReservaDeLector, ResumenLector } from "@/lib/data/lectores";
 import { fechaCorta, pesos, plural } from "@/lib/formato";
 
@@ -8,6 +11,7 @@ import { fechaCorta, pesos, plural } from "@/lib/formato";
 // como funciones que devuelven el botón para cada fila. Las funciones se ejecutan aquí, en el servidor.
 // Las piezas se exportan por separado para las pestañas de "Mi cuenta" (DI-10); el panel usa ResumenDeLector,
 // que las junta. Las listas no llevan título: lo pone quien las usa (un <h2> aquí, el <h1> de la pestaña allá).
+// `accionVacia`: qué hacer cuando la lista está vacía (el lector la recibe; el empleado no).
 
 const NOMBRE_ESTADO_CUENTA = {
   registrada: "Registrada: falta verificar el correo",
@@ -16,11 +20,10 @@ const NOMBRE_ESTADO_CUENTA = {
   desactivada: "Desactivada",
 };
 
-const insignia = "rounded-full px-2 py-0.5 text-xs font-medium";
-const rojo = `${insignia} bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200`;
-const verde = `${insignia} bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200`;
-const gris = `${insignia} bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300`;
-const lista = "mt-2 divide-y divide-zinc-200 rounded-lg border border-zinc-200 text-sm dark:divide-zinc-800 dark:border-zinc-800";
+// DI-09: pendiente = warning (todavía se puede pagar), pagada = success, anulada = gris.
+const VARIANTE_MULTA = { pendiente: "warning", pagada: "success", anulada: "secondary" } as const;
+
+const lista = "mt-2 divide-y divide-border rounded-2xl border border-border bg-card text-sm";
 
 export function EstadoLector({ resumen }: { resumen: ResumenLector }) {
   // RN-03, RN-43: el bloqueo se calcula y se explica (no solo "bloqueado").
@@ -30,17 +33,18 @@ export function EstadoLector({ resumen }: { resumen: ResumenLector }) {
   ].filter(Boolean);
 
   return (
-    <section aria-labelledby="estado-titulo" className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+    <section aria-labelledby="estado-titulo" className="rounded-2xl border border-border bg-card p-4">
       <h2 id="estado-titulo" className="sr-only">Estado de la cuenta</h2>
       <dl className="grid gap-3 text-sm sm:grid-cols-3">
-        <div><dt className="text-zinc-500">Cuenta</dt><dd>{NOMBRE_ESTADO_CUENTA[resumen.estado_cuenta]}</dd></div>
-        <div><dt className="text-zinc-500">Tipo de lector</dt><dd>{resumen.tipo_lector}</dd></div>
+        <div><dt className="text-muted-foreground">Cuenta</dt><dd>{NOMBRE_ESTADO_CUENTA[resumen.estado_cuenta]}</dd></div>
+        <div><dt className="text-muted-foreground">Tipo de lector</dt><dd>{resumen.tipo_lector}</dd></div>
         <div>
-          <dt className="text-zinc-500">Préstamos y reservas</dt>
-          <dd>
+          <dt className="text-muted-foreground">Préstamos y reservas</dt>
+          {/* whitespace-normal: el motivo del bloqueo puede ser largo; el Badge por defecto no parte la línea. */}
+          <dd className="mt-0.5">
             {motivos.length > 0
-              ? <span className={rojo}>Bloqueado: {motivos.join(" y ")}</span>
-              : <span className={verde}>Sin bloqueos</span>}
+              ? <Badge variant="danger" className="h-auto whitespace-normal">Bloqueado: {motivos.join(" y ")}</Badge>
+              : <Badge variant="success">Sin bloqueos</Badge>}
           </dd>
         </div>
       </dl>
@@ -48,19 +52,17 @@ export function EstadoLector({ resumen }: { resumen: ResumenLector }) {
   );
 }
 
-export function ListaPrestamos({ prestamos }: { prestamos: PrestamoDeLector[] }) {
-  if (prestamos.length === 0) return <p className="mt-2 text-sm text-zinc-500">Sin préstamos abiertos.</p>;
+export function ListaPrestamos({ prestamos, accionVacia }: { prestamos: PrestamoDeLector[]; accionVacia?: ReactNode }) {
+  if (prestamos.length === 0) return <EstadoVacio accion={accionVacia}>Sin préstamos abiertos.</EstadoVacio>;
   return (
     <ul className={lista}>
       {prestamos.map((p) => (
         <li key={p.id_prestamo} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div>
             <div className="font-medium">{p.titulo}</div>
-            <div className="text-xs text-zinc-500">{p.codigo_barras} · {p.sede} · vence el {fechaCorta(p.fecha_vencimiento)}</div>
+            <div className="text-xs text-muted-foreground">{p.codigo_barras} · {p.sede} · vence el {fechaCorta(p.fecha_vencimiento)}</div>
           </div>
-          {p.perdido ? <span className={gris}>Declarado perdido</span>
-            : p.dias_atraso > 0 ? <span className={rojo}>Vencido · {plural(p.dias_atraso, "día", "días")}</span>
-            : <span className={verde}>Al día</span>}
+          <EtiquetaPrestamo prestamo={p} />
         </li>
       ))}
     </ul>
@@ -68,37 +70,43 @@ export function ListaPrestamos({ prestamos }: { prestamos: PrestamoDeLector[] })
 }
 
 export function ListaMultas({ multas, acciones }: { multas: MultaDeLector[]; acciones?: (multa: MultaDeLector) => ReactNode }) {
-  if (multas.length === 0) return <p className="mt-2 text-sm text-zinc-500">Sin multas.</p>;
+  if (multas.length === 0) return <EstadoVacio>Sin multas.</EstadoVacio>;
   return (
     <ul className={lista}>
       {multas.map((m) => (
         <li key={m.id_multa} className="flex flex-wrap items-start justify-between gap-2 px-4 py-3">
           <div>
             <div className="font-medium">{pesos(m.monto)} · {m.tipo === "retraso" ? "Retraso" : "Reposición"}</div>
-            <div className="text-xs text-zinc-500">«{m.titulo}» · {fechaCorta(m.fecha_generada)}</div>
-            {m.motivo_anulacion && <div className="text-xs text-zinc-500">Anulada: {m.motivo_anulacion}</div>}
+            <div className="text-xs text-muted-foreground">«{m.titulo}» · {fechaCorta(m.fecha_generada)}</div>
+            {m.motivo_anulacion && <div className="text-xs text-muted-foreground">Anulada: {m.motivo_anulacion}</div>}
           </div>
           {m.estado === "pendiente" && acciones
             ? <div className="flex flex-wrap items-start gap-2">{acciones(m)}</div>
-            : <span className={m.estado === "pendiente" ? rojo : m.estado === "pagada" ? verde : gris}>{m.estado}</span>}
+            : <Badge variant={VARIANTE_MULTA[m.estado]}>{m.estado}</Badge>}
         </li>
       ))}
     </ul>
   );
 }
 
-export function ListaReservas({ reservas, acciones }: { reservas: ReservaDeLector[]; acciones?: (reserva: ReservaDeLector) => ReactNode }) {
-  if (reservas.length === 0) return <p className="mt-2 text-sm text-zinc-500">Sin reservas.</p>;
+export function ListaReservas({ reservas, acciones, accionVacia }: {
+  reservas: ReservaDeLector[];
+  acciones?: (reserva: ReservaDeLector) => ReactNode;
+  accionVacia?: ReactNode;
+}) {
+  if (reservas.length === 0) return <EstadoVacio accion={accionVacia}>Sin reservas.</EstadoVacio>;
   return (
     <ul className={lista}>
       {reservas.map((r) => (
         <li key={r.id_reserva} className="flex flex-wrap items-start justify-between gap-2 px-4 py-3">
           <div>
             <Link href={`/libros/${r.isbn}`} className="font-medium hover:underline">{r.titulo}</Link>
-            <div className="text-xs text-zinc-500">
-              {r.sede} · {r.estado === "asignada"
-                ? `lista para recoger hasta el ${r.fecha_limite_recogida}`
-                : `puesto ${r.posicion} en la cola`}
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              {r.sede}
+              {/* DI-09: info = reserva lista para retirar; warning = en espera. */}
+              {r.estado === "asignada"
+                ? <Badge variant="info">Lista para recoger hasta el {r.fecha_limite_recogida}</Badge>
+                : <Badge variant="warning">Puesto {r.posicion} en la cola</Badge>}
             </div>
           </div>
           {acciones?.(r)}

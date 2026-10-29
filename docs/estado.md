@@ -117,7 +117,7 @@ como alternativa, preparado para Readium.
 | R2 | Tres paletas en `globals.css`, `dark:` → `[data-tema="oscuro"]`, cookie del tema leída por un script del `<head>` (sin cookie, el sistema), botón sol, luna y lámpara, Fraunces para títulos | Hecho (falta revisar los colores en pantalla). `lib/tema.ts`, `components/script-en-linea.tsx`, `components/boton-tema.tsx`. Resuelve UX-12 |
 | R3 | Barra superior, menú de usuario, `lib/permisos.ts`, panel por secciones (URL nuevas, `/panel` redirige por rol), pestañas de "Mi cuenta", `?siguiente=` (RN-83). Cinco partes: R3a permisos, R3b secciones, R3c `?siguiente=`, R3d barra y menú, R3e pestañas de Mi cuenta | Hecho (falta probar R3e con sesión en el navegador). R3a (permisos), R3b (secciones) y R3c (`?siguiente=`, RN-83: `rutaInterna()` en `lib/sesion.ts`, cada página pasa su ruta, enlaces "Inicia sesión" de la ficha) hechos. R3d hecho: barra superior con tokens, pestañas en píldora por perfil (`NavegacionPrincipal`), menú lateral en el celular (`Sheet`), menú de la cuenta con avatar de iniciales (`DropdownMenu`) e "Iniciar sesión" con `?siguiente=`. R3e hecho: `app/cuenta/layout.tsx` con `NavegacionCuenta` (comparación exacta de la ruta: `/cuenta` es prefijo de todas), `/cuenta` repartida en Resumen, `/cuenta/prestamos`, `/cuenta/digitales` y `/cuenta/multas` (resuelve UX-04); `resumen-lector.tsx` exporta sus piezas y el panel las sigue usando juntas |
 | R4 | Componentes base y `Portada` generada | Hecho (falta revisar en pantalla). R4a: `Card` (borde `border` en vez de `ring`) y `Badge` con `success`, `warning`, `danger` e `info`. R4b: `ui-formulario.tsx` y `BotonAccion` con tokens y `buttonVariants` (cambia el aspecto de todos los formularios), `EstadoVacio`, `/muestrario` (solo en desarrollo). R4c: `Portada` y `lib/portada.ts` (DI-05). La barra con rayas queda para R8 |
-| R5 | Pantallas (35 archivos con `zinc-*` a mano), `/cuenta` repartida en pestañas, aviso "por vencer" (RN-76), visor inmersivo y filtro del PDF | Pendiente |
+| R5 | Pantallas (35 archivos con `zinc-*` a mano), `/cuenta` repartida en pestañas, aviso "por vencer" (RN-76), visor inmersivo y filtro del PDF. Cuatro partes: R5a zona pública (modelo + tabla de equivalencias en `diseno.md`), R5b Mi cuenta + RN-76, R5c panel (**ejercicio del usuario**), R5d visor | En curso. R5a hecho. R5b hecho: `dias_aviso_vencimiento` adelantada de R7 (esquema, seed = 3, BD reconstruida), `por_vencer` y `dias_restantes` calculados en SQL (`CROSS JOIN configuracion`), `EtiquetaPrestamo` compartida por Mi cuenta y el mostrador, aviso en el Resumen; escenario nuevo del seed: Valentina con `BN-0010` que vence en 2 días; Mi cuenta, login, registro y pasarela con tokens. Falta R5c y R5d |
 | R6 | Verificación: contraste en los tres temas, teclado, celular y recorrido de cada rol | Pendiente |
 | R7 | Mi cuenta: datos (RN-77), contraseña (RN-78), correo (RN-79), recuperar (RN-80), avatar DiceBear y foto (RN-81, RN-82), tema en la cuenta. Cambia el esquema. Decidir la librería para recodificar fotos (`sharp` está desactivado en `pnpm-workspace.yaml`) | Pendiente |
 | R8 | Lector EPUB con foliate-js: reglas (RN-54, seguridad del HTML del libro), EPUB de muestra, `<Visor>` | Pendiente |
@@ -127,7 +127,7 @@ en la lámpara las tarjetas y la barra superior quedan blancas (solo el fondo de
 
 ## Próximo paso
 
-1. **R5** de la Fase R: pantallas con tokens y los componentes de R4 (`Portada` en el catálogo y la ficha, `EstadoVacio` en las listas), aviso "por vencer" (RN-76) y filtro del visor PDF.
+1. **R5c** (ejercicio): pasar el panel a tokens con la tabla de equivalencias de `diseno.md`; después **R5d**: visor inmersivo y filtro sepia.
 2. `/documentar`: lo pendiente de la Fase 4 (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque
    de numeración RN-74 entre los dos equipos; después, la Fase R.
 3. Volver a probar RN-75 con la BD reconstruida: otra copia de "Cien años de soledad" a Ana debe rechazarse.
@@ -142,6 +142,7 @@ en la lámpara las tarjetas y la barra superior quedan blancas (solo el fondo de
 ## Pendientes y avisos
 
 - PC de escritorio: BD reconstruida con el esquema de la Fase 5 y PDF de muestra generados (verificado 2026-10-26).
+- **Otro equipo, tras el `git pull` de R5b:** reconstruir la BD (columna `configuracion.dias_aviso_vencimiento` y escenario `BN-0010`), `pnpm db:claves-dev` y `pnpm archivos:muestra`.
 - Al pasar la rama `feat/rediseno` al otro equipo: `pnpm install` (shadcn agrega `radix-ui`, `cn`, `class-variance-authority`, `tw-animate-css`, `@hugeicons/*` y `shadcn`).
 - RN-29, límite asumido: lo que el navegador muestra se puede capturar. La ruta del archivo rechaza abrirlo desde la barra
   de direcciones (`Sec-Fetch-Dest: document`) y otros sitios, pero un programa fuera del navegador puede inventar esas

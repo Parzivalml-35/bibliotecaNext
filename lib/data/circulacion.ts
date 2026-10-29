@@ -459,12 +459,15 @@ export async function obtenerPrestamosAbiertos(idSede: number | null): Promise<P
     `SELECT p.id_prestamo, e.codigo_barras, l.titulo, CONCAT(lc.nombre, ' ', lc.apellido) AS lector,
             sd.nombre AS sede, DATE_FORMAT(p.fecha_prestamo, '%Y-%m-%d') AS fecha_prestamo,
             DATE_FORMAT(p.fecha_vencimiento, '%Y-%m-%d') AS fecha_vencimiento, p.renovaciones,
-            GREATEST(DATEDIFF(CURDATE(), p.fecha_vencimiento), 0) AS dias_atraso
+            GREATEST(DATEDIFF(CURDATE(), p.fecha_vencimiento), 0) AS dias_atraso,
+            DATEDIFF(p.fecha_vencimiento, CURDATE()) AS dias_restantes, -- negativo si ya venció
+            DATEDIFF(p.fecha_vencimiento, CURDATE()) BETWEEN 0 AND cf.dias_aviso_vencimiento AS por_vencer -- RN-76
      FROM prestamo_fisico p
      JOIN ejemplar e ON e.id_ejemplar = p.id_ejemplar
      JOIN libro l ON l.id_libro = e.id_libro
      JOIN lector lc ON lc.id_lector = p.id_lector
      JOIN sede sd ON sd.id_sede = p.id_sede_prestamo
+     CROSS JOIN configuracion cf
      WHERE p.fecha_devolucion IS NULL AND e.estado <> 'perdido' ${filtroSede}
      ORDER BY p.fecha_vencimiento, p.id_prestamo`,
     idSede === null ? [] : [idSede],

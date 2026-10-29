@@ -29,7 +29,7 @@ export default async function PaginaMultas() {
           )
         }
       />
-      <p className="mt-8 text-xs text-zinc-500">También puedes pagar tus multas en efectivo en el mostrador de cualquier sede.</p>
+      <p className="mt-8 text-xs text-muted-foreground">También puedes pagar tus multas en efectivo en el mostrador de cualquier sede.</p>
     </>
   );
 }

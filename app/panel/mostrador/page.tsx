@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BotonAccion } from "@/components/boton-accion";
+import { EtiquetaPrestamo } from "@/components/etiqueta-prestamo";
 import { renovarPrestamo } from "@/lib/actions/circulacion";
 import { obtenerPrestamosAbiertos } from "@/lib/data/circulacion";
 import { fechaCorta, plural } from "@/lib/formato";
@@ -59,15 +60,8 @@ export default async function PaginaMostrador() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {p.dias_atraso > 0 ? (
-                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 dark:bg-red-950 dark:text-red-200">
-                        Vencido · {plural(p.dias_atraso, "día", "días")}
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-                        Al día
-                      </span>
-                    )}
+                    {/* RN-76: el mismo aviso "por vencer" que ve el lector en su cuenta. */}
+                    <EtiquetaPrestamo prestamo={p} />
                   </td>
                   {puedeRenovar && (
                     <td className="px-4 py-3">

@@ -29,8 +29,9 @@ VALUES ('Estándar', 3, 14, 2, 14, 3, 2, 3),
 INSERT INTO configuracion (id, max_renovaciones, multa_por_dia, multa_tope, dias_atraso_perdido,
                            horas_confirmar_reserva_digital, minutos_pago_pedido, dias_devolucion_compra,
                            minimo_sobrante_traslado, horas_sesion, horas_verificacion_correo, id_tipo_lector_registro,
-                           max_fallos_por_correo, max_fallos_por_ip, max_registros_por_ip, minutos_ventana_intentos)
-SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector, 5, 20, 5, 15
+                           max_fallos_por_correo, max_fallos_por_ip, max_registros_por_ip, minutos_ventana_intentos,
+                           dias_aviso_vencimiento)
+SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector, 5, 20, 5, 15, 3
 FROM tipo_lector WHERE nombre = 'Estándar';
 
 INSERT INTO pais (nombre) VALUES
@@ -218,7 +219,7 @@ FROM (VALUES
   ROW('BN-0007', '9789871138012', 'Sede Sur',    'A', 1, 2, 'prestado',      42000, DATE('2025-02-10')),  -- Luis, vencido
   ROW('BN-0008', '9789871138012', 'Sede Norte',  'A', 1, 2, 'disponible',    42000, DATE('2025-02-10')),
   ROW('BN-0009', '9788439701095', 'Sede Norte',  'B', 1, 1, 'disponible',    55000, DATE('2025-02-10')),
-  ROW('BN-0010', '9788439701095', 'Sede Sur',    'B', 1, 1, 'disponible',    55000, DATE('2025-02-10')),
+  ROW('BN-0010', '9788439701095', 'Sede Sur',    'B', 1, 1, 'prestado',      55000, DATE('2025-02-10')),  -- Valentina, por vencer (RN-76)
   ROW('BN-0011', '9788420405940', 'Sede Norte',  'A', 2, 1, 'disponible',    59000, DATE('2025-02-10')),
   ROW('BN-0012', '9788420405940', 'Sede Sur',    NULL, NULL, NULL, 'por_ubicar', 59000, DATE('2025-02-10')), -- RN-13/RN-20: era de Norte, devuelto en Sur
   ROW('BN-0013', '9788408045755', 'Sede Centro', 'A', 1, 2, 'apartado',      39000, DATE('2025-03-05')),  -- reserva asignada de Ana
@@ -259,6 +260,7 @@ FROM (VALUES
   ROW('BN-0007', @luis,      @sur,   @marta, 30, NULL, NULL,  NULL),    -- vencido hace 16 días → Luis bloqueado (RN-03)
   ROW('BN-0031', @luis,      @sur,   @marta, 50, NULL, NULL,  NULL),    -- vencido hace 36 días > dias_atraso_perdido (RN-49)
   ROW('BN-0018', @valentina, @sur,   @marta,  3, NULL, NULL,  NULL),    -- activo; genera la cola de Sur
+  ROW('BN-0010', @valentina, @sur,   @marta, 12, NULL, NULL,  NULL),    -- vence en 2 días ≤ dias_aviso_vencimiento → por vencer (RN-76)
   ROW('BN-0012', @valentina, @norte, @jorge, 20,    8, @sur,  @marta),  -- devuelto a tiempo en OTRA sede (RN-13)
   ROW('BN-0022', @andres,    @sur,   @marta, 40,   21, @sur,  @marta)   -- devuelto 5 días tarde → multa
 ) AS p (codigo, lector, sede, presta, hace, devuelto_hace, sede_dev, recibe)
