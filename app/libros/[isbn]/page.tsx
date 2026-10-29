@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InsigniaSeccion } from "@/components/insignia-seccion";
+import { Portada } from "@/components/portada";
+import { Badge } from "@/components/ui/badge";
 import { TarjetaSede } from "@/components/tarjeta-sede";
 import { FormularioReserva } from "@/components/formularios-lector";
 import { SeccionDigital } from "@/components/seccion-digital";
@@ -47,39 +49,39 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <Link href="/" className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+      <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-foreground">
         ← Volver al catálogo
       </Link>
 
       {/* Ficha del libro */}
-      <article className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div aria-hidden="true" className="h-2" style={{ backgroundColor: libro.color_hex }} />
+      {/* DI-08: bloque con borde fino. La portada (DI-05) va arriba en el celular y a la izquierda desde sm. */}
+      <article className="mt-4 flex flex-col gap-6 rounded-2xl border border-border bg-card p-6 sm:flex-row sm:p-8">
+        <Portada isbn={libro.isbn} titulo={libro.titulo} autores={libro.autores.map((a) => `${a.nombre} ${a.apellido}`).join(", ")}
+                 className="w-32 shrink-0 self-start sm:w-44" />
 
-        <div className="p-6 sm:p-8">
+        <div className="min-w-0 flex-1">
           <InsigniaSeccion seccion={libro.seccion} color={libro.color_hex} detalle={libro.genero} />
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
+          <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
             {libro.titulo}
           </h1>
-          <p className="mt-2 text-lg text-zinc-600 dark:text-zinc-400">
+          <p className="mt-2 text-lg text-muted-foreground">
             {libro.autores.map((a) => `${a.nombre} ${a.apellido}${a.pais ? ` (${a.pais})` : ""}`).join(", ")}
           </p>
 
           {libro.generos_secundarios.length > 0 && (
             <ul aria-label="Otros géneros" className="mt-4 flex flex-wrap gap-2">
               {libro.generos_secundarios.map((g) => (
-                <li key={g} className="rounded-full border border-zinc-300 px-2.5 py-0.5 text-sm text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-                  {g}
-                </li>
+                <li key={g}><Badge variant="outline">{g}</Badge></li>
               ))}
             </ul>
           )}
 
           {libro.sinopsis && (
-            <p className="mt-6 max-w-prose leading-relaxed text-zinc-700 dark:text-zinc-300">{libro.sinopsis}</p>
+            <p className="mt-6 max-w-prose leading-relaxed">{libro.sinopsis}</p>
           )}
 
           {/* <dl>: lista de definiciones, la etiqueta semántica para pares "dato: valor". */}
-          <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-zinc-200 pt-6 sm:grid-cols-4 dark:border-zinc-800">
+          <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-border pt-6 sm:grid-cols-4">
             <Dato etiqueta="Editorial" valor={libro.editorial} />
             <Dato etiqueta="Año de la edición" valor={libro.anio_publicacion?.toString() ?? "Desconocido"} />
             <Dato etiqueta="Clasificación" valor={libro.clasificacion} />
@@ -91,7 +93,7 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
       {/* ¿Dónde está? — el problema del enunciado de Desarrollo de software */}
       <section aria-labelledby="donde-esta" className="mt-10">
         <h2 id="donde-esta" className="text-2xl font-bold tracking-tight">¿Dónde está?</h2>
-        <p className="mt-1 text-zinc-600 dark:text-zinc-400">{resumenDisponibilidad(sedes)}</p>
+        <p className="mt-1 text-muted-foreground">{resumenDisponibilidad(sedes)}</p>
 
         <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sedes.map((sede) => (
@@ -103,7 +105,7 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
       </section>
 
       {/* RN-07, RN-72: reservar. Mostrar el formulario es comodidad; las reglas se comprueban en reservarObra. */}
-      <section aria-labelledby="reservar" className="mt-10 max-w-xl rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
+      <section aria-labelledby="reservar" className="mt-10 max-w-xl rounded-2xl border border-border bg-card p-5">
         <h2 id="reservar" className="text-lg font-semibold">Reservar</h2>
         {!usuario ? (
           <p className="mt-2 text-sm">
@@ -114,7 +116,7 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
             <Link href="/registro" className="font-medium underline underline-offset-4">crea una cuenta</Link> para reservar este libro.
           </p>
         ) : !usuario.lector ? (
-          <p className="mt-2 text-sm text-zinc-500">Las reservas son para cuentas de lector.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Las reservas son para cuentas de lector.</p>
         ) : prestamoAbierto ? (
           // RN-68, RN-75: quien ya tiene la obra prestada no la reserva (reservarObra también lo rechaza).
           <p role="status" className="mt-2 text-sm">
@@ -130,7 +132,7 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
             <Link href="/cuenta/prestamos" className="font-medium underline underline-offset-4">Ver mis reservas</Link>
           </p>
         ) : !usuario.lector.verificada ? (
-          <p className="mt-2 text-sm text-zinc-500">Verifica tu correo para poder reservar.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Verifica tu correo para poder reservar.</p>
         ) : (
           <div className="mt-3">
             <FormularioReserva isbn={libro.isbn} sedes={sedes} />
@@ -150,8 +152,8 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   return (
     <div>
-      <dt className="text-sm text-zinc-500 dark:text-zinc-400">{etiqueta}</dt>
-      <dd className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">{valor}</dd>
+      <dt className="text-sm text-muted-foreground">{etiqueta}</dt>
+      <dd className="mt-0.5 font-medium">{valor}</dd>
     </div>
   );
 }

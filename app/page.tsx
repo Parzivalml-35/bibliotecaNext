@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { BuscadorCatalogo } from "@/components/buscador-catalogo";
+import { EstadoVacio } from "@/components/estado-vacio";
 import { Paginacion } from "@/components/paginacion";
 import { TarjetaLibro } from "@/components/tarjeta-libro";
+import { buttonVariants } from "@/components/ui/button";
 import { obtenerPaginaDeLibros, obtenerSecciones } from "@/lib/data/libros";
 import { plural } from "@/lib/formato";
 
@@ -41,7 +43,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Catálogo</h1>
-        <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-muted-foreground">
           {hayFiltros
             ? `${plural(total, "resultado", "resultados")}${texto ? ` para «${texto}»` : ""}${seccion ? ` en ${seccion}` : ""}`
             : `${plural(total, "título", "títulos")} en la red de bibliotecas`}
@@ -49,7 +51,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           {hayFiltros && (
             <>
               {" · "}
-              <Link href="/" className="font-medium underline underline-offset-4 hover:text-zinc-900 dark:hover:text-zinc-100">
+              <Link href="/" className="font-medium underline underline-offset-4 hover:text-foreground">
                 Limpiar filtros
               </Link>
             </>
@@ -74,10 +76,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           <Paginacion pagina={pagina} totalPaginas={totalPaginas} texto={texto} seccion={seccion} />
         </>
       ) : (
-        <div className="rounded-lg border border-dashed border-zinc-300 px-6 py-12 text-center dark:border-zinc-700">
-          <p className="font-medium">No encontramos libros con esa búsqueda.</p>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Prueba con otro título, otro autor o todas las secciones.</p>
-        </div>
+        <EstadoVacio accion={<Link href="/" className={buttonVariants({ variant: "outline", size: "sm" })}>Ver todo el catálogo</Link>}>
+          No encontramos libros con esa búsqueda. Prueba con otro título, otro autor o todas las secciones.
+        </EstadoVacio>
       )}
     </div>
   );

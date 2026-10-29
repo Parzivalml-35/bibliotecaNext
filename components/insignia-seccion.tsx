@@ -8,7 +8,7 @@ type InsigniaSeccionProps = {
 // y el punto es decorativo (aria-hidden), así funciona también para personas con daltonismo.
 export function InsigniaSeccion({ seccion, color, detalle }: InsigniaSeccionProps) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm text-zinc-700 dark:text-zinc-300">
+    <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
       <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
       {seccion}
       {detalle && ` · ${detalle}`}

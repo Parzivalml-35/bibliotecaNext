@@ -235,6 +235,26 @@ shadcn lo usen sin cambios.
 | Etiqueta | Píldora con ícono, fondo suave y texto del estado (como "Skill Booster") | `Badge` de shadcn con las variantes `success`, `warning`, `danger` e `info` (R4a) |
 | Línea de tiempo | Línea vertical punteada que une pasos (como "Reading Journey") | `border-l border-dashed`. Uso posible: historial de un préstamo (prestado → renovado → devuelto) |
 
+## Equivalencias para pasar una pantalla a tokens (R5)
+
+Una pantalla terminada no tiene `zinc-*`, `red-*`, `emerald-*`, `amber-*`, `blue-*` ni `dark:`: los tokens ya cambian
+con el tema. Revisarla con `grep -nE "zinc-|red-|emerald-|amber-|blue-|dark:" archivo.tsx` (debe salir vacío).
+
+| Antes | Después | Nota |
+|---|---|---|
+| `text-zinc-900 dark:text-zinc-50` (texto principal) | nada (hereda `text-foreground` del `body`) | Solo se escribe `text-foreground` para volver al principal dentro de algo gris |
+| `text-zinc-500`, `text-zinc-600 dark:text-zinc-400`, `text-zinc-700 dark:text-zinc-300` (texto secundario) | `text-muted-foreground` | Contraste AA medido en los tres temas |
+| `text-zinc-400` (deshabilitado, decorativo) | `text-muted-foreground` + `opacity-50` | Solo para lo que no se puede usar |
+| `border-zinc-200 dark:border-zinc-800`, `border-zinc-300 dark:border-zinc-700` | `border-border` | También `divide-border` |
+| `bg-white dark:bg-zinc-900` + `border` + `shadow-sm` (tarjeta) | `rounded-2xl border border-border bg-card` | Sin sombra (DI-08). Si encaja en columna, `<Card>` |
+| `bg-zinc-100 dark:bg-zinc-800` (fondo gris, bandeja) | `bg-muted` | `hover:bg-muted` para el *hover* |
+| Botón `bg-zinc-900 text-white …` | `<Button>`, o `buttonVariants()` en un `<Link>`; en formularios, `claseBoton` | `variant`: `default`, `outline`, `destructive`, `ghost` |
+| Píldora de estado con `red-*`, `emerald-*`, `amber-*` | `<Badge variant="danger" \| "success" \| "warning" \| "info" \| "secondary">` | Significado de cada color en "Colores de estado" |
+| Mensaje con `bg-red-50 text-red-800 …` | `<MensajeFormulario>` o `border-danger/40 bg-danger-suave text-danger-texto` | Igual con `success`, `warning`, `info` |
+| Campo con `focus:ring-blue-600` | `claseCampo` y `claseEtiqueta` (`components/ui-formulario.tsx`) | |
+| "Sin préstamos." en texto suelto | `<EstadoVacio accion={…}>` | La acción siguiente, si la hay |
+| Tarjeta con barra de color del libro | `<Portada>` | El color de la sección queda en `InsigniaSeccion` |
+
 ## Tipografía
 
 | Uso | Fuente | Nota |

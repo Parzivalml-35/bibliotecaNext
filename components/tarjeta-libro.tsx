@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { InsigniaDisponibilidad } from "@/components/insignia-disponibilidad";
 import { InsigniaSeccion } from "@/components/insignia-seccion";
+import { Portada } from "@/components/portada";
 import type { LibroResumen } from "@/lib/definitions";
 
 type TarjetaLibroProps = {
@@ -9,23 +10,25 @@ type TarjetaLibroProps = {
 
 // Tarjeta de un libro en el catálogo. Server Component: no tiene interacción,
 // así que no necesita "use client" y no envía JavaScript al navegador.
+// Bloque de DI-08 (borde fino, sin sombra) con la portada generada (DI-05) a la izquierda. No usa <Card> porque
+// Card apila en columna con su propio espaciado; aquí la portada y el texto van en fila.
 export function TarjetaLibro({ libro }: TarjetaLibroProps) {
   return (
     // relative: referencia para el ::after del enlace, que se estira sobre toda la tarjeta.
+    // hover:border-primary: al pasar el mouse el borde toma el color del tema ("tarjeta seleccionada" de DI-08).
     // has-[a:focus-visible]: el anillo de foco aparece en la tarjeta cuando se llega al enlace con el teclado.
-    <article className="relative flex h-full overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-blue-600 dark:border-zinc-800 dark:bg-zinc-900">
-      {/* Barra con el color de la sección (RN-18). El color viene de la BD: va en style, no en una clase. */}
-      <div aria-hidden="true" className="w-2 shrink-0" style={{ backgroundColor: libro.color_hex }} />
+    <article className="relative flex h-full gap-4 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary has-[a:focus-visible]:ring-[3px] has-[a:focus-visible]:ring-ring/50">
+      <Portada isbn={libro.isbn} titulo={libro.titulo} autores={libro.autores} className="w-20 shrink-0 self-start" />
 
-      <div className="flex flex-1 flex-col gap-3 p-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div>
-          <h2 className="text-lg font-semibold leading-snug text-zinc-900 dark:text-zinc-50">
+          <h2 className="text-lg leading-snug font-semibold">
             {/* Un solo enlace por tarjeta (el título): su ::after cubre toda la tarjeta y la hace clicable. */}
             <Link href={`/libros/${libro.isbn}`} className="after:absolute after:inset-0 focus:outline-none">
               {libro.titulo}
             </Link>
           </h2>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{libro.autores}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{libro.autores}</p>
         </div>
 
         {/* mt-auto empuja esta fila al fondo: todas las tarjetas alinean su pie aunque el título ocupe más líneas. */}
