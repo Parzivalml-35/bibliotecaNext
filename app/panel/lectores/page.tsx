@@ -58,7 +58,7 @@ export default async function PaginaLectores({ searchParams }: PageProps<"/panel
         </Form>
       </div>
 
-      {texto && resultados.length === 0 && <p className="text-sm text-zinc-500">No hay lectores con ese correo o documento.</p>}
+      {texto && resultados.length === 0 && <p className="text-sm text-muted-foreground">No hay lectores con ese correo o documento.</p>}
       {resultados.length > 1 && !idLector && (
         <ul className="text-sm">
           {resultados.map((r) => (
@@ -70,12 +70,12 @@ export default async function PaginaLectores({ searchParams }: PageProps<"/panel
       {resumen && (
         <div>
           <h2 className="text-xl font-semibold">{resumen.nombre}</h2>
-          <p className="mb-4 text-sm text-zinc-500">
+          <p className="mb-4 text-sm text-muted-foreground">
             {resumen.correo} · {resumen.tipo_documento} {resumen.numero_documento} · {resumen.edad} años
             <br />Tel. {resumen.telefono} · {resumen.direccion}
           </p>
           {deMostrador && resumen.estado_cuenta === "verificada" && (
-            <div className="mb-6 rounded-lg border border-amber-300 p-4 dark:border-amber-800">
+            <div className="mb-6 rounded-2xl border border-warning bg-card p-4">
               <p className="mb-3 text-sm font-medium">Validar: coteja el documento registrado con el original (D-03)</p>
               <FormularioValidar idLector={resumen.id_lector} tipos={tipos}
                                  documento={{ tipo: resumen.tipo_documento, numero: resumen.numero_documento }} />

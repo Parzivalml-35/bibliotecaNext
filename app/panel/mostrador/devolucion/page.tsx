@@ -10,7 +10,7 @@ export default async function PaginaDevolucion() {
   return (
     <div className="max-w-xl">
       <h1 className="text-2xl font-bold tracking-tight">Devolución</h1>
-      <p className="mt-1 mb-6 text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">
         Se recibe en {empleado.sede}. Se acepta cualquier ejemplar de la red (colección flotante): si es de otra
         sede, pasa a pertenecer a esta.
       </p>

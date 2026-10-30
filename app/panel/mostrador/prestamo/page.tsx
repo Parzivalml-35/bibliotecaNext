@@ -11,7 +11,7 @@ export default async function PaginaPrestamo() {
   return (
     <div className="max-w-xl">
       <h1 className="text-2xl font-bold tracking-tight">Nuevo préstamo</h1>
-      <p className="mt-1 mb-6 text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">
         Se registra en {empleado.sede}. El ejemplar debe estar en esta sede y disponible, o apartado para una
         reserva del mismo lector.
       </p>

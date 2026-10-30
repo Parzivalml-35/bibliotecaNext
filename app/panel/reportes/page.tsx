@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { obtenerIncoherencias, obtenerIndicadores, obtenerTrasladosSugeridos } from "@/lib/data/tablero";
 import { pesos } from "@/lib/formato";
 import { exigirEmpleado } from "@/lib/sesion";
@@ -29,14 +31,14 @@ export default async function PaginaTablero() {
     <div className="space-y-10">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Tablero</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{empleado.sede ?? "Toda la red"}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{empleado.sede ?? "Toda la red"}</p>
         {/* Grilla de indicadores: 2 columnas en móvil, 4 desde lg */}
         <dl className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {tarjetas.map((t) => (
-            <div key={t.etiqueta} className={`rounded-lg border p-4 ${t.alerta ? "border-amber-300 dark:border-amber-800" : "border-zinc-200 dark:border-zinc-800"}`}>
-              <dt className="text-xs uppercase tracking-wide text-zinc-500">{t.etiqueta}</dt>
+            <div key={t.etiqueta} className={cn("rounded-2xl border bg-card p-4", t.alerta ? "border-warning" : "border-border")}>
+              <dt className="text-xs uppercase tracking-wide text-muted-foreground">{t.etiqueta}</dt>
               <dd className="mt-1 text-3xl font-bold tabular-nums">{t.valor}</dd>
-              {t.detalle && <dd className="text-sm text-zinc-500">{t.detalle}</dd>}
+              {t.detalle && <dd className="text-sm text-muted-foreground">{t.detalle}</dd>}
             </div>
           ))}
         </dl>
@@ -44,9 +46,9 @@ export default async function PaginaTablero() {
 
       <section aria-labelledby="traslados">
         <h2 id="traslados" className="text-lg font-semibold">Traslados sugeridos (RN-14)</h2>
-        <p className="mb-3 text-sm text-zinc-500">Sedes con lectores en cola y sin copias, frente a sedes con copias de sobra. Solo sugerencias: ningún libro se mueve solo.</p>
-        {traslados.length === 0 ? <p className="text-sm text-zinc-500">Ninguno.</p> : (
-          <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 text-sm dark:divide-zinc-800 dark:border-zinc-800">
+        <p className="mb-3 text-sm text-muted-foreground">Sedes con lectores en cola y sin copias, frente a sedes con copias de sobra. Solo sugerencias: ningún libro se mueve solo.</p>
+        {traslados.length === 0 ? <p className="text-sm text-muted-foreground">Ninguno.</p> : (
+          <ul className="divide-y divide-border rounded-2xl border border-border bg-card text-sm">
             {traslados.map((t, i) => (
               <li key={i} className="px-4 py-3">
                 <span className="font-medium">{t.titulo}</span>: {t.sugeridos} de {t.desde} a {t.hacia} ({t.en_cola} en cola)
@@ -58,11 +60,11 @@ export default async function PaginaTablero() {
 
       <section aria-labelledby="detector">
         <h2 id="detector" className="text-lg font-semibold">Coherencia del estado de los ejemplares (RN-24)</h2>
-        <p className="mb-3 text-sm text-zinc-500">Compara el estado guardado de cada ejemplar con el que se deduce de préstamos, reservas y traslados. Debe estar vacío.</p>
+        <p className="mb-3 text-sm text-muted-foreground">Compara el estado guardado de cada ejemplar con el que se deduce de préstamos, reservas y traslados. Debe estar vacío.</p>
         {incoherencias.length === 0 ? (
-          <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">Sin incoherencias.</p>
+          <p role="status"><Badge variant="success">Sin incoherencias</Badge></p>
         ) : (
-          <ul role="alert" className="divide-y divide-red-200 rounded-lg border border-red-300 text-sm dark:border-red-900">
+          <ul role="alert" className="divide-y divide-danger/30 rounded-2xl border border-danger bg-danger-suave text-sm text-danger-texto">
             {incoherencias.map((x) => (
               <li key={x.codigo_barras} className="px-4 py-2 font-mono text-xs">
                 {x.codigo_barras} ({x.sede}): guardado «{x.guardado}», debería ser «{x.deducido}»

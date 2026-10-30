@@ -15,5 +15,5 @@ export function AvisoPanel() {
   const motivo = useSearchParams().get("motivo");
   const aviso = motivo ? MOTIVOS[motivo] : undefined;
   if (!aviso) return null;
-  return <p role="alert" className="-mt-4 mb-6 text-sm text-amber-700 dark:text-amber-400">{aviso}</p>;
+  return <p role="alert" className="-mt-4 mb-6 text-sm text-warning-texto">{aviso}</p>;
 }

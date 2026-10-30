@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BotonAccion } from "@/components/boton-accion";
+import { EstadoVacio } from "@/components/estado-vacio";
 import { EtiquetaPrestamo } from "@/components/etiqueta-prestamo";
 import { renovarPrestamo } from "@/lib/actions/circulacion";
 import { obtenerPrestamosAbiertos } from "@/lib/data/circulacion";
@@ -22,19 +23,17 @@ export default async function PaginaMostrador() {
   return (
     <div>
       <h1 className="text-2xl font-bold tracking-tight">Préstamos abiertos</h1>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mt-1 text-sm text-muted-foreground">
         {NOMBRE_ROL[empleado.rol]} · {empleado.sede ?? "Toda la red"} · {plural(prestamos.length, "préstamo", "préstamos")}
       </p>
 
       {prestamos.length === 0 ? (
-        <p className="mt-6 rounded-lg border border-dashed border-zinc-300 px-6 py-10 text-center text-sm dark:border-zinc-700">
-          No hay préstamos abiertos.
-        </p>
+        <EstadoVacio className="mt-6">No hay préstamos abiertos.</EstadoVacio>
       ) : (
         // overflow-x-auto: en pantallas angostas la tabla se desplaza dentro de su caja, no la página entera.
-        <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-border bg-card">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 dark:bg-zinc-900">
+            <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th scope="col" className="px-4 py-3">Ejemplar</th>
                 <th scope="col" className="px-4 py-3">Lector</th>
@@ -44,19 +43,19 @@ export default async function PaginaMostrador() {
                 {puedeRenovar && <th scope="col" className="px-4 py-3"><span className="sr-only">Acciones</span></th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <tbody className="divide-y divide-border">
               {prestamos.map((p) => (
                 <tr key={p.id_prestamo} className="align-top">
                   <td className="px-4 py-3">
                     <div className="font-medium">{p.titulo}</div>
-                    <div className="font-mono text-xs text-zinc-500">{p.codigo_barras}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{p.codigo_barras}</div>
                   </td>
                   <td className="px-4 py-3">{p.lector}</td>
                   {empleado.idSede === null && <td className="px-4 py-3">{p.sede}</td>}
                   <td className="px-4 py-3 whitespace-nowrap">
                     {fechaCorta(p.fecha_vencimiento)}
                     {p.renovaciones > 0 && (
-                      <div className="text-xs text-zinc-500">{plural(p.renovaciones, "renovación", "renovaciones")}</div>
+                      <div className="text-xs text-muted-foreground">{plural(p.renovaciones, "renovación", "renovaciones")}</div>
                     )}
                   </td>
                   <td className="px-4 py-3">

@@ -1,13 +1,22 @@
 "use client";
 
 import { useActionState } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import { claseBoton, claseCampo, claseEtiqueta, MensajeFormulario } from "@/components/ui-formulario";
 import { ubicarEjemplar } from "@/lib/actions/circulacion";
 import { validarLector } from "@/lib/actions/cuenta";
 import { anularMultaConMotivo } from "@/lib/actions/multas";
 import type { EstadoFormulario } from "@/lib/definitions";
+import { cn } from "@/lib/utils";
 
 const estadoInicial: EstadoFormulario = {};
+
+// Campo pequeño para los formularios en línea de una fila (anular, ubicar): la forma de claseCampo, al alto de un
+// botón size="xs" (h-6 + borde) y sin ocupar todo el ancho.
+const claseCampoPequeno =
+  "h-7 rounded-4xl border border-input bg-input/30 px-2.5 text-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+// Resultado de la acción: el mismo par de colores que BotonAccion.
+const claseResultado = (estado: EstadoFormulario) => (estado.error ? "text-danger-texto" : "text-success-texto");
 
 // Formularios del mostrador con más de un botón: validar lector, anular multa, ubicar ejemplar.
 
@@ -59,13 +68,13 @@ export function FormularioAnular({ idMulta }: { idMulta: number }) {
       <label htmlFor={`motivo-${idMulta}`} className="sr-only">Motivo de la anulación</label>
       <div className="flex gap-1">
         <input id={`motivo-${idMulta}`} name="motivo" required minLength={10} maxLength={255} placeholder="Motivo de la anulación"
-               defaultValue={estado.valores?.motivo} className="w-48 rounded-md border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900" />
+               defaultValue={estado.valores?.motivo} className={cn(claseCampoPequeno, "w-48")} />
         <button type="submit" disabled={pendiente}
-                className="rounded-md border border-red-300 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60 dark:border-red-900 dark:text-red-300">
+                className={buttonVariants({ variant: "destructive", size: "xs" })}>
           {pendiente ? "Anulando…" : "Anular"}
         </button>
       </div>
-      <p aria-live="polite" className={`text-xs ${estado.error ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+      <p aria-live="polite" className={cn("text-xs", claseResultado(estado))}>
         {estado.error ?? estado.exito}
       </p>
     </form>
@@ -85,7 +94,7 @@ export function FormularioUbicar({ codigo, sugerida, ubicaciones }: {
       <div className="flex gap-1">
         <label htmlFor={`estante-${codigo}`} className="sr-only">Estante para {codigo}</label>
         <select id={`estante-${codigo}`} name="id_ubicacion" defaultValue={sugerida ?? undefined}
-                className="rounded-md border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900">
+                className={claseCampoPequeno}>
           {ubicaciones.map((u) => (
             <option key={u.id_ubicacion} value={u.id_ubicacion}>
               {u.etiqueta} · {u.seccion}{u.id_ubicacion === sugerida ? " (sugerido)" : ""}
@@ -93,11 +102,11 @@ export function FormularioUbicar({ codigo, sugerida, ubicaciones }: {
           ))}
         </select>
         <button type="submit" disabled={pendiente}
-                className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-800">
+                className={buttonVariants({ variant: "outline", size: "xs" })}>
           {pendiente ? "Ubicando…" : "Ubicar"}
         </button>
       </div>
-      <p aria-live="polite" className={`max-w-72 text-right text-xs ${estado.error ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+      <p aria-live="polite" className={cn("max-w-72 text-right text-xs", claseResultado(estado))}>
         {estado.error ?? estado.exito}
       </p>
     </form>
