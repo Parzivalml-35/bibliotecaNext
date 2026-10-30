@@ -41,7 +41,8 @@ export default async function PaginaLeer({ params }: PageProps<"/leer/[isbn]">) 
           <BotonLampara />
         </div>
       </header>
-      <main className="flex-1 bg-muted">
+      {/* Sin fondo propio: la pared y su luz (DI-14) se ven alrededor de la hoja, como en el resto de la app. */}
+      <main className="flex-1">
         <div className="mx-auto w-full max-w-5xl px-2 py-4 sm:px-6">
           <VisorPdf url={`/leer/${isbn}/archivo`} titulo={acceso.titulo} />
         </div>

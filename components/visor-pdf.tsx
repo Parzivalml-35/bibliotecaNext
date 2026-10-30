@@ -93,7 +93,7 @@ export function VisorPdf({ url, titulo }: { url: string; titulo: string }) {
         </p>
         <button type="button" className={claseBoton} disabled={!documento || pagina >= total} onClick={() => setPagina((p) => p + 1)}>Siguiente →</button>
       </div>
-      {/* El fondo lo pone la página (bg-muted): aquí solo se centra la hoja. */}
+      {/* Sin fondo: alrededor de la hoja se ve la pared con su luz (DI-14). Aquí solo se centra la hoja. */}
       <div ref={contenedor} className="flex justify-center">
         {/* onContextMenu: sin el menú "Guardar imagen como…" sobre la página. Es una molestia, no una protección. */}
         <canvas ref={lienzo} role="img" aria-label={`${titulo}, página ${pagina}`} onContextMenu={(e) => e.preventDefault()}

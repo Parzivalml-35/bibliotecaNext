@@ -159,17 +159,17 @@
 [data-tema="oscuro"] {
   color-scheme: dark;
   --background: oklch(0.194 0.006 56); /* #171412 */
-  --card: oklch(0.234 0.008 59.2); /* #211D1A */
+  --card: oklch(0.26 0.008 59.2); /* Fase A: antes 0.234 (#211D1A); se separa más de la pared */
   --foreground: oklch(0.946 0.009 67.7); /* #F1ECE7 */
-  --muted: oklch(0.269 0.009 53.1); /* #2A2522 */
+  --muted: oklch(0.305 0.009 53.1); /* Fase A: antes 0.269; conserva su escalón sobre la tarjeta */
   --muted-foreground: oklch(0.711 0.013 59.5); /* #A8A09A */
   --primary: oklch(0.744 0.15 59.6); /* #F0923A */
   --primary-foreground: oklch(0.194 0.006 56); /* #171412 */
-  --accent: oklch(0.3 0.031 58.1); /* #3A2A1E */
+  --accent: oklch(0.33 0.031 58.1); /* Fase A: antes 0.3; conserva su escalón sobre la tarjeta */
   --accent-foreground: oklch(0.844 0.088 63.9); /* #F5C08F */
-  --border: oklch(0.314 0.012 62.2); /* #36302B */
+  --border: oklch(0.4 0.012 62.2); /* Fase A: antes 0.314 (#36302B); dentro de un haz de luna desaparecía (1.05) */
   --decorativo: oklch(0.744 0.15 59.6); /* #F0923A */
-  --borde-campo: oklch(0.549 0.012 62.2); /* #77706A */
+  --borde-campo: oklch(0.578 0.012 62.2); /* #7F7873. Fase A: antes 0.549; la bandeja más clara lo exigía */
 
   --success: oklch(0.724 0.152 147); /* #5CBF6B */
   --success-suave: oklch(0.298 0.041 149.4); /* #1E3322 */

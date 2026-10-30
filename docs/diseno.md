@@ -143,7 +143,7 @@ desplazamiento y los controles nativos sigan el tema.
 | `muted` (bandeja) | `#EEEBE8` | `#EEE0C8` | `#2A2522` | `muted-foreground` encima: 4.96 · 4.55 · 5.89 |
 | `accent-foreground` | `#8A420A` | `#3B2A1A` | `#F5C08F` | Sobre `accent`: 6.51 · 9.64 · 8.38 |
 | `decorativo` | `#E68124` | `#D9AB61` | `#F0923A` | Sin texto encima |
-| `borde-campo` (R6) | `#898480` | `#8E7C5F` | `#77706A` | Contorno de `<input>`/`<select>`: ≥ 3.1 contra fondo, tarjeta y bandeja (WCAG 1.4.11). `--input` (= `border`) daba 1.19-1.41 |
+| `borde-campo` (R6) | `#898480` | `#8E7C5F` | `#7F7873` (Fase A; antes `#77706A`) | Contorno de `<input>`/`<select>`: ≥ 3.1 contra fondo, tarjeta y bandeja (WCAG 1.4.11). `--input` (= `border`) daba 1.19-1.41 |
 
 ### Claro
 
@@ -176,12 +176,12 @@ Oscuro cálido (gris con un toque café), no negro azulado: conserva la familia 
 | Token | Hex | oklch | Uso |
 |---|---|---|---|
 | `background` | `#171412` | `oklch(0.194 0.006 56.0)` | Fondo |
-| `card` | `#211D1A` | `oklch(0.234 0.008 59.2)` | Tarjetas |
+| `card` | `#272320` | `oklch(0.26 0.008 59.2)` | Tarjetas. Fase A: antes `#211D1A`; se separaba poco de la pared |
 | `foreground` | `#F1ECE7` | `oklch(0.946 0.009 67.7)` | Texto (15.62:1) |
 | `muted-foreground` | `#A8A09A` | `oklch(0.711 0.013 59.5)` | Texto secundario (7.13:1) |
 | `primary` | `#F0923A` | `oklch(0.744 0.150 59.6)` | Botones (texto oscuro 7.74:1) |
-| `accent` | `#3A2A1E` | `oklch(0.300 0.031 58.1)` | Pestaña activa |
-| `border` | `#36302B` | `oklch(0.314 0.012 62.2)` | Bordes |
+| `accent` | `#423226` | `oklch(0.33 0.031 58.1)` | Pestaña activa (Fase A: antes `#3A2A1E`) |
+| `border` | `#4D4641` | `oklch(0.40 0.012 62.2)` | Bordes. Fase A: antes `#36302B`; dentro de un haz de luna desaparecía |
 
 ### Acento y botón
 
