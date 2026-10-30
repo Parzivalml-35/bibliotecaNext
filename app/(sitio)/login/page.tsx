@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FormularioLogin } from "@/components/formulario-login";
 import { salir } from "@/lib/actions/sesion";
+import { inicioDe } from "@/lib/permisos";
 import { obtenerUsuario, rutaInterna } from "@/lib/sesion";
 
 export const metadata: Metadata = { title: "Iniciar sesión" };
@@ -20,7 +21,8 @@ export default async function PaginaLogin({ searchParams }: PageProps<"/login">)
   // RN-83: a dónde volver al entrar. Se valida aquí para no poner en el formulario algo que no se va a usar,
   // y la acción lo vuelve a validar (es la que manda).
   const destino = rutaInterna(siguiente);
-  if (usuario?.empleado) redirect("/panel"); // ya conectado como empleado: nada que hacer aquí
+  // Ya conectado como empleado: nada que hacer aquí; directo al inicio de su rol (sin pasar por /panel).
+  if (usuario?.empleado) redirect(inicioDe(usuario.empleado.rol));
 
   const aviso = typeof motivo === "string" ? MOTIVOS[motivo] : undefined;
 

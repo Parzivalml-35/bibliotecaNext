@@ -269,14 +269,19 @@
   mask-image: radial-gradient(ellipse 80% 75% at 92% 0%, black 25%, transparent 80%);
 }
 
-/* Lámpara: núcleo alargado hacia arriba, halo que baja por la pared, ambiente amplio y viñeta en los bordes,
-   todo centrado cerca del ícono de la lámpara en pantallas anchas (x ≈ 78 %). */
+/* Lámpara: núcleo alargado hacia arriba, halo que baja por la pared, ambiente amplio y viñeta en los bordes, todo
+   centrado en --lampara-x: cerca del ícono de la barra (78 %) y, desde xl, en la esquina donde cuelga la lámpara. */
 .luz-lampara {
+  --lampara-x: 78%;
   background:
-    radial-gradient(ellipse 7% 16% at 78% 3%, var(--lampara-nucleo), transparent 75%),
-    radial-gradient(ellipse 16% 45% at 78% 14%, var(--lampara-halo), transparent 72%),
-    radial-gradient(ellipse 55% 75% at 78% 12%, var(--lampara-ambiente), transparent 70%),
-    radial-gradient(ellipse 110% 100% at 78% 12%, transparent 40%, var(--lampara-sombra));
+    radial-gradient(ellipse 7% 16% at var(--lampara-x) 3%, var(--lampara-nucleo), transparent 75%),
+    radial-gradient(ellipse 16% 45% at var(--lampara-x) 14%, var(--lampara-halo), transparent 72%),
+    radial-gradient(ellipse 55% 75% at var(--lampara-x) 12%, var(--lampara-ambiente), transparent 70%),
+    radial-gradient(ellipse 110% 100% at var(--lampara-x) 12%, transparent 40%, var(--lampara-sombra));
+}
+
+@media (min-width: 80rem) {
+  .luz-lampara { --lampara-x: 96%; }
 }
 
 /* DI-15: al encenderse, la lámpara "calienta" (sube con un leve parpadeo). La animación arranca cuando la regla

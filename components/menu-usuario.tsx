@@ -1,5 +1,6 @@
 import { EnlacesSinSesion } from "@/components/enlaces-sin-sesion";
 import { MenuCuenta } from "@/components/menu-cuenta";
+import { inicioDe } from "@/lib/permisos";
 import { obtenerUsuario } from "@/lib/sesion";
 
 // Server Component asíncrono: lee la sesión (cookie + BD). El layout lo envuelve en <Suspense> para que
@@ -20,7 +21,8 @@ export async function MenuUsuario() {
       nombre={nombre}
       correo={usuario.correo}
       esLector={usuario.lector !== null}
-      esEmpleado={usuario.empleado !== null}
+      // A dónde lleva "Panel": el inicio del rol (DI-10), sin pasar por la redirección de /panel. null = no es empleado.
+      inicioPanel={usuario.empleado ? inicioDe(usuario.empleado.rol) : null}
     />
   );
 }

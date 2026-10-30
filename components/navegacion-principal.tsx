@@ -1,4 +1,5 @@
 import { MenuMovil, type Pestana, PestanasPrincipales } from "@/components/pestanas-principales";
+import { inicioDe } from "@/lib/permisos";
 import { obtenerUsuario } from "@/lib/sesion";
 
 // DI-02, DI-10: Catálogo para todos, "Mi cuenta" si la cuenta es de lector y "Panel" si es de empleado.
@@ -10,7 +11,8 @@ export async function NavegacionPrincipal({ variante }: { variante: "barra" | "m
 
   const pestanas: Pestana[] = [{ titulo: "Catálogo", ruta: "/", tambien: ["/libros"] }];
   if (usuario?.lector) pestanas.push({ titulo: "Mi cuenta", ruta: "/cuenta" });
-  if (usuario?.empleado) pestanas.push({ titulo: "Panel", ruta: "/panel" });
+  // Directo al inicio del rol (sin la redirección de /panel); `tambien` mantiene la pestaña activa en cualquier sección.
+  if (usuario?.empleado) pestanas.push({ titulo: "Panel", ruta: inicioDe(usuario.empleado.rol), tambien: ["/panel"] });
 
   return variante === "barra" ? <PestanasPrincipales pestanas={pestanas} /> : <MenuMovil pestanas={pestanas} />;
 }
