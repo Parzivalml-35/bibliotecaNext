@@ -164,8 +164,8 @@ desplazamiento y los controles nativos sigan el tema.
 | `background` | `#FBE8D7` | `oklch(0.942 0.031 64.3)` | Fondo durazno claro. Elegido por el usuario en R6 (antes `#F2E5D0`): todos los textos mejoran su contraste |
 | `card` | `#F9F3EE` | `oklch(0.967 0.009 62.6)` | Tarjetas crema |
 | `foreground` | `#3B2A1A` | `oklch(0.301 0.037 64.0)` | Texto café (11.03:1) |
-| `muted-foreground` | `#76604A` | `oklch(0.505 0.044 66.6)` | Texto secundario (4.77:1) |
-| `primary` | `#8A5A12` | `oklch(0.509 0.103 70.8)` | Botones (texto crema 5.60:1) |
+| `muted-foreground` | `#6A553F` | `oklch(0.465 0.044 66.6)` | Texto secundario. Fase A: antes `#76604A`; oscurecido para cumplir 4.5:1 en la penumbra de la lámpara (4.70) |
+| `primary` | `#7E4F00` | `oklch(0.469 0.103 70.8)` | Botones (texto crema 6.36:1). Fase A: antes `#8A5A12`; enlaces en la penumbra 4.68:1 |
 | `accent` | `#EAD6B3` | `oklch(0.884 0.051 81.6)` | Pestaña activa |
 | `border` | `#E0CDAE` | `oklch(0.856 0.047 80.0)` | Bordes |
 

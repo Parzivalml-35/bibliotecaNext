@@ -133,7 +133,7 @@ después: el arte queda aislado en `components/marca/iconos.tsx`.
 | A1 | Modelo del tema: cookie `tema` (base) + cookie `lampara`; `data-tema` conserva tres valores, `data-tema-base` | Hecho: `resolverPreferencia`, `aplicarPreferencia`, `preferenciaActual`; la cookie antigua `tema=lampara` se lee como lámpara encendida |
 | A2 | Íconos de marca intercambiables, botón flotante (sol y luna) y botón de lámpara | Hecho: `components/marca/iconos.tsx` (aplique de pared propio, emblema provisional 4:5), `BotonTema` flotante en el layout raíz, `BotonLampara` en la barra y el visor. Probado en Chrome: 5 combinaciones de cookies y 5 clics |
 | A3 | Barra flotante con el emblema que cuelga; barra del visor en cápsula | Hecho: cápsula `sticky top-3` con `bg-card/85 backdrop-blur`, emblema de 56 px de ancho (70 de alto) que sobresale, nombre desde `sm`, menú del celular a la derecha; ícono de lámpara elegido entre 3 variantes |
-| A4 | Luz por tema (sol, luna, lámpara) sobre textura de pared, con animación al encender | Pendiente |
+| A4 | Luz por tema (sol, luna, lámpara) sobre textura de pared, con animación al encender | Hecho: `components/fondo-luz.tsx` + capas en `globals.css` (haces de sol y luna con `linear-gradient` y `mask-image`; foco, halo, ambiente y penumbra de la lámpara con `radial-gradient`); textura de ruido SVG sin repetir (las baldosas dejaban costuras); `encender-lampara` con `prefers-reduced-motion`. Contraste ampliado con 11 pares de luz y sombra: la penumbra obligó a oscurecer `muted-foreground` y `primary` de la lámpara |
 | A5 | Visor y detalles; verificación (contraste ampliado, capturas, teclado, movimiento reducido, build) | Pendiente |
 
 ## Mi cuenta y lector EPUB (pendiente; separada de la Fase R el 2026-10-30)

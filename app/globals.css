@@ -132,8 +132,8 @@
   --card: oklch(0.967 0.009 62.6); /* #F9F3EE */
   --foreground: oklch(0.301 0.037 64); /* #3B2A1A */
   --muted: oklch(0.912 0.035 81.3); /* #EEE0C8 */
-  --muted-foreground: oklch(0.505 0.044 66.6); /* #76604A */
-  --primary: oklch(0.509 0.103 70.8); /* #8A5A12 */
+  --muted-foreground: oklch(0.465 0.044 66.6); /* Fase A: antes 0.505 (#76604A); aguanta la penumbra de la lámpara */
+  --primary: oklch(0.469 0.103 70.8); /* Fase A: antes 0.509 (#8A5A12); aguanta la penumbra de la lámpara */
   --primary-foreground: oklch(0.967 0.009 62.6); /* #F9F3EE */
   --accent: oklch(0.884 0.051 81.6); /* #EAD6B3 */
   --accent-foreground: oklch(0.301 0.037 64); /* #3B2A1A */
@@ -202,4 +202,98 @@
   h3 {
     @apply font-heading;
   }
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Luz sobre la pared (DI-14, DI-15, Fase A). Capas de components/fondo-luz.tsx. Cada tema tiene su capa con sus
+   propios colores (si compartieran una variable, la capa que se desvanece cambiaría de color al instante).
+   La luz ACLARA la pared (y la sombra la oscurece apenas): el contraste del texto sobre el fondo se mide en sus
+   extremos con `pnpm diseno:contraste` (pares "luz" y "sombra"). Las tarjetas siguen opacas encima.
+   --------------------------------------------------------------------------------------------------------------- */
+:root {
+  /* Sol (claro): haces de una ventana, blanco cálido; entre haces, una sombra muy leve. */
+  --sol: oklch(0.995 0.025 88 / 0.95);
+  --sol-sombra: oklch(0.55 0.012 70 / 0.1);
+  /* Luna (oscuro): haces fríos y tenues; fuera de ellos, la pared un poco más oscura. */
+  --luna: oklch(0.66 0.06 250 / 0.2);
+  --luna-sombra: oklch(0 0 0 / 0.3);
+  /* Lámpara: el foco junto al ícono (arriba a la derecha), que sube y baja por la pared, y una viñeta cálida. */
+  --lampara-nucleo: oklch(0.995 0.05 95 / 1);
+  --lampara-halo: oklch(0.98 0.08 88 / 0.85);
+  --lampara-ambiente: oklch(0.965 0.07 80 / 0.55);
+  --lampara-sombra: oklch(0.42 0.07 55 / 0.15);
+}
+
+/* La pared: ruido fractal en escala de grises (feTurbulence + saturate 0), mezclado en soft-light: aclara y oscurece
+   un poco por zonas, como un estuco, sobre cualquier fondo. Pesa unos cientos de bytes. NO se repite en baldosas
+   (stitchTiles dejaba costuras visibles): es una sola imagen estirada a toda la ventana (cover); el ruido de baja
+   frecuencia se estira sin que se note y el navegador lo dibuja una sola vez. */
+.pared-textura {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='1000' preserveAspectRatio='none'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .007' numOctaves='5' seed='7'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-repeat: no-repeat;
+  mix-blend-mode: soft-light;
+  opacity: 0.16;
+}
+[data-tema="oscuro"] .pared-textura {
+  opacity: 0.1;
+}
+
+.luz {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+
+[data-tema="claro"] .luz-sol,
+[data-tema="oscuro"] .luz-luna,
+[data-tema="lampara"] .luz-lampara {
+  opacity: 1;
+}
+
+/* Sol: tres haces diagonales desde arriba a la izquierda, que se desvanecen hacia el centro (mask-image). */
+.luz-sol {
+  background: linear-gradient(118deg,
+    var(--sol-sombra) 0 16%, var(--sol) 18% 27%, var(--sol-sombra) 29% 39%,
+    var(--sol) 41% 46%, var(--sol-sombra) 48% 56%, var(--sol) 58% 61%, transparent 66%);
+  mask-image: radial-gradient(ellipse 85% 75% at 10% 0%, black 25%, transparent 78%);
+}
+
+/* Luna: dos haces más estrechos desde arriba a la derecha, fríos. */
+.luz-luna {
+  background: linear-gradient(242deg,
+    var(--luna-sombra) 0 18%, var(--luna) 20% 27%, var(--luna-sombra) 29% 37%, var(--luna) 39% 43%, transparent 50%);
+  mask-image: radial-gradient(ellipse 80% 75% at 92% 0%, black 25%, transparent 80%);
+}
+
+/* Lámpara: núcleo alargado hacia arriba, halo que baja por la pared, ambiente amplio y viñeta en los bordes,
+   todo centrado cerca del ícono de la lámpara en pantallas anchas (x ≈ 78 %). */
+.luz-lampara {
+  background:
+    radial-gradient(ellipse 7% 16% at 78% 3%, var(--lampara-nucleo), transparent 75%),
+    radial-gradient(ellipse 16% 45% at 78% 14%, var(--lampara-halo), transparent 72%),
+    radial-gradient(ellipse 55% 75% at 78% 12%, var(--lampara-ambiente), transparent 70%),
+    radial-gradient(ellipse 110% 100% at 78% 12%, transparent 40%, var(--lampara-sombra));
+}
+
+/* DI-15: al encenderse, la lámpara "calienta" (sube con un leve parpadeo). La animación arranca cuando la regla
+   empieza a aplicarse, es decir, al cambiar data-tema a "lampara" (y al cargar la página con la lámpara encendida). */
+@keyframes encender-lampara {
+  0% { opacity: 0; }
+  12% { opacity: 0.55; }
+  20% { opacity: 0.3; }
+  38% { opacity: 0.85; }
+  100% { opacity: 1; }
+}
+[data-tema="lampara"] .luz-lampara {
+  animation: encender-lampara 900ms ease-out;
+}
+
+/* Sin movimiento si el sistema lo pide: la luz cambia al instante. */
+@media (prefers-reduced-motion: reduce) {
+  .luz { transition: none; }
+  [data-tema="lampara"] .luz-lampara { animation: none; }
 }

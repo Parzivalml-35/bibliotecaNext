@@ -47,7 +47,8 @@ export default function LayoutSitio({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="flex-1">{children}</main>
+      {/* pb-16: lo último de la página puede desplazarse por encima del botón flotante de tema (DI-03). */}
+      <main className="flex-1 pb-16">{children}</main>
     </>
   );
 }

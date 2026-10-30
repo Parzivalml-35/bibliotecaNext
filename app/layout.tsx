@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Figtree, Fraunces, Geist_Mono } from "next/font/google";
 import { BotonTema } from "@/components/boton-tema";
+import { FondoLuz } from "@/components/fondo-luz";
 import { ScriptEnLinea } from "@/components/script-en-linea";
 import { scriptTema } from "@/lib/tema";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           vive en app/(sitio)/layout.tsx, para que el visor (app/leer) pueda quedar fuera de ella (DI-10, "visor
           inmersivo"). flex-col + min-h-full: los layouts hijos pueden estirar su <main> hasta el pie. */}
       <body className="min-h-full flex flex-col">
+        {/* DI-14: la pared y su luz, detrás de todo. */}
+        <FondoLuz />
         {children}
         {/* DI-03: el botón flotante de claro y oscuro, en todas las páginas (también el visor). */}
         <BotonTema />
