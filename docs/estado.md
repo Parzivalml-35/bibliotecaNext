@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-30 (portátil) — Fase A (ambiente: barra flotante, lámpara y luz) en curso en la rama `feat/ambiente`, creada desde `feat/rediseno`
+**Última actualización:** 2026-10-30 (portátil) — Fase A (ambiente: barra flotante, lámpara y luz) terminada en la rama `feat/ambiente`, creada desde `feat/rediseno`; falta revisarla con sesión
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -120,7 +120,7 @@ como alternativa, preparado para Readium.
 | R5 | Pantallas (35 archivos con `zinc-*` a mano), `/cuenta` repartida en pestañas, aviso "por vencer" (RN-76), visor inmersivo y filtro del PDF. Cuatro partes: R5a zona pública (modelo + tabla de equivalencias en `diseno.md`), R5b Mi cuenta + RN-76, R5c panel, R5d visor | Hecho (falta revisar en pantalla R5d). R5a hecho. R5b hecho: `dias_aviso_vencimiento` adelantada de R7 (esquema, seed = 3, BD reconstruida), `por_vencer` y `dias_restantes` calculados en SQL (`CROSS JOIN configuracion`), `EtiquetaPrestamo` compartida por Mi cuenta y el mostrador, aviso en el Resumen; escenario nuevo del seed: Valentina con `BN-0010` que vence en 2 días; Mi cuenta, login, registro y pasarela con tokens. R5c hecho (lo hizo Claude: el usuario dejó los ejercicios para después por tiempo): las 11 pantallas del panel sin `zinc-*` ni `dark:`, `EstadoVacio` con `className`, campo pequeño y botones `xs` en los formularios en línea. R5d hecho: route group `app/(sitio)` con la barra (`git mv` de todas las rutas, URL iguales), `app/layout.tsx` solo documento, fuentes y tema; `/leer/[isbn]` fuera del grupo con barra mínima propia y su `error.tsx`; `app/not-found.tsx` reexporta el del sitio (URL inexistente: sin barra); visor con tokens y `in-data-[tema=lampara]:sepia-40` |
 | R6 | Verificación: contraste en los tres temas, teclado, celular y recorrido de cada rol | Hecho, salvo el recorrido con sesión de cada rol (lo hace el usuario). Contraste: `pnpm diseno:contraste`, 27 pares × 3 temas sin fallos tras corregir 3 problemas (borde de campos 1.2-1.4 → token `borde-campo` ≥ 3.1; foco al 50 % → `outline-ring`; `destructive` 4.49 → par danger). Fondo de la lámpara `#FBE8D7`. Bug de R4c corregido: `p-[8%]` de la portada se calculaba sobre el ancho del padre (título de 1.4 px en la ficha) → `p-[8cqw]` en un div interno. Celular 390 px sin desbordes; orden de Tab lógico con indicador visible; `next build` sin errores y `/muestrario` con `notFound()` en producción. Verificado con Chrome sin ventana (CDP) |
 
-## Fase A — Ambiente (en curso, rama `feat/ambiente`)
+## Fase A — Ambiente (terminada salvo revisión con sesión; rama `feat/ambiente`)
 
 Visual, sobre la Fase R. Fuente de verdad: `docs/diseno.md` (DI-02 a DI-04 actualizadas, DI-13 a DI-15, "Logo e íconos de marca").
 Decisiones del usuario: la lámpara **reemplaza** al tema base y al apagarla vuelve a él; la luz en **CSS + textura**; el logo como
@@ -134,7 +134,7 @@ después: el arte queda aislado en `components/marca/iconos.tsx`.
 | A2 | Íconos de marca intercambiables, botón flotante (sol y luna) y botón de lámpara | Hecho: `components/marca/iconos.tsx` (aplique de pared propio, emblema provisional 4:5), `BotonTema` flotante en el layout raíz, `BotonLampara` en la barra y el visor. Probado en Chrome: 5 combinaciones de cookies y 5 clics |
 | A3 | Barra flotante con el emblema que cuelga; barra del visor en cápsula | Hecho: cápsula `sticky top-3` con `bg-card/85 backdrop-blur`, emblema de 56 px de ancho (70 de alto) que sobresale, nombre desde `sm`, menú del celular a la derecha; ícono de lámpara elegido entre 3 variantes |
 | A4 | Luz por tema (sol, luna, lámpara) sobre textura de pared, con animación al encender | Hecho: `components/fondo-luz.tsx` + capas en `globals.css` (haces de sol y luna con `linear-gradient` y `mask-image`; foco, halo, ambiente y penumbra de la lámpara con `radial-gradient`); textura de ruido SVG sin repetir (las baldosas dejaban costuras); `encender-lampara` con `prefers-reduced-motion`. Contraste ampliado con 11 pares de luz y sombra: la penumbra obligó a oscurecer `muted-foreground` y `primary` de la lámpara |
-| A5 | Visor y detalles; verificación (contraste ampliado, capturas, teclado, movimiento reducido, build) | Pendiente |
+| A5 | Visor y detalles; verificación (contraste ampliado, capturas, teclado, movimiento reducido, build) | Hecho, salvo lo que pide sesión: 38 pares de contraste sin fallos; capturas de catálogo, ficha y login × 3 temas × 2 anchos; Tab en orden con indicador; `prefers-reduced-motion` sin animación; sin avisos de hidratación; `next build` sin errores. Falta revisar el visor y el panel con sesión |
 
 ## Mi cuenta y lector EPUB (pendiente; separada de la Fase R el 2026-10-30)
 
@@ -149,17 +149,18 @@ porque así los citan `diseno.md` y `modelo-datos.md`.
 ## Próximo paso
 
 1. Recorrer cada rol con sesión (lector, bibliotecario, coordinador, admin de red) en los tres temas: lo único que falta de R6.
-2. Decidir cuándo se integra `feat/rediseno` en `main` y en qué orden van "Mi cuenta y lector EPUB" y la Fase 6.
-3. `/documentar`: lo pendiente de la Fase 4 (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque
+2. Fase A: revisar con sesión el visor (lámpara junto al libro, sepia) y el panel en los tres temas; cuando lleguen el logo y los íconos definitivos, reemplazar `components/marca/iconos.tsx` y agregar `app/icon.svg`.
+3. Decidir cuándo se integra `feat/rediseno` en `main` y en qué orden van "Mi cuenta y lector EPUB" y la Fase 6.
+4. `/documentar`: lo pendiente de la Fase 4 (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque
    de numeración RN-74 entre los dos equipos (la Fase R se documenta al cerrarla, 2026-10-30).
-4. Volver a probar RN-75 con la BD reconstruida: otra copia de "Cien años de soledad" a Ana debe rechazarse.
-5. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
+5. Volver a probar RN-75 con la BD reconstruida: otra copia de "Cien años de soledad" a Ana debe rechazarse.
+6. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
    verifica una firma HMAC, para pedidos y multas; hoy la pasarela simulada se confirma con un botón).
-6. **Fase 7: administración de la red** (empleados, catálogo, tipos de lector, configuración; RN-33). Antes, decidir
+7. **Fase 7: administración de la red** (empleados, catálogo, tipos de lector, configuración; RN-33). Antes, decidir
    las preguntas de "Pendiente de definir" en `reglas-de-negocio.md`.
-7. Fase 8: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
+8. Fase 8: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
    (antes: regla para su multa de reposición: anular si está pendiente, ¿reembolsar si ya se pagó?).
-8. Fase 9: calidad (Lighthouse, accesibilidad, build). Pendiente de la Fase 5: subir archivos PDF desde el panel.
+9. Fase 9: calidad (Lighthouse, accesibilidad, build). Pendiente de la Fase 5: subir archivos PDF desde el panel.
 
 ## Pendientes y avisos
 
