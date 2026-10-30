@@ -18,19 +18,21 @@ export function IconoLuna({ className }: PropsIcono) {
   return <HugeiconsIcon icon={Moon02Icon} aria-hidden="true" className={className} />;
 }
 
-// Provisional propio: un aplique de pared (base redonda, brazo, varilla y pantalla cónica), como la referencia del
+// Provisional propio: un aplique de pared (placa, brazo, varilla y pantalla cónica), como la referencia del
 // usuario. Hugeicons solo trae lámparas colgantes o de mesa. Encendida, unos rayos con el token `decorativo`.
 export function IconoLampara({ className, encendida = false }: PropsIcono & { encendida?: boolean }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"
          aria-hidden="true" className={cn("size-6", className)}>
-      <circle cx="6" cy="15" r="2.5" />
-      <path d="M8.5 15H14" />
-      <path d="M14 10.5V21" />
-      <path d="M11.5 4h5l1.5 6.5h-8z" />
+      {/* Placa en la pared, brazo, varilla con su remate y la pantalla cónica (más ancha abajo). */}
+      <rect x="3" y="11" width="3" height="6" rx="1.5" />
+      <path d="M6 14h6" />
+      <path d="M12 10.5v9" />
+      <circle cx="12" cy="20.5" r="0.75" />
+      <path d="M9.5 3h5l1.5 7.5h-8z" />
       {encendida && (
         <g stroke="var(--decorativo)">
-          <path d="M14 1.5V2.5M19.5 3L18.8 3.7M8.5 3L9.2 3.7M21 9H20M7 9H8" />
+          <path d="M12 .8v.4M18.6 4.2l-.6.4M5.4 4.2l.6.4M19.5 9h-1M4.5 9h1" />
         </g>
       )}
     </svg>

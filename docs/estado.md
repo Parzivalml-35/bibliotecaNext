@@ -132,7 +132,7 @@ después: el arte queda aislado en `components/marca/iconos.tsx`.
 | A0 | Ficha de diseño: DI-02 a DI-04, DI-13 a DI-15, especificación del logo y los íconos | Hecho |
 | A1 | Modelo del tema: cookie `tema` (base) + cookie `lampara`; `data-tema` conserva tres valores, `data-tema-base` | Hecho: `resolverPreferencia`, `aplicarPreferencia`, `preferenciaActual`; la cookie antigua `tema=lampara` se lee como lámpara encendida |
 | A2 | Íconos de marca intercambiables, botón flotante (sol y luna) y botón de lámpara | Hecho: `components/marca/iconos.tsx` (aplique de pared propio, emblema provisional 4:5), `BotonTema` flotante en el layout raíz, `BotonLampara` en la barra y el visor. Probado en Chrome: 5 combinaciones de cookies y 5 clics |
-| A3 | Barra flotante con el emblema que cuelga; barra del visor en cápsula | Pendiente |
+| A3 | Barra flotante con el emblema que cuelga; barra del visor en cápsula | Hecho: cápsula `sticky top-3` con `bg-card/85 backdrop-blur`, emblema de 56 px de ancho (70 de alto) que sobresale, nombre desde `sm`, menú del celular a la derecha; ícono de lámpara elegido entre 3 variantes |
 | A4 | Luz por tema (sol, luna, lámpara) sobre textura de pared, con animación al encender | Pendiente |
 | A5 | Visor y detalles; verificación (contraste ampliado, capturas, teclado, movimiento reducido, build) | Pendiente |
 

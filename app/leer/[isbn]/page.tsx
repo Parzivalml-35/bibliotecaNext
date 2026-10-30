@@ -23,9 +23,10 @@ export default async function PaginaLeer({ params }: PageProps<"/leer/[isbn]">) 
 
   return (
     <>
-      {/* sticky top-0: la barra queda arriba al desplazarse por una página larga. z-10: por encima del canvas. */}
-      <header className="sticky top-0 z-10 border-b border-border bg-card">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-2 sm:px-6">
+      {/* La misma cápsula flotante que la barra del sitio (DI-02), sin el emblema: aquí manda el libro.
+          sticky top-3: queda arriba al desplazarse por una página larga. z-40: por encima del canvas. */}
+      <header className="sticky top-3 z-40 my-3 px-2 sm:px-6">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-3 rounded-full border border-border bg-card/85 py-1.5 pr-2 pl-4 backdrop-blur">
           <Link href={`/libros/${isbn}`} className="shrink-0 text-sm font-medium text-muted-foreground hover:text-foreground">
             ← Volver
           </Link>
