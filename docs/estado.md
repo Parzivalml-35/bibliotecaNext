@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-29 (portátil) — Fase R (rediseño) en curso en la rama `feat/rediseno`: R0 a R3 hechos; sigue R4
+**Última actualización:** 2026-10-30 (portátil) — Fase R (rediseño visual) terminada en la rama `feat/rediseno` (R0 a R6). R7 y R8 pasan a una fase aparte: "Mi cuenta y lector EPUB"
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -101,7 +101,7 @@ teléfono y dirección obligatorios desde el registro.
 | Fix | **RN-75** (encontrado probando en el PC): un lector no puede tener dos préstamos físicos de la misma obra, sin excepciones; espejo de RN-68. Validación en la transacción de `prestarEjemplar` (`tienePrestadaLaObra` con `FOR SHARE`), no con UNIQUE (`id_libro` vive en `ejemplar`); la página del libro muestra "Ya tienes este libro prestado". Commit `d88383f` | Hecho |
 | Verificación | Registro (8 casos), validación, lectura (7 casos de acceso), cola, RN-55, máximos, bloqueos, edad, ids ajenos, cola detenida, lote nuevo con cola, concurrencia (2 pedidos por la última licencia: 1 gana), visor en Chrome sin ventana | Hecho |
 
-## Fase R — Rediseño con shadcn/ui (en curso, rama `feat/rediseno`)
+## Fase R — Rediseño con shadcn/ui (terminada: solo lo visual, R0 a R6; rama `feat/rediseno`)
 
 Va antes de la Fase 6. Fuente de verdad: `docs/diseno.md` (DI-01 a DI-12); hallazgos de partida en `docs/auditoria-ux.md`. Decisiones: shadcn sobre **Radix**, preset
 **Maia** con Hugeicons y Figtree; **barra superior** estilo "Books" (sin sidebar); temas **claro, oscuro y lámpara**
@@ -119,25 +119,31 @@ como alternativa, preparado para Readium.
 | R4 | Componentes base y `Portada` generada | Hecho (falta revisar en pantalla). R4a: `Card` (borde `border` en vez de `ring`) y `Badge` con `success`, `warning`, `danger` e `info`. R4b: `ui-formulario.tsx` y `BotonAccion` con tokens y `buttonVariants` (cambia el aspecto de todos los formularios), `EstadoVacio`, `/muestrario` (solo en desarrollo). R4c: `Portada` y `lib/portada.ts` (DI-05). La barra con rayas queda para R8 |
 | R5 | Pantallas (35 archivos con `zinc-*` a mano), `/cuenta` repartida en pestañas, aviso "por vencer" (RN-76), visor inmersivo y filtro del PDF. Cuatro partes: R5a zona pública (modelo + tabla de equivalencias en `diseno.md`), R5b Mi cuenta + RN-76, R5c panel, R5d visor | Hecho (falta revisar en pantalla R5d). R5a hecho. R5b hecho: `dias_aviso_vencimiento` adelantada de R7 (esquema, seed = 3, BD reconstruida), `por_vencer` y `dias_restantes` calculados en SQL (`CROSS JOIN configuracion`), `EtiquetaPrestamo` compartida por Mi cuenta y el mostrador, aviso en el Resumen; escenario nuevo del seed: Valentina con `BN-0010` que vence en 2 días; Mi cuenta, login, registro y pasarela con tokens. R5c hecho (lo hizo Claude: el usuario dejó los ejercicios para después por tiempo): las 11 pantallas del panel sin `zinc-*` ni `dark:`, `EstadoVacio` con `className`, campo pequeño y botones `xs` en los formularios en línea. R5d hecho: route group `app/(sitio)` con la barra (`git mv` de todas las rutas, URL iguales), `app/layout.tsx` solo documento, fuentes y tema; `/leer/[isbn]` fuera del grupo con barra mínima propia y su `error.tsx`; `app/not-found.tsx` reexporta el del sitio (URL inexistente: sin barra); visor con tokens y `in-data-[tema=lampara]:sepia-40` |
 | R6 | Verificación: contraste en los tres temas, teclado, celular y recorrido de cada rol | Hecho, salvo el recorrido con sesión de cada rol (lo hace el usuario). Contraste: `pnpm diseno:contraste`, 27 pares × 3 temas sin fallos tras corregir 3 problemas (borde de campos 1.2-1.4 → token `borde-campo` ≥ 3.1; foco al 50 % → `outline-ring`; `destructive` 4.49 → par danger). Fondo de la lámpara `#FBE8D7`. Bug de R4c corregido: `p-[8%]` de la portada se calculaba sobre el ancho del padre (título de 1.4 px en la ficha) → `p-[8cqw]` en un div interno. Celular 390 px sin desbordes; orden de Tab lógico con indicador visible; `next build` sin errores y `/muestrario` con `notFound()` en producción. Verificado con Chrome sin ventana (CDP) |
+
+## Mi cuenta y lector EPUB (pendiente; separada de la Fase R el 2026-10-30)
+
+Decisión del usuario: la Fase R queda solo con lo visual; las funciones nuevas van aparte. Se conservan los nombres R7 y R8
+porque así los citan `diseno.md` y `modelo-datos.md`.
+
+| Paso | Qué | Estado |
+|---|---|---|
 | R7 | Mi cuenta: datos (RN-77), contraseña (RN-78), correo (RN-79), recuperar (RN-80), avatar DiceBear y foto (RN-81, RN-82), tema en la cuenta. Cambia el esquema. Decidir la librería para recodificar fotos (`sharp` está desactivado en `pnpm-workspace.yaml`) | Pendiente |
 | R8 | Lector EPUB con foliate-js: reglas (RN-54, seguridad del HTML del libro), EPUB de muestra, `<Visor>` | Pendiente |
 
-Efecto temporal hasta R5: las pantallas todavía usan `zinc-*` escritos a mano. Se ven bien en claro y oscuro, pero
-en la lámpara las tarjetas y la barra superior quedan blancas (solo el fondo de la página toma el beige).
-
 ## Próximo paso
 
-1. Recorrer cada rol con sesión (lector, bibliotecario, coordinador, admin de red) en los tres temas. Después, **R7** (Mi cuenta, cambia el esquema) y **R8** (lector EPUB), o cerrar la Fase R aquí y llevarlos a una fase propia (decisión del usuario).
-2. `/documentar`: lo pendiente de la Fase 4 (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque
-   de numeración RN-74 entre los dos equipos; después, la Fase R.
-3. Volver a probar RN-75 con la BD reconstruida: otra copia de "Cien años de soledad" a Ana debe rechazarse.
-4. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
+1. Recorrer cada rol con sesión (lector, bibliotecario, coordinador, admin de red) en los tres temas: lo único que falta de R6.
+2. Decidir cuándo se integra `feat/rediseno` en `main` y en qué orden van "Mi cuenta y lector EPUB" y la Fase 6.
+3. `/documentar`: lo pendiente de la Fase 4 (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque
+   de numeración RN-74 entre los dos equipos (la Fase R se documenta al cerrarla, 2026-10-30).
+4. Volver a probar RN-75 con la BD reconstruida: otra copia de "Cien años de soledad" a Ana debe rechazarse.
+5. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
    verifica una firma HMAC, para pedidos y multas; hoy la pasarela simulada se confirma con un botón).
-5. **Fase 7: administración de la red** (empleados, catálogo, tipos de lector, configuración; RN-33). Antes, decidir
+6. **Fase 7: administración de la red** (empleados, catálogo, tipos de lector, configuración; RN-33). Antes, decidir
    las preguntas de "Pendiente de definir" en `reglas-de-negocio.md`.
-6. Fase 8: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
+7. Fase 8: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
    (antes: regla para su multa de reposición: anular si está pendiente, ¿reembolsar si ya se pagó?).
-7. Fase 9: calidad (Lighthouse, accesibilidad, build). Pendiente de la Fase 5: subir archivos PDF desde el panel.
+8. Fase 9: calidad (Lighthouse, accesibilidad, build). Pendiente de la Fase 5: subir archivos PDF desde el panel.
 
 ## Pendientes y avisos
 

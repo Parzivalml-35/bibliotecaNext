@@ -336,7 +336,7 @@ erDiagram
 - Vencimiento perezoso de reservas y pedidos → RN-48.
 - Declaración de ejemplar perdido por un empleado, desde una lista calculada → RN-49.
 
-### Cambios planificados para "Mi cuenta" (Fase R, paso R7)
+### Cambios planificados para "Mi cuenta" (paso R7, fase aparte "Mi cuenta y lector EPUB")
 
 Derivados de RN-76 a RN-82 y DI-04. **Todavía no están en `db/init/01_schema.sql`**: se aplican en R7 y se reconstruye
 la BD.

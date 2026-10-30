@@ -290,6 +290,8 @@ con el tema. Revisarla con `grep -nE "zinc-|red-|emerald-|amber-|blue-|dark:" ar
 
 ## Pasos de la Fase R
 
+La Fase R terminó en R6 (2026-10-30): solo lo visual. R7 y R8 son funciones nuevas y siguen en una fase aparte.
+
 | Paso | Contenido |
 |---|---|
 | R0 | Esta ficha |
@@ -299,5 +301,5 @@ con el tema. Revisarla con `grep -nE "zinc-|red-|emerald-|amber-|blue-|dark:" ar
 | R4 | Componentes base, `Portada` generada y estados comunes (vacío, error) |
 | R5 | Pantallas (catálogo, detalle, cuenta repartida en pestañas, panel, login y registro), aviso "por vencer" (RN-76) y filtro del visor PDF |
 | R6 | Verificación: contraste en los tres temas, teclado, celular y recorrido de cada rol (auditoría UX) |
-| R7 | Mi cuenta: perfil y datos (RN-77), contraseña (RN-78), correo (RN-79), recuperar contraseña (RN-80), avatar DiceBear y foto (RN-81, RN-82), tema en la cuenta. Cambia el esquema (ver `modelo-datos.md`) |
-| R8 | Lector EPUB con foliate-js: reglas (RN-54 y seguridad), EPUB de muestra en `archivos:muestra`, `<Visor>` |
+| R7 | **Fase aparte "Mi cuenta y lector EPUB" (2026-10-30).** Mi cuenta: perfil y datos (RN-77), contraseña (RN-78), correo (RN-79), recuperar contraseña (RN-80), avatar DiceBear y foto (RN-81, RN-82), tema en la cuenta. Cambia el esquema (ver `modelo-datos.md`) |
+| R8 | **Fase aparte "Mi cuenta y lector EPUB" (2026-10-30).** Lector EPUB con foliate-js: reglas (RN-54 y seguridad), EPUB de muestra en `archivos:muestra`, `<Visor>` |
