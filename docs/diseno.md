@@ -123,6 +123,11 @@ sabe qué tema está activo.
 
 Valores **propuestos**, a ajustar en R2 viéndolos en pantalla. Medidos con el algoritmo de contraste de WCAG 2.
 
+**R6:** `pnpm diseno:contraste` (`scripts/contraste.ts`) lee `app/globals.css` y mide en los tres temas cada combinación
+que usan las pantallas (27 pares: texto 4.5:1, contornos y foco 3:1). Termina con error si alguna falla: correrlo después
+de cambiar cualquier color. Además, R6 cambió: foco con `outline-ring` al 100 % (al 50 % daba 2.07-2.77) y el botón
+`destructive` con el par `danger-suave`/`danger-texto` (el de shadcn daba 4.49 en claro).
+
 En `globals.css` cada tema define solo sus colores base y de estado. Los derivados se escriben una vez en `:root`
 y apuntan a la base: `card-foreground`, `popover` y `popover-foreground`, `secondary` (= `muted`), `input`
 (= `border`), `ring` (= `primary`), `destructive` (= `danger`), los `chart-*` y los `sidebar-*`. Tokens propios
@@ -135,6 +140,7 @@ desplazamiento y los controles nativos sigan el tema.
 | `muted` (bandeja) | `#EEEBE8` | `#EEE0C8` | `#2A2522` | `muted-foreground` encima: 4.96 · 4.55 · 5.89 |
 | `accent-foreground` | `#8A420A` | `#3B2A1A` | `#F5C08F` | Sobre `accent`: 6.51 · 9.64 · 8.38 |
 | `decorativo` | `#E68124` | `#D9AB61` | `#F0923A` | Sin texto encima |
+| `borde-campo` (R6) | `#898480` | `#8E7C5F` | `#77706A` | Contorno de `<input>`/`<select>`: ≥ 3.1 contra fondo, tarjeta y bandeja (WCAG 1.4.11). `--input` (= `border`) daba 1.19-1.41 |
 
 ### Claro
 
@@ -152,7 +158,7 @@ desplazamiento y los controles nativos sigan el tema.
 
 | Token | Hex | oklch | Uso |
 |---|---|---|---|
-| `background` | `#F2E5D0` | `oklch(0.927 0.031 79.9)` | Fondo beige |
+| `background` | `#FBE8D7` | `oklch(0.942 0.031 64.3)` | Fondo durazno claro. Elegido por el usuario en R6 (antes `#F2E5D0`): todos los textos mejoran su contraste |
 | `card` | `#F9F3EE` | `oklch(0.967 0.009 62.6)` | Tarjetas crema |
 | `foreground` | `#3B2A1A` | `oklch(0.301 0.037 64.0)` | Texto café (11.03:1) |
 | `muted-foreground` | `#76604A` | `oklch(0.505 0.044 66.6)` | Texto secundario (4.77:1) |

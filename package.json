@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:claves-dev": "node --env-file=.env scripts/claves-dev.ts",
-    "archivos:muestra": "node --env-file=.env scripts/archivos-muestra.ts"
+    "archivos:muestra": "node --env-file=.env scripts/archivos-muestra.ts",
+    "diseno:contraste": "node scripts/contraste.ts"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.3.5",

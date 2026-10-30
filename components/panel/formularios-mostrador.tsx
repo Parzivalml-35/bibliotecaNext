@@ -14,7 +14,7 @@ const estadoInicial: EstadoFormulario = {};
 // Campo pequeño para los formularios en línea de una fila (anular, ubicar): la forma de claseCampo, al alto de un
 // botón size="xs" (h-6 + borde) y sin ocupar todo el ancho.
 const claseCampoPequeno =
-  "h-7 rounded-4xl border border-input bg-input/30 px-2.5 text-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+  "h-7 rounded-4xl border border-borde-campo bg-input/30 px-2.5 text-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
 // Resultado de la acción: el mismo par de colores que BotonAccion.
 const claseResultado = (estado: EstadoFormulario) => (estado.error ? "text-danger-texto" : "text-success-texto");
 

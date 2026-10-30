@@ -8,10 +8,10 @@ import { cn } from "@/lib/utils";
 
 export const claseEtiqueta = "block text-sm font-medium text-foreground";
 
-// La forma del Input del preset Maia (píldora, borde `input`, anillo `ring` con el foco), escrita como clase para
-// que sirva igual en <input> y en <select>.
+// La forma del Input del preset Maia (píldora, anillo `ring` con el foco), escrita como clase para
+// que sirva igual en <input> y en <select>. R6: el borde usa `borde-campo` (3:1, WCAG 1.4.11) en vez de `input`.
 export const claseCampo =
-  "mt-1 h-10 w-full min-w-0 rounded-4xl border border-input bg-input/30 px-3 text-base text-foreground transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
+  "mt-1 h-10 w-full min-w-0 rounded-4xl border border-borde-campo bg-input/30 px-3 text-base text-foreground transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
 
 // El botón principal de shadcn (buttonVariants) en tamaño grande. Mientras la acción corre (pending), se ve inactivo.
 export const claseBoton = cn(buttonVariants({ size: "lg" }), "disabled:cursor-wait");

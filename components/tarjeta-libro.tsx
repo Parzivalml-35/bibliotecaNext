@@ -17,7 +17,7 @@ export function TarjetaLibro({ libro }: TarjetaLibroProps) {
     // relative: referencia para el ::after del enlace, que se estira sobre toda la tarjeta.
     // hover:border-primary: al pasar el mouse el borde toma el color del tema ("tarjeta seleccionada" de DI-08).
     // has-[a:focus-visible]: el anillo de foco aparece en la tarjeta cuando se llega al enlace con el teclado.
-    <article className="relative flex h-full gap-4 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary has-[a:focus-visible]:ring-[3px] has-[a:focus-visible]:ring-ring/50">
+    <article className="relative flex h-full gap-4 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary has-[a:focus-visible]:ring-[3px] has-[a:focus-visible]:ring-ring">
       <Portada isbn={libro.isbn} titulo={libro.titulo} autores={libro.autores} className="w-20 shrink-0 self-start" />
 
       <div className="flex min-w-0 flex-1 flex-col gap-3">

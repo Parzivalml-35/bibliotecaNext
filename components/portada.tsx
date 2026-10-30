@@ -15,14 +15,21 @@ export function Portada({ isbn, titulo, autores, className }: {
       aria-hidden="true"
       // El color se calcula por libro: va en style, no en una clase (Tailwind solo genera las clases que lee en el código).
       style={{ backgroundColor: colorDePortada(isbn) }}
-      className={cn("@container relative flex aspect-2/3 flex-col justify-between overflow-hidden rounded-md p-[8%] text-white", className)}
+      // @container: los hijos miden en cqw (1 % del ancho de ESTA caja), así todo escala con la portada.
+      className={cn("@container relative aspect-2/3 overflow-hidden rounded-md text-white", className)}
     >
-      {/* El lomo: una franja más oscura a la izquierda, donde no hay texto (no afecta el contraste medido). */}
+      {/* El lomo: una franja más oscura a la izquierda, donde no hay texto (no afecta el contraste medido).
+          w-[6%] sí es del ancho de la portada: un absolute mide su porcentaje contra la caja relative que lo contiene. */}
       <div className="absolute inset-y-0 left-0 w-[6%] bg-black/25" />
-      <p className="line-clamp-5 font-heading text-[11cqw] leading-tight font-semibold">{titulo}</p>
-      <div>
-        <div className="mb-[6%] h-px bg-white/40" />
-        <p className="line-clamp-2 text-[7.5cqw] leading-snug text-white/85">{autores}</p>
+      {/* R6: el relleno va en cqw y en un div interno. Un padding en % se calcula sobre el ancho del PADRE de la
+          portada (en la ficha, ~1000 px), no sobre la portada; y la propia caja @container no puede usar sus cqw
+          (las unidades cqw se resuelven contra un contenedor ancestro). */}
+      <div className="flex h-full flex-col justify-between p-[8cqw] pl-[12cqw]">
+        <p className="line-clamp-5 font-heading text-[11cqw] leading-tight font-semibold">{titulo}</p>
+        <div>
+          <div className="mb-[6cqw] h-px bg-white/40" />
+          <p className="line-clamp-2 text-[7.5cqw] leading-snug text-white/85">{autores}</p>
+        </div>
       </div>
     </div>
   );
