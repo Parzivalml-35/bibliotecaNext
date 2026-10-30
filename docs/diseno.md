@@ -58,7 +58,7 @@ Una barra de pestañas propia, debajo de la barra superior.
 | `/cuenta/pago/[id]` | (sin pestaña) | Pasarela simulada | Existe; se conserva |
 | `/cuenta/perfil` | Perfil | Datos editables (RN-77), avatar (RN-81, RN-82), tema | **Nueva** (R7) |
 | `/cuenta/seguridad` | Seguridad | Contraseña (RN-78) y correo (RN-79) | **Nueva** (R7) |
-| `/leer/[isbn]` | (sin pestañas) | Visor **inmersivo**: barra mínima con volver, título y tema; sin la barra de la app | Existe; cambia el layout |
+| `/leer/[isbn]` | (sin pestañas) | Visor **inmersivo**: barra mínima con volver, título y tema; sin la barra de la app | Hecho (R5d): fuera del route group `app/(sitio)` |
 
 Un empleado sin perfil de lector no ve "Mi cuenta". El perfil, el avatar y la seguridad son de la **cuenta** (RN-31),
 así que el empleado tiene su versión dentro del panel: `/panel/perfil`, con las mismas piezas.
@@ -97,7 +97,7 @@ cada página y en cada acción (RN-35), porque un layout no se vuelve a ejecutar
 
 | Pieza | Contenido | Dónde |
 |---|---|---|
-| Barra superior (todas las páginas, salvo el visor) | Logo · pestañas en píldora: **Catálogo**, **Mi cuenta** (si es lector), **Panel** (si es empleado) · botón de tema · menú de usuario | `app/layout.tsx` |
+| Barra superior (todas las páginas, salvo el visor) | Logo · pestañas en píldora: **Catálogo**, **Mi cuenta** (si es lector), **Panel** (si es empleado) · botón de tema · menú de usuario | `app/(sitio)/layout.tsx` (R5d: route group) |
 | Menú de usuario (sin sesión) | "Iniciar sesión" y "Crear cuenta" | Barra superior |
 | Menú de usuario (con sesión) | Avatar (DI-12) que abre un menú: nombre y correo, Mi cuenta / Panel, Perfil, Seguridad, Salir | Barra superior (`DropdownMenu`) |
 | Sub-navegación | Pestañas de "Mi cuenta" o secciones del panel del rol | Layout de la zona |
