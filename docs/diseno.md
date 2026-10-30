@@ -18,9 +18,9 @@ Inspiración, no copia: no se usan imágenes, logos ni textos de las referencias
 | ID | Decisión | Por qué |
 |---|---|---|
 | DI-01 | Componentes con **shadcn/ui sobre Radix**, preset **Maia** (`"style": "radix-maia"`), con íconos **Hugeicons** | Radix: es la base de casi toda la documentación y los ejemplos de shadcn. Maia ("soft and rounded, with generous spacing"): el preset más cercano a YowBooks, con botones en píldora. El preset no se puede cambiar después del `init` |
-| DI-02 | Navegación con **barra superior** (pestañas en píldora y menú de usuario a la derecha), sin sidebar | Estilo "Books". En el celular, las pestañas pasan a un menú (`Sheet`) |
-| DI-03 | Tres temas: **claro**, **oscuro** y **lámpara** (crema cálido). Botón de tres estados: sol, luna y lámpara | La lámpara es para leer con luz cálida |
-| DI-04 | La preferencia de tema se guarda en una **cookie** (`tema`). La lee un **script en línea del `<head>`**, que pone `<html data-tema="…">` antes del primer pintado. **Sin cookie se sigue al sistema** (`prefers-color-scheme`: claro u oscuro; la lámpara solo si se elige). Si hay sesión, la preferencia también se guarda en la cuenta (R7) | Sin dependencias ni parpadeo. Leer la cookie con `cookies()` en el layout raíz volvería dinámica toda la app (guía "Preventing flash before hydration" de Next 16); el script mantiene el layout estático, igual que el `<Suspense>` del menú. Corregido el 2026-10-27: antes decía que el layout la leía en el servidor |
+| DI-02 | Navegación con **barra superior flotante**: una cápsula con borde fino, separada de los bordes de la ventana (`sticky`), con el emblema (DI-13) a la izquierda, las pestañas en píldora y, a la derecha, la lámpara (DI-03) y el menú de usuario. Sin sidebar | Estilo "Books"; la cápsula, de la referencia "Deflexai" (Fase A, 2026-10-30). En el celular, las pestañas pasan a un menú (`Sheet`) |
+| DI-03 | Dos temas base, **claro** y **oscuro**, en un **botón flotante** abajo a la derecha (sol y luna). La **lámpara** (crema cálido) es aparte: un ícono de lámpara de pared arriba a la derecha que la enciende y la apaga. Encendida, **reemplaza** al tema base; apagada, vuelve a él | La lámpara es para leer con luz cálida; separarla la convierte en un gesto propio ("encender la luz"). Cambiado en la Fase A (2026-10-30): antes era un botón de tres estados |
+| DI-04 | Dos preferencias en **cookies**: `tema` (la base: `claro` u `oscuro`) y `lampara` (`encendida` o ausente). Un **script en línea del `<head>`** las lee y pone `<html data-tema="claro|oscuro|lampara" data-tema-base="claro|oscuro">` antes del primer pintado; `data-tema` vale `lampara` si está encendida. **Sin cookie de base se sigue al sistema** (`prefers-color-scheme`). Elegir sol o luna **apaga la lámpara**. Si hay sesión, la preferencia también se guarda en la cuenta (R7) | Sin dependencias ni parpadeo. Leer la cookie con `cookies()` en el layout raíz volvería dinámica toda la app (guía "Preventing flash before hydration" de Next 16). `data-tema` conserva sus tres valores para que los bloques de `globals.css` no cambien. Fase A: se agregó la segunda cookie |
 | DI-05 | Portadas **generadas** (título, autor y color derivado del ISBN) mientras no haya imagen real. Cuando exista, la imagen manda y la generada queda de respaldo. Color **igual en los tres temas**: `oklch(0.48 0.080 h)`, con `h` = FNV-1a del ISBN mod 360 (`lib/portada.ts`). Medido en los 360 tonos: cabe en sRGB y el texto blanco da 6.26:1 como mínimo (el autor, al 85 %, 5.02:1). Decidido en R4c | Es lo que hacen los sistemas grandes para los libros sin portada |
 | DI-06 | Lector digital: **EPUB con foliate-js** como formato principal y **PDF como alternativa** (el visor actual con pdf.js se conserva). Preparado para cambiar a Readium (ver más abajo) | El EPUB se reacomoda a la pantalla y toma los colores del tema: es lo que hace posible leer en modo lámpara |
 | DI-07 | Contraste mínimo **WCAG AA**: 4.5:1 para texto normal y 3:1 para texto grande e íconos, en los tres temas | Los acentos de las referencias no lo cumplen con texto blanco (ver "Acento y botón") |
@@ -29,6 +29,9 @@ Inspiración, no copia: no se usan imágenes, logos ni textos de las referencias
 | DI-10 | Tres **zonas** (pública, "Mi cuenta" y panel) con el mapa de rutas de abajo. El panel se divide en **secciones por tipo de trabajo**, y cada persona ve **solo las secciones y páginas que su rol puede usar** | Auditoría UX del 2026-10-27 (`docs/auditoria-ux.md`): hoy todos los roles ven los mismos 8 enlaces |
 | DI-11 | **Una sola fuente de permisos**: `lib/permisos.ts` define **permisos con nombre** (`mostrador`, `coleccion`, `lectores`, `anularMultas`, `reportes`, `red`), cada uno con sus roles y la regla que lo justifica, y las secciones del panel con el permiso de cada página. Páginas y acciones piden un permiso (`exigirEmpleado("mostrador")`) y el menú muestra las páginas cuyo permiso tiene el rol. Ninguna lista ni comparación de roles se escribe fuera de ese archivo; el alcance por sede se decide con la sede (RN-34), no con el nombre del rol. Decidido el 2026-10-27: permisos con nombre en vez de un mapa de rutas, para que las acciones también lo usen | El problema de la auditoría nace de tener dos listas que se escribieron por separado: los enlaces del layout y los roles de cada página |
 | DI-12 | **Avatar** en el menú de usuario: generado con DiceBear por defecto o foto propia (RN-81, RN-82). Si no carga, se muestran las iniciales | Da identidad a la cuenta y sirve de entrada al menú de usuario, como en las referencias |
+| DI-13 | **Emblema** del proyecto a la izquierda de la barra: más alto que la cápsula, **cuelga** de ella (sobresale arriba y abajo), como un sello o un marcapáginas. El logo definitivo se está diseñando: hasta entonces hay uno provisional, y el arte vive en un solo archivo (ver "Logo e íconos de marca") | Identidad propia; el usuario lo pidió "en la barra pero no al frente y más grande" (Fase A) |
+| DI-14 | **Luz sobre una pared** en el fondo, distinta por tema: haces de **sol** en el claro, de **luna** en el oscuro y el foco cálido de una **lámpara de pared** en la lámpara. CSS (degradados) sobre una textura de pared ligera; las tarjetas siguen opacas | Da ambiente sin restar legibilidad: la luz solo se ve donde hay fondo. Referencias: aplique de pared y haces sobre concreto (Fase A) |
+| DI-15 | La luz se **anima solo al cambiar de tema** (la lámpara "calienta" al encenderse); después queda quieta. Con `prefers-reduced-motion` el cambio es inmediato | Movimiento continuo distrae al leer; la animación de entrada da la sensación de encender |
 
 ## Arquitectura de información (DI-10)
 
@@ -97,7 +100,7 @@ cada página y en cada acción (RN-35), porque un layout no se vuelve a ejecutar
 
 | Pieza | Contenido | Dónde |
 |---|---|---|
-| Barra superior (todas las páginas, salvo el visor) | Logo · pestañas en píldora: **Catálogo**, **Mi cuenta** (si es lector), **Panel** (si es empleado) · botón de tema · menú de usuario | `app/(sitio)/layout.tsx` (R5d: route group) |
+| Barra superior flotante (todas las páginas, salvo el visor) | Emblema (DI-13) · pestañas en píldora: **Catálogo**, **Mi cuenta** (si es lector), **Panel** (si es empleado) · lámpara (DI-03) · menú de usuario | `app/(sitio)/layout.tsx` (R5d: route group) |
 | Menú de usuario (sin sesión) | "Iniciar sesión" y "Crear cuenta" | Barra superior |
 | Menú de usuario (con sesión) | Avatar (DI-12) que abre un menú: nombre y correo, Mi cuenta / Panel, Perfil, Seguridad, Salir | Barra superior (`DropdownMenu`) |
 | Sub-navegación | Pestañas de "Mi cuenta" o secciones del panel del rol | Layout de la zona |
@@ -240,6 +243,20 @@ shadcn lo usen sin cambios.
 | Agregar algo nuevo | Borde **punteado** de color con ícono "+" (como "New Folder") | `border-dashed` con `primary` |
 | Etiqueta | Píldora con ícono, fondo suave y texto del estado (como "Skill Booster") | `Badge` de shadcn con las variantes `success`, `warning`, `danger` e `info` (R4a) |
 | Línea de tiempo | Línea vertical punteada que une pasos (como "Reading Journey") | `border-l border-dashed`. Uso posible: historial de un préstamo (prestado → renovado → devuelto) |
+
+## Logo e íconos de marca (DI-13, Fase A)
+
+El logo y los íconos de sol, luna y lámpara se pueden **conseguir o crear después** para darle identidad al proyecto. Todo el arte vive
+en `components/marca/iconos.tsx`: botones, barra y estilos solo piden "el ícono del sol" o "el logo". Al llegar los diseños se reemplaza
+ese archivo (y `app/icon.svg`), se corre `pnpm diseno:contraste` y se repiten las capturas.
+
+| Pieza | Especificación |
+|---|---|
+| Logo (emblema) | SVG con `viewBox` de proporción **4:5** (vertical, como un sello o marcapáginas). Debe funcionar en los tres temas: un solo color con `currentColor`, o dos colores con variables CSS (`var(--primary)`, `var(--card)`). Con área de seguridad (sin detalles a menos de 1/10 del borde) y legible desde 40 px de alto |
+| Logo reducido | Versión cuadrada y simple para el celular y el favicon (`app/icon.svg`), legible a 16 px |
+| Sol, luna, lámpara | SVG en una grilla de **24 × 24** con trazo de 1.5 a 2 px (para combinar con los Hugeicons del resto de la interfaz), un solo color con `currentColor`, legibles a 16 px y sin texto |
+| Lámpara | Dos estados: **apagada** y **encendida**. El encendido puede llevar un detalle de luz con el token `decorativo` |
+| Lámpara (opcional) | Una versión "ilustración" más grande para dibujar el aplique en la pared, junto a su luz (DI-14) |
 
 ## Equivalencias para pasar una pantalla a tokens (R5)
 

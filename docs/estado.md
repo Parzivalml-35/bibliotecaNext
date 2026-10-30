@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-30 (portátil) — Fase R (rediseño visual) terminada en la rama `feat/rediseno` (R0 a R6). R7 y R8 pasan a una fase aparte: "Mi cuenta y lector EPUB"
+**Última actualización:** 2026-10-30 (portátil) — Fase A (ambiente: barra flotante, lámpara y luz) en curso en la rama `feat/ambiente`, creada desde `feat/rediseno`
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -119,6 +119,22 @@ como alternativa, preparado para Readium.
 | R4 | Componentes base y `Portada` generada | Hecho (falta revisar en pantalla). R4a: `Card` (borde `border` en vez de `ring`) y `Badge` con `success`, `warning`, `danger` e `info`. R4b: `ui-formulario.tsx` y `BotonAccion` con tokens y `buttonVariants` (cambia el aspecto de todos los formularios), `EstadoVacio`, `/muestrario` (solo en desarrollo). R4c: `Portada` y `lib/portada.ts` (DI-05). La barra con rayas queda para R8 |
 | R5 | Pantallas (35 archivos con `zinc-*` a mano), `/cuenta` repartida en pestañas, aviso "por vencer" (RN-76), visor inmersivo y filtro del PDF. Cuatro partes: R5a zona pública (modelo + tabla de equivalencias en `diseno.md`), R5b Mi cuenta + RN-76, R5c panel, R5d visor | Hecho (falta revisar en pantalla R5d). R5a hecho. R5b hecho: `dias_aviso_vencimiento` adelantada de R7 (esquema, seed = 3, BD reconstruida), `por_vencer` y `dias_restantes` calculados en SQL (`CROSS JOIN configuracion`), `EtiquetaPrestamo` compartida por Mi cuenta y el mostrador, aviso en el Resumen; escenario nuevo del seed: Valentina con `BN-0010` que vence en 2 días; Mi cuenta, login, registro y pasarela con tokens. R5c hecho (lo hizo Claude: el usuario dejó los ejercicios para después por tiempo): las 11 pantallas del panel sin `zinc-*` ni `dark:`, `EstadoVacio` con `className`, campo pequeño y botones `xs` en los formularios en línea. R5d hecho: route group `app/(sitio)` con la barra (`git mv` de todas las rutas, URL iguales), `app/layout.tsx` solo documento, fuentes y tema; `/leer/[isbn]` fuera del grupo con barra mínima propia y su `error.tsx`; `app/not-found.tsx` reexporta el del sitio (URL inexistente: sin barra); visor con tokens y `in-data-[tema=lampara]:sepia-40` |
 | R6 | Verificación: contraste en los tres temas, teclado, celular y recorrido de cada rol | Hecho, salvo el recorrido con sesión de cada rol (lo hace el usuario). Contraste: `pnpm diseno:contraste`, 27 pares × 3 temas sin fallos tras corregir 3 problemas (borde de campos 1.2-1.4 → token `borde-campo` ≥ 3.1; foco al 50 % → `outline-ring`; `destructive` 4.49 → par danger). Fondo de la lámpara `#FBE8D7`. Bug de R4c corregido: `p-[8%]` de la portada se calculaba sobre el ancho del padre (título de 1.4 px en la ficha) → `p-[8cqw]` en un div interno. Celular 390 px sin desbordes; orden de Tab lógico con indicador visible; `next build` sin errores y `/muestrario` con `notFound()` en producción. Verificado con Chrome sin ventana (CDP) |
+
+## Fase A — Ambiente (en curso, rama `feat/ambiente`)
+
+Visual, sobre la Fase R. Fuente de verdad: `docs/diseno.md` (DI-02 a DI-04 actualizadas, DI-13 a DI-15, "Logo e íconos de marca").
+Decisiones del usuario: la lámpara **reemplaza** al tema base y al apagarla vuelve a él; la luz en **CSS + textura**; el logo como
+**emblema que cuelga** de la barra; la luz se anima **solo al encender**. El logo y los íconos definitivos los consigue o crea el usuario
+después: el arte queda aislado en `components/marca/iconos.tsx`.
+
+| Paso | Qué | Estado |
+|---|---|---|
+| A0 | Ficha de diseño: DI-02 a DI-04, DI-13 a DI-15, especificación del logo y los íconos | Hecho |
+| A1 | Modelo del tema: cookie `tema` (base) + cookie `lampara`; `data-tema` conserva tres valores, `data-tema-base` | Pendiente |
+| A2 | Íconos de marca intercambiables, botón flotante (sol y luna) y botón de lámpara | Pendiente |
+| A3 | Barra flotante con el emblema que cuelga; barra del visor en cápsula | Pendiente |
+| A4 | Luz por tema (sol, luna, lámpara) sobre textura de pared, con animación al encender | Pendiente |
+| A5 | Visor y detalles; verificación (contraste ampliado, capturas, teclado, movimiento reducido, build) | Pendiente |
 
 ## Mi cuenta y lector EPUB (pendiente; separada de la Fase R el 2026-10-30)
 
