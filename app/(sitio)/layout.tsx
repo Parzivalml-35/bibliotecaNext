@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
-import { BotonTema } from "@/components/boton-tema";
+import { BotonLampara } from "@/components/boton-lampara";
 import { MenuUsuario } from "@/components/menu-usuario";
 import { NavegacionPrincipal } from "@/components/navegacion-principal";
 
@@ -26,7 +26,7 @@ export default function LayoutSitio({ children }: { children: ReactNode }) {
           </Suspense>
           {/* ml-auto: el margen izquierdo automático empuja este grupo al extremo derecho del flex. */}
           <div className="ml-auto flex items-center gap-2">
-            <BotonTema />
+            <BotonLampara />
             {/* Sin fallback visible: mientras se lee la sesión, el espacio queda vacío un instante. */}
             <Suspense fallback={null}>
               <MenuUsuario />

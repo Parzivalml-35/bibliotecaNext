@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BotonTema } from "@/components/boton-tema";
+import { BotonLampara } from "@/components/boton-lampara";
 import { VisorPdf } from "@/components/visor-pdf";
 import { obtenerAccesoDeLectura } from "@/lib/data/digital";
 import { esIsbnValido } from "@/lib/isbn";
@@ -36,7 +36,8 @@ export default async function PaginaLeer({ params }: PageProps<"/leer/[isbn]">) 
               {acceso.por === "compra" ? "Comprado: acceso permanente" : `Préstamo digital hasta el ${acceso.fin}`} · solo se lee aquí, con tu cuenta
             </p>
           </div>
-          <BotonTema />
+          {/* La lámpara junto al libro: el modo cálido es para leer (DI-03). */}
+          <BotonLampara />
         </div>
       </header>
       <main className="flex-1 bg-muted">
