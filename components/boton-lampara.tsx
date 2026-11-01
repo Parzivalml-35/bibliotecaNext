@@ -30,3 +30,11 @@ export function BotonLampara({ flotante = false, className }: { flotante?: boole
     </Button>
   );
 }
+
+// DI-03: desde xl la barra ya no llega al borde de la ventana y la lámpara cuelga en la esquina superior derecha de la
+// página, como un aplique en la pared (ahí apunta el foco de luz de globals.css). top-3.5: a la altura del centro de
+// la barra. Por debajo de xl se oculta y quien la usa pone <BotonLampara className="xl:hidden" /> en su barra.
+// Un solo componente para el sitio y el visor: así las dos zonas no pueden quedar distintas.
+export function LamparaDeEsquina() {
+  return <BotonLampara flotante className="fixed top-3.5 right-4 z-40 hidden xl:inline-flex" />;
+}

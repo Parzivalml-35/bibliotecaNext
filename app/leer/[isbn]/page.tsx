@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BotonLampara } from "@/components/boton-lampara";
+import { BotonLampara, LamparaDeEsquina } from "@/components/boton-lampara";
 import { VisorPdf } from "@/components/visor-pdf";
 import { obtenerAccesoDeLectura } from "@/lib/data/digital";
 import { esIsbnValido } from "@/lib/isbn";
@@ -37,10 +37,11 @@ export default async function PaginaLeer({ params }: PageProps<"/leer/[isbn]">) 
               {acceso.por === "compra" ? "Comprado: acceso permanente" : `Préstamo digital hasta el ${acceso.fin}`} · solo se lee aquí, con tu cuenta
             </p>
           </div>
-          {/* La lámpara junto al libro: el modo cálido es para leer (DI-03). */}
-          <BotonLampara />
+          {/* DI-03, igual que en el resto del sitio: en la barra por debajo de xl y en la esquina desde xl. */}
+          <BotonLampara className="xl:hidden" />
         </div>
       </header>
+      <LamparaDeEsquina />
       {/* Sin fondo propio: la pared y su luz (DI-14) se ven alrededor de la hoja, como en el resto de la app. */}
       <main className="flex-1">
         <div className="mx-auto w-full max-w-5xl px-2 py-4 sm:px-6">

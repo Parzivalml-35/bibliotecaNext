@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
-import { BotonLampara } from "@/components/boton-lampara";
+import { BotonLampara, LamparaDeEsquina } from "@/components/boton-lampara";
 import { Logo } from "@/components/marca/iconos";
 import { MenuUsuario } from "@/components/menu-usuario";
 import { NavegacionPrincipal } from "@/components/navegacion-principal";
@@ -53,9 +53,8 @@ export default function LayoutSitio({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      {/* DI-03 (prueba, Fase A): desde xl la barra ya no llega al borde de la ventana y la lámpara cuelga en la esquina
-          superior derecha de la página, como un aplique en la pared. top-3.5: a la altura del centro de la barra. */}
-      <BotonLampara flotante className="fixed top-3.5 right-4 z-40 hidden xl:inline-flex" />
+      {/* DI-03: desde xl, la lámpara cuelga en la esquina de la página (la misma que usa el visor). */}
+      <LamparaDeEsquina />
       {/* pb-16: lo último de la página puede desplazarse por encima del botón flotante de tema (DI-03). */}
       <main className="flex-1 pb-16">{children}</main>
     </>
