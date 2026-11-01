@@ -9,14 +9,15 @@ type FilaCuentaLogin = {
   id_cuenta: number;
   password_hash: string;
   desactivada: number; // 1/0: MySQL devuelve los booleanos como números
-  es_empleado: number; // tiene perfil de empleado activo: decide si al entrar va al panel
+  rol_empleado: RolEmpleado | null; // rol del perfil de empleado activo (NULL si no tiene): decide a qué sección del panel entra
   es_lector: number; // si no es empleado pero es lector, va a "Mi cuenta"
 } & RowDataPacket;
 
 export async function buscarCuentaPorCorreo(correo: string) {
   const [filas] = await pool.execute<FilaCuentaLogin[]>(
     `SELECT c.id_cuenta, c.password_hash, c.fecha_desactivacion IS NOT NULL AS desactivada,
-            EXISTS (SELECT 1 FROM empleado e WHERE e.id_cuenta = c.id_cuenta AND e.activo) AS es_empleado,
+            -- uq_empleado_cuenta: como mucho un empleado por cuenta, así que la subconsulta da una fila o ninguna.
+            (SELECT e.rol FROM empleado e WHERE e.id_cuenta = c.id_cuenta AND e.activo) AS rol_empleado,
             EXISTS (SELECT 1 FROM lector l WHERE l.id_cuenta = c.id_cuenta) AS es_lector
      FROM cuenta c WHERE c.correo = ?`,
     [correo],

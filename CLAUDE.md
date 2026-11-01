@@ -17,6 +17,8 @@ no terminar rápido.
 1. `docs/reglas-de-negocio.md`: cómo funciona el sistema. Reglas `RN-xx`, decisiones `D-xx`, convenciones `C-xx`.
 2. `docs/modelo-datos.md`: tablas derivadas de las reglas; cada una cita sus reglas.
 3. `docs/estado.md`: fase y paso actual. **Leerlo al empezar cada sesión.**
+4. `docs/diseno.md`: interfaz (decisiones `DI-xx`): temas y tokens, mapa del sitio, navegación y permisos por rol.
+   `docs/auditoria-ux.md` es la foto de partida del rediseño (hallazgos `UX-xx`).
 
 Si una regla no cubre un caso, no inventarla: preguntar, decidir con el usuario y agregarla al documento.
 El modelo de Bases de datos 2 del vault es solo contexto histórico; no es la especificación.

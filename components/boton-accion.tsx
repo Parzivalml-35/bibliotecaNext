@@ -1,17 +1,21 @@
 "use client";
 
 import { useActionState } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import type { EstadoFormulario } from "@/lib/definitions";
+import { cn } from "@/lib/utils";
 
 type Accion = (estado: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>;
 
 const estadoInicial: EstadoFormulario = {};
 
+// R4b: cada variante del proyecto es una variante del Button de shadcn (los nombres se conservan: las páginas
+// siguen pasando "principal" o "peligro").
 const VARIANTES = {
-  normal: "border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800",
-  principal: "bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300",
-  peligro: "border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950",
-};
+  normal: "outline",
+  principal: "default",
+  peligro: "destructive",
+} as const;
 
 // Un formulario de un solo botón para una Server Action que actúa sobre un registro (renovar un préstamo,
 // cancelar una reserva, cobrar una multa…). La acción llega como prop desde un Server Component: React la
@@ -37,12 +41,11 @@ export function BotonAccion({
       {Object.entries(campos).map(([nombre, valor]) => (
         <input key={nombre} type="hidden" name={nombre} value={valor} />
       ))}
-      <button type="submit" disabled={pendiente}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium disabled:opacity-60 ${VARIANTES[variante]}`}>
+      <button type="submit" disabled={pendiente} className={buttonVariants({ variant: VARIANTES[variante], size: "xs" })}>
         {pendiente ? etiquetaPendiente : etiqueta}
       </button>
       {/* aria-live: el resultado se anuncia sin mover el foco. max-w: el mensaje no ensancha la tabla. */}
-      <p aria-live="polite" className={`max-w-56 text-right text-xs ${estado.error ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+      <p aria-live="polite" className={cn("max-w-56 text-right text-xs", estado.error ? "text-danger-texto" : "text-success-texto")}>
         {estado.error ?? estado.exito}
       </p>
     </form>

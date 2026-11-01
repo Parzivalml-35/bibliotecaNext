@@ -130,6 +130,8 @@ export type PrestamoDeLector = {
   fecha_vencimiento: string;
   dias_atraso: number;
   perdido: number; // RN-71
+  dias_restantes: number; // RN-76: días hasta el vencimiento (negativo si venció)
+  por_vencer: number; // RN-76: 1 si faltan dias_aviso_vencimiento días o menos y no venció
 };
 
 export type MultaDeLector = {
@@ -192,11 +194,14 @@ export async function obtenerPrestamosDeLector(idLector: number): Promise<Presta
   const [filas] = await pool.execute<(PrestamoDeLector & RowDataPacket)[]>(
     `SELECT p.id_prestamo, l.titulo, e.codigo_barras, sd.nombre AS sede,
             DATE_FORMAT(p.fecha_vencimiento, '%Y-%m-%d') AS fecha_vencimiento,
-            GREATEST(DATEDIFF(CURDATE(), p.fecha_vencimiento), 0) AS dias_atraso, e.estado = 'perdido' AS perdido
+            GREATEST(DATEDIFF(CURDATE(), p.fecha_vencimiento), 0) AS dias_atraso, e.estado = 'perdido' AS perdido,
+            DATEDIFF(p.fecha_vencimiento, CURDATE()) AS dias_restantes, -- negativo si ya venció
+            DATEDIFF(p.fecha_vencimiento, CURDATE()) BETWEEN 0 AND cf.dias_aviso_vencimiento AS por_vencer -- RN-76
      FROM prestamo_fisico p
      JOIN ejemplar e ON e.id_ejemplar = p.id_ejemplar
      JOIN libro l ON l.id_libro = e.id_libro
      JOIN sede sd ON sd.id_sede = p.id_sede_prestamo
+     CROSS JOIN configuracion cf
      WHERE p.id_lector = ? AND p.fecha_devolucion IS NULL
      ORDER BY p.fecha_vencimiento`,
     [idLector],

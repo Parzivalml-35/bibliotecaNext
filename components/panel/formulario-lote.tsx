@@ -30,7 +30,7 @@ export function FormularioLote({ titulos, hoy }: { titulos: { isbn: string; titu
           <input id="fecha_adquisicion" name="fecha_adquisicion" type="date" required max={hoy} defaultValue={v.fecha_adquisicion ?? hoy} className={claseCampo} />
         </div>
         <div>
-          <label htmlFor="fecha_vencimiento" className={claseEtiqueta}>Vence <span className="font-normal text-zinc-500">(opcional)</span></label>
+          <label htmlFor="fecha_vencimiento" className={claseEtiqueta}>Vence <span className="font-normal text-muted-foreground">(opcional)</span></label>
           <input id="fecha_vencimiento" name="fecha_vencimiento" type="date" min={hoy} defaultValue={v.fecha_vencimiento} className={claseCampo} />
         </div>
       </div>

@@ -14,7 +14,7 @@ import { exigirEmpleado } from "@/lib/sesion";
 const esFecha = (f: string) => /^\d{4}-\d{2}-\d{2}$/.test(f) && new Date(`${f}T00:00:00Z`).toISOString().slice(0, 10) === f;
 
 export async function registrarLote(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
-  const empleado = await exigirEmpleado(["admin_red"]);
+  const empleado = await exigirEmpleado("red");
   const isbn = texto(datos, "isbn");
   const cantidad = Number(texto(datos, "cantidad"));
   const adquisicion = texto(datos, "fecha_adquisicion");
@@ -50,6 +50,6 @@ export async function registrarLote(_estadoAnterior: EstadoFormulario, datos: Fo
         ? `Lote registrado: ${cantidad} licencias de «${libro.titulo}»; ${asignadas} se asignaron a la cola.`
         : `Lote registrado: ${cantidad} licencias de «${libro.titulo}».`;
     },
-    ["/panel/licencias", `/libros/${isbn}`, "/cuenta"],
+    ["/panel/red/licencias", `/libros/${isbn}`, "/cuenta"],
   );
 }

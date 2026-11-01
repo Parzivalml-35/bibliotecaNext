@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type PaginacionProps = {
   pagina: number;
@@ -38,9 +40,10 @@ export function Paginacion({ pagina, totalPaginas, texto, seccion }: PaginacionP
   }
 
   const numeros = paginasVisibles(pagina, totalPaginas);
-  const base = "inline-flex min-w-10 items-center justify-center rounded-md px-3 py-2 text-sm font-medium";
-  const enlace = `${base} border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800`;
-  const inactivo = `${base} border border-zinc-200 text-zinc-400 dark:border-zinc-800 dark:text-zinc-600`;
+  // Los enlaces se ven como botones de shadcn (buttonVariants): contorno para ir a otra página, relleno para la actual.
+  // min-w-9: los números de una cifra quedan cuadrados en vez de angostos.
+  const enlace = cn(buttonVariants({ variant: "outline", size: "sm" }), "min-w-9");
+  const inactivo = cn(enlace, "pointer-events-none opacity-50");
 
   return (
     <nav aria-label="Paginación del catálogo" className="mt-8 flex flex-wrap items-center justify-center gap-2">
@@ -57,10 +60,10 @@ export function Paginacion({ pagina, totalPaginas, texto, seccion }: PaginacionP
           <li key={numero === "…" ? `hueco-${i}` : numero}>
             {numero === "…" ? (
               // aria-hidden: el lector de pantalla no necesita oír "puntos suspensivos"
-              <span aria-hidden="true" className={`${base} text-zinc-400`}>…</span>
+              <span aria-hidden="true" className="inline-flex h-8 min-w-9 items-center justify-center text-sm text-muted-foreground">…</span>
             ) : numero === pagina ? (
               // aria-current="page": el lector de pantalla anuncia "página actual"
-              <span aria-current="page" className={`${base} bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900`}>
+              <span aria-current="page" className={cn(buttonVariants({ size: "sm" }), "min-w-9")}>
                 {numero}
               </span>
             ) : (

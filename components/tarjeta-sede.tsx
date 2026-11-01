@@ -5,9 +5,9 @@ import { plural } from "@/lib/formato";
 // Una sede en "¿Dónde está?": cuántas copias hay y en qué estantes (RN-08, RN-17).
 export function TarjetaSede({ sede }: { sede: DisponibilidadSede }) {
   return (
-    <article className="h-full rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <article className="h-full rounded-2xl border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">{sede.sede}</h3>
+        <h3 className="font-semibold">{sede.sede}</h3>
         <InsigniaDisponibilidad cantidad={sede.disponibles} />
       </div>
 
@@ -18,10 +18,10 @@ export function TarjetaSede({ sede }: { sede: DisponibilidadSede }) {
               {/* Identificación visual: el color de la sección que el lector busca en el estante. */}
               <span aria-hidden="true" className="mt-0.5 size-4 shrink-0 rounded" style={{ backgroundColor: u.color_hex }} />
               <span>
-                <span className="block font-medium text-zinc-900 dark:text-zinc-100">
+                <span className="block font-medium">
                   Pasillo {u.pasillo} – Estante {u.estante}, nivel {u.nivel}
                 </span>
-                <span className="block text-zinc-600 dark:text-zinc-400">
+                <span className="block text-muted-foreground">
                   {u.seccion} · {plural(u.copias, "copia", "copias")}
                 </span>
               </span>
@@ -29,7 +29,7 @@ export function TarjetaSede({ sede }: { sede: DisponibilidadSede }) {
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-4 text-sm text-muted-foreground">
           {sede.total === 0
             ? "Esta sede no tiene ejemplares de este libro."
             : `${plural(sede.total, "ejemplar", "ejemplares")} en la sede, ninguno disponible ahora (prestados, apartados o por ubicar).`}

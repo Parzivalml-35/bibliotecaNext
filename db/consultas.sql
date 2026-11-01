@@ -70,13 +70,20 @@ WHERE c.correo = @correo;
 
 -- ---------------------------------------------------------------------
 -- 5. Consulta de ejemplo del taller de BD2: préstamos activos con título, lector y fecha esperada
+--    RN-76: "por vencer" si faltan dias_aviso_vencimiento días o menos (0 = vence hoy) y todavía no venció
 -- ---------------------------------------------------------------------
 SELECT l.titulo, CONCAT(lc.nombre, ' ', lc.apellido) AS lector, sd.nombre AS sede,
        p.fecha_vencimiento,
-       IF(p.fecha_vencimiento < CURDATE(), CONCAT('vencido hace ', DATEDIFF(CURDATE(), p.fecha_vencimiento), ' días'), 'al día') AS estado
+       CASE
+         WHEN p.fecha_vencimiento < CURDATE() THEN CONCAT('vencido hace ', DATEDIFF(CURDATE(), p.fecha_vencimiento), ' días')
+         WHEN DATEDIFF(p.fecha_vencimiento, CURDATE()) <= cf.dias_aviso_vencimiento
+           THEN CONCAT('por vencer: faltan ', DATEDIFF(p.fecha_vencimiento, CURDATE()), ' días')
+         ELSE 'al día'
+       END AS estado
 FROM prestamo_fisico p
 JOIN ejemplar e USING (id_ejemplar) JOIN libro l USING (id_libro)
 JOIN lector lc USING (id_lector) JOIN sede sd ON sd.id_sede = p.id_sede_prestamo
+CROSS JOIN configuracion cf -- una sola fila (CHECK id = 1): agrega sus columnas a cada préstamo
 WHERE p.fecha_devolucion IS NULL
 ORDER BY p.fecha_vencimiento;
 

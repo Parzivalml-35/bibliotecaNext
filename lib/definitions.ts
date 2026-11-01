@@ -123,4 +123,6 @@ export type PrestamoAbierto = {
   fecha_vencimiento: string;
   renovaciones: number;
   dias_atraso: number; // 0 si está al día
+  dias_restantes: number; // RN-76: días hasta el vencimiento (negativo si venció)
+  por_vencer: number; // RN-76: 1 si faltan dias_aviso_vencimiento días o menos y no venció
 };

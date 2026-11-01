@@ -3,6 +3,7 @@
 import Form from "next/form";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useTransition, type ChangeEvent } from "react";
+import { claseBoton, claseCampo, claseEtiqueta } from "@/components/ui-formulario";
 import type { Seccion } from "@/lib/definitions";
 
 type BuscadorCatalogoProps = {
@@ -69,18 +70,15 @@ export function BuscadorCatalogo({ texto, seccion, secciones }: BuscadorCatalogo
   // Limpieza: si el componente se desmonta con un temporizador pendiente, se cancela.
   useEffect(() => cancelarEspera, []);
 
-  const campo =
-    "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
-
   return (
     <Form action="/" role="search" onSubmit={cancelarEspera} className="flex flex-col gap-3 sm:flex-row sm:items-end">
       <div className="flex-1">
         <div className="flex items-baseline justify-between">
-          <label htmlFor="q" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label htmlFor="q" className={claseEtiqueta}>
             Buscar
           </label>
           {/* role=status: el lector de pantalla anuncia "Buscando…" sin interrumpir */}
-          <span role="status" className="text-xs text-zinc-500">
+          <span role="status" className="text-xs text-muted-foreground">
             {buscando ? "Buscando…" : ""}
           </span>
         </div>
@@ -94,12 +92,12 @@ export function BuscadorCatalogo({ texto, seccion, secciones }: BuscadorCatalogo
           placeholder="Título o autor"
           maxLength={100}
           autoComplete="off"
-          className={campo}
+          className={claseCampo}
         />
       </div>
 
       <div className="sm:w-56">
-        <label htmlFor="seccion" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label htmlFor="seccion" className={claseEtiqueta}>
           Sección
         </label>
         <select
@@ -108,7 +106,7 @@ export function BuscadorCatalogo({ texto, seccion, secciones }: BuscadorCatalogo
           name="seccion"
           defaultValue={seccion}
           onChange={(evento) => navegar({ seccion: evento.target.value })} // elegir es un acto final: sin espera
-          className={campo}
+          className={claseCampo}
         >
           <option value="">Todas</option>
           {secciones.map((s) => (
@@ -119,10 +117,8 @@ export function BuscadorCatalogo({ texto, seccion, secciones }: BuscadorCatalogo
         </select>
       </div>
 
-      <button
-        type="submit"
-        className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white shadow-sm hover:bg-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-      >
+      {/* Las mismas clases que los formularios del resto de la app (components/ui-formulario.tsx). */}
+      <button type="submit" className={claseBoton}>
         Buscar
       </button>
     </Form>

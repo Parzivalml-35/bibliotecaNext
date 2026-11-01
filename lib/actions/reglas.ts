@@ -66,8 +66,11 @@ export const TIPOS_DOCUMENTO = ["CC", "TI", "CE", "PASAPORTE"];
 
 // RN-33: préstamos, devoluciones, validar, ubicar y cobrar son de bibliotecario y coordinador. El
 // administrador de red no tiene sede (RN-34) y no opera en mostrador.
-export async function empleadoDeMostrador() {
-  const empleado = await exigirEmpleado(["bibliotecario", "coordinador"]);
+// Devuelve un empleado CON sede. `permiso` es el de la página de la acción (lib/permisos.ts): "mostrador" o, para
+// ubicar y declarar perdido, "coleccion". Los dos tienen hoy los mismos roles, pero así cada acción pide lo mismo
+// que su página y un cambio en uno no deja al otro desincronizado.
+export async function empleadoDeMostrador(permiso: "mostrador" | "coleccion" = "mostrador") {
+  const empleado = await exigirEmpleado(permiso);
   // El CHECK ck_empleado_sede garantiza que estos roles tienen sede; se comprueba igual para que TS lo sepa.
   if (empleado.idSede === null) throw new Error("Empleado de mostrador sin sede");
   return { ...empleado, idSede: empleado.idSede };

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BotonAccion } from "@/components/boton-accion";
+import { buttonVariants } from "@/components/ui/button";
 import { cancelarReservaDigitalPropia, devolverDigital, prestarDigital, reservarDigital } from "@/lib/actions/digital";
 import type { DisponibilidadDigital, SituacionDigitalEnTitulo } from "@/lib/data/digital";
 
@@ -30,11 +31,14 @@ export function SeccionDigital({
   if (!conectado) {
     contenido = (
       <p className="text-sm">
-        <Link href="/login" className="font-medium underline underline-offset-4">Inicia sesión</Link> para leerlo en línea.
+        {/* RN-83: al entrar vuelve a esta sección de la ficha (#leer-en-linea es el id del <h2>). */}
+        <Link href={`/login?siguiente=${encodeURIComponent(`/libros/${isbn}#leer-en-linea`)}`} className="font-medium underline underline-offset-4">
+          Inicia sesión
+        </Link>{" "}para leerlo en línea.
       </p>
     );
   } else if (!esLector || !situacion) {
-    contenido = <p className="text-sm text-zinc-500">La lectura en línea es para cuentas de lector.</p>;
+    contenido = <p className="text-sm text-muted-foreground">La lectura en línea es para cuentas de lector.</p>;
   } else if (situacion.compra || situacion.id_prestamo_digital !== null) {
     // RN-29, RN-30: ya tiene acceso.
     contenido = (
@@ -43,7 +47,7 @@ export function SeccionDigital({
           {situacion.compra ? "Lo compraste: puedes leerlo cuando quieras." : `Lo tienes prestado hasta el ${situacion.fin_prestamo}.`}
         </p>
         <div className="flex items-start gap-2">
-          <Link href={`/leer/${isbn}`} className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300">
+          <Link href={`/leer/${isbn}`} className={buttonVariants({ size: "sm" })}>
             Leer ahora
           </Link>
           {situacion.id_prestamo_digital !== null && (
@@ -82,7 +86,7 @@ export function SeccionDigital({
       </div>
     );
   } else if (!verificada) {
-    contenido = <p className="text-sm text-zinc-500">Verifica tu correo para leer libros digitales.</p>;
+    contenido = <p className="text-sm text-muted-foreground">Verifica tu correo para leer libros digitales.</p>;
   } else if (licencias === 0) {
     contenido = null;
   } else if (libres > 0 && en_cola === 0) {
@@ -93,9 +97,9 @@ export function SeccionDigital({
   }
 
   return (
-    <section aria-labelledby="leer-en-linea" className="mt-10 max-w-xl rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
+    <section aria-labelledby="leer-en-linea" className="mt-10 max-w-xl rounded-2xl border border-border bg-card p-5">
       <h2 id="leer-en-linea" className="text-lg font-semibold">Leer en línea</h2>
-      <p className="mt-1 mb-3 text-sm text-zinc-600 dark:text-zinc-400">{resumen}</p>
+      <p className="mt-1 mb-3 text-sm text-muted-foreground">{resumen}</p>
       {contenido}
     </section>
   );

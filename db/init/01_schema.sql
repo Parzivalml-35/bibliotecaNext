@@ -198,6 +198,7 @@ CREATE TABLE configuracion (
     max_fallos_por_ip                SMALLINT UNSIGNED NOT NULL,  -- RN-73
     max_registros_por_ip             TINYINT UNSIGNED NOT NULL,   -- RN-73
     minutos_ventana_intentos         SMALLINT UNSIGNED NOT NULL,  -- RN-73
+    dias_aviso_vencimiento           TINYINT UNSIGNED NOT NULL,   -- RN-76: 0 = avisar solo el día que vence
     CONSTRAINT ck_configuracion_unica CHECK (id = 1),
     CONSTRAINT ck_configuracion_multa CHECK (multa_por_dia > 0 AND multa_tope >= multa_por_dia),
     CONSTRAINT ck_configuracion_plazos CHECK (dias_atraso_perdido > 0 AND horas_confirmar_reserva_digital > 0

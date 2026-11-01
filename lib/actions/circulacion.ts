@@ -208,7 +208,7 @@ export async function renovarPrestamo(_estadoAnterior: EstadoFormulario, datos: 
 // Ubicar un ejemplar (RN-17, RN-20, RN-69)
 // ---------------------------------------------------------------------
 export async function ubicarEjemplar(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
-  const empleado = await empleadoDeMostrador();
+  const empleado = await empleadoDeMostrador("coleccion");
   const codigo = codigoDeBarras(datos);
   const idUbicacion = idDe(datos, "id_ubicacion");
   if (!codigo || !idUbicacion) return { error: "Elige un estante." };
@@ -232,7 +232,7 @@ export async function ubicarEjemplar(_estadoAnterior: EstadoFormulario, datos: F
 // Declarar perdido (RN-06, RN-49, RN-71)
 // ---------------------------------------------------------------------
 export async function declararPerdido(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
-  const empleado = await empleadoDeMostrador();
+  const empleado = await empleadoDeMostrador("coleccion");
   const idPrestamo = idDe(datos, "id_prestamo");
   if (!idPrestamo) return { error: "Préstamo no válido." };
 

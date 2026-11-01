@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-10-21 (portátil) — Fase 5 terminada (pendiente de documentar en el vault)
+**Última actualización:** 2026-11-01 (PC de escritorio) — Fases R y A terminadas y revisadas con sesión en la rama `feat/ambiente` (creada desde `feat/rediseno`); BD del PC reconstruida con el esquema de R5b; RN-75 vuelto a probar con ella (BN-0002 a Ana: rechazado)
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -98,22 +98,76 @@ teléfono y dirección obligatorios desde el registro.
 | B | Sección "Leer en línea" en `/libros/[isbn]` (pedir, reservar, confirmar, tomar el turno, devolver, cancelar) y "Libros digitales" en `/cuenta` | Hecho |
 | C | `app/leer/[isbn]/archivo/route.ts` (sesión + acceso, solo `Sec-Fetch-Dest: empty` del mismo origen, `no-store`), visor `components/visor-pdf.tsx`, `pnpm archivos:muestra` | Hecho |
 | D | `/panel/licencias`: uso por lote y registrar un lote (las licencias nuevas van primero a la cola) | Hecho |
+| Fix | **RN-75** (encontrado probando en el PC): un lector no puede tener dos préstamos físicos de la misma obra, sin excepciones; espejo de RN-68. Validación en la transacción de `prestarEjemplar` (`tienePrestadaLaObra` con `FOR SHARE`), no con UNIQUE (`id_libro` vive en `ejemplar`); la página del libro muestra "Ya tienes este libro prestado". Commit `d88383f` | Hecho |
 | Verificación | Registro (8 casos), validación, lectura (7 casos de acceso), cola, RN-55, máximos, bloqueos, edad, ids ajenos, cola detenida, lote nuevo con cola, concurrencia (2 pedidos por la última licencia: 1 gana), visor en Chrome sin ventana | Hecho |
+
+## Fase R — Rediseño con shadcn/ui (terminada: solo lo visual, R0 a R6; rama `feat/rediseno`)
+
+Va antes de la Fase 6. Fuente de verdad: `docs/diseno.md` (DI-01 a DI-12); hallazgos de partida en `docs/auditoria-ux.md`. Decisiones: shadcn sobre **Radix**, preset
+**Maia** con Hugeicons y Figtree; **barra superior** estilo "Books" (sin sidebar); temas **claro, oscuro y lámpara**
+con la preferencia en **cookie** (y en la cuenta en R7); portada generada; bloques con borde fino y barras con rayas
+(estilo YowBooks "My Library"); cuatro colores de estado con contraste AA medido; lector **EPUB con foliate-js** y PDF
+como alternativa, preparado para Readium.
+
+| Paso | Qué | Estado |
+|---|---|---|
+| R0 | Ficha de diseño `docs/diseno.md`: referencias, decisiones, paletas de los tres temas en oklch con contraste, colores de estado, lenguaje de bloques, lector | Hecho |
+| R1 | `shadcn init -b radix -t next --preset maia` (probado antes en una copia): `components.json`, `lib/utils.ts` (`cn`), `components/ui/button.tsx`, tokens neutros en `globals.css`; Figtree en lugar de Geist Sans (Geist Mono se queda para los códigos) | Hecho |
+| Auditoría | `docs/auditoria-ux.md` (UX-01 a UX-12; la más grave: el menú del panel es igual para todos los roles). Mapa del sitio, secciones del panel por rol y `lib/permisos.ts` como fuente única (DI-10 a DI-12). Reglas nuevas RN-76 a RN-83 (por vencer, datos editables, contraseña, correo, recuperar, avatar DiceBear y foto, `?siguiente=`). Cambios de esquema planificados en `modelo-datos.md` (bloque 2) | Hecho (solo documentación) |
+| R2 | Tres paletas en `globals.css`, `dark:` → `[data-tema="oscuro"]`, cookie del tema leída por un script del `<head>` (sin cookie, el sistema), botón sol, luna y lámpara, Fraunces para títulos | Hecho (falta revisar los colores en pantalla). `lib/tema.ts`, `components/script-en-linea.tsx`, `components/boton-tema.tsx`. Resuelve UX-12 |
+| R3 | Barra superior, menú de usuario, `lib/permisos.ts`, panel por secciones (URL nuevas, `/panel` redirige por rol), pestañas de "Mi cuenta", `?siguiente=` (RN-83). Cinco partes: R3a permisos, R3b secciones, R3c `?siguiente=`, R3d barra y menú, R3e pestañas de Mi cuenta | Hecho (falta probar R3e con sesión en el navegador). R3a (permisos), R3b (secciones) y R3c (`?siguiente=`, RN-83: `rutaInterna()` en `lib/sesion.ts`, cada página pasa su ruta, enlaces "Inicia sesión" de la ficha) hechos. R3d hecho: barra superior con tokens, pestañas en píldora por perfil (`NavegacionPrincipal`), menú lateral en el celular (`Sheet`), menú de la cuenta con avatar de iniciales (`DropdownMenu`) e "Iniciar sesión" con `?siguiente=`. R3e hecho: `app/cuenta/layout.tsx` con `NavegacionCuenta` (comparación exacta de la ruta: `/cuenta` es prefijo de todas), `/cuenta` repartida en Resumen, `/cuenta/prestamos`, `/cuenta/digitales` y `/cuenta/multas` (resuelve UX-04); `resumen-lector.tsx` exporta sus piezas y el panel las sigue usando juntas |
+| R4 | Componentes base y `Portada` generada | Hecho (falta revisar en pantalla). R4a: `Card` (borde `border` en vez de `ring`) y `Badge` con `success`, `warning`, `danger` e `info`. R4b: `ui-formulario.tsx` y `BotonAccion` con tokens y `buttonVariants` (cambia el aspecto de todos los formularios), `EstadoVacio`, `/muestrario` (solo en desarrollo). R4c: `Portada` y `lib/portada.ts` (DI-05). La barra con rayas queda para R8 |
+| R5 | Pantallas (35 archivos con `zinc-*` a mano), `/cuenta` repartida en pestañas, aviso "por vencer" (RN-76), visor inmersivo y filtro del PDF. Cuatro partes: R5a zona pública (modelo + tabla de equivalencias en `diseno.md`), R5b Mi cuenta + RN-76, R5c panel, R5d visor | Hecho (falta revisar en pantalla R5d). R5a hecho. R5b hecho: `dias_aviso_vencimiento` adelantada de R7 (esquema, seed = 3, BD reconstruida), `por_vencer` y `dias_restantes` calculados en SQL (`CROSS JOIN configuracion`), `EtiquetaPrestamo` compartida por Mi cuenta y el mostrador, aviso en el Resumen; escenario nuevo del seed: Valentina con `BN-0010` que vence en 2 días; Mi cuenta, login, registro y pasarela con tokens. R5c hecho (lo hizo Claude: el usuario dejó los ejercicios para después por tiempo): las 11 pantallas del panel sin `zinc-*` ni `dark:`, `EstadoVacio` con `className`, campo pequeño y botones `xs` en los formularios en línea. R5d hecho: route group `app/(sitio)` con la barra (`git mv` de todas las rutas, URL iguales), `app/layout.tsx` solo documento, fuentes y tema; `/leer/[isbn]` fuera del grupo con barra mínima propia y su `error.tsx`; `app/not-found.tsx` reexporta el del sitio (URL inexistente: sin barra); visor con tokens y `in-data-[tema=lampara]:sepia-40` |
+| R6 | Verificación: contraste en los tres temas, teclado, celular y recorrido de cada rol | Hecho. Recorrido con sesión de cada rol en el navegador hecho por el usuario el 2026-11-01 (lector, coordinador, admin de red; menú del avatar con clic y teclado; menú del celular). Contraste: `pnpm diseno:contraste`, 27 pares × 3 temas sin fallos tras corregir 3 problemas (borde de campos 1.2-1.4 → token `borde-campo` ≥ 3.1; foco al 50 % → `outline-ring`; `destructive` 4.49 → par danger). Fondo de la lámpara `#FBE8D7`. Bug de R4c corregido: `p-[8%]` de la portada se calculaba sobre el ancho del padre (título de 1.4 px en la ficha) → `p-[8cqw]` en un div interno. Celular 390 px sin desbordes; orden de Tab lógico con indicador visible; `next build` sin errores y `/muestrario` con `notFound()` en producción. Verificado con Chrome sin ventana (CDP) |
+
+## Fase A — Ambiente (terminada; rama `feat/ambiente`)
+
+Visual, sobre la Fase R. Fuente de verdad: `docs/diseno.md` (DI-02 a DI-04 actualizadas, DI-13 a DI-15, "Logo e íconos de marca").
+Decisiones del usuario: la lámpara **reemplaza** al tema base y al apagarla vuelve a él; la luz en **CSS + textura**; el logo como
+**emblema que cuelga** de la barra; la luz se anima **solo al encender**. El logo y los íconos definitivos los consigue o crea el usuario
+después: el arte queda aislado en `components/marca/iconos.tsx`.
+
+| Paso | Qué | Estado |
+|---|---|---|
+| A0 | Ficha de diseño: DI-02 a DI-04, DI-13 a DI-15, especificación del logo y los íconos | Hecho |
+| A1 | Modelo del tema: cookie `tema` (base) + cookie `lampara`; `data-tema` conserva tres valores, `data-tema-base` | Hecho: `resolverPreferencia`, `aplicarPreferencia`, `preferenciaActual`; la cookie antigua `tema=lampara` se lee como lámpara encendida |
+| A2 | Íconos de marca intercambiables, botón flotante (sol y luna) y botón de lámpara | Hecho: `components/marca/iconos.tsx` (aplique de pared propio, emblema provisional 4:5), `BotonTema` flotante en el layout raíz, `BotonLampara` en la barra y el visor. Probado en Chrome: 5 combinaciones de cookies y 5 clics |
+| A3 | Barra flotante con el emblema que cuelga; barra del visor en cápsula | Hecho: cápsula `sticky top-3` con `bg-card/85 backdrop-blur`, emblema de 56 px de ancho (70 de alto) que sobresale, nombre desde `sm`, menú del celular a la derecha; ícono de lámpara elegido entre 3 variantes |
+| A4 | Luz por tema (sol, luna, lámpara) sobre textura de pared, con animación al encender | Hecho: `components/fondo-luz.tsx` + capas en `globals.css` (haces de sol y luna con `linear-gradient` y `mask-image`; foco, halo, ambiente y penumbra de la lámpara con `radial-gradient`); textura de ruido SVG sin repetir (las baldosas dejaban costuras); `encender-lampara` con `prefers-reduced-motion`. Contraste ampliado con 11 pares de luz y sombra: la penumbra obligó a oscurecer `muted-foreground` y `primary` de la lámpara |
+| A5 | Visor y detalles; verificación (contraste ampliado, capturas, teclado, movimiento reducido, build) | Hecho, salvo lo que pide sesión: 38 pares de contraste sin fallos; capturas de catálogo, ficha y login × 3 temas × 2 anchos; Tab en orden con indicador; `prefers-reduced-motion` sin animación; sin avisos de hidratación; `next build` sin errores. Revisión con sesión (visor y panel, tres temas) hecha el 2026-11-01; de ella salió que la lámpara del visor quedaba siempre en su barra: ahora sigue la regla del sitio con `LamparaDeEsquina` (DI-03) |
+
+## Mi cuenta y lector EPUB (pendiente; separada de la Fase R el 2026-10-30)
+
+Decisión del usuario: la Fase R queda solo con lo visual; las funciones nuevas van aparte. Se conservan los nombres R7 y R8
+porque así los citan `diseno.md` y `modelo-datos.md`.
+
+| Paso | Qué | Estado |
+|---|---|---|
+| R7 | Mi cuenta: datos (RN-77), contraseña (RN-78), correo (RN-79), recuperar (RN-80), avatar DiceBear y foto (RN-81, RN-82), tema en la cuenta. Cambia el esquema. Decidir la librería para recodificar fotos (`sharp` está desactivado en `pnpm-workspace.yaml`) | Pendiente |
+| R8 | Lector EPUB con foliate-js: reglas (RN-54, seguridad del HTML del libro), EPUB de muestra, `<Visor>` | Pendiente |
 
 ## Próximo paso
 
-1. Probar en el navegador: registro con los datos nuevos, leer un libro (`pnpm archivos:muestra` antes), reservar y
-   confirmar, `/panel/licencias` con Laura.
-2. `/documentar` la Fase 5.
-3. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
+1. Cuando lleguen el logo y los íconos definitivos: reemplazar `components/marca/iconos.tsx` y agregar `app/icon.svg`.
+2. **Mi cuenta y lector EPUB** (R7, R8; ver su sección): decidido el 2026-11-01 que va antes de la Fase 6. `feat/ambiente` (con `feat/rediseno` dentro) se integró en `main` ese día con un merge `--no-ff`.
+3. `/documentar`: lo pendiente de la Fase 4 (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque
+   de numeración RN-74 entre los dos equipos (la Fase R se documenta al cerrarla, 2026-10-30).
+4. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
    verifica una firma HMAC, para pedidos y multas; hoy la pasarela simulada se confirma con un botón).
-4. Fase 7: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
+5. **Fase 7: administración de la red** (empleados, catálogo, tipos de lector, configuración; RN-33). Antes, decidir
+   las preguntas de "Pendiente de definir" en `reglas-de-negocio.md`.
+6. Fase 8: traslados y auditorías (RN-15, RN-16, RN-21, RN-50 a RN-53) + **recuperar un ejemplar declarado perdido**
    (antes: regla para su multa de reposición: anular si está pendiente, ¿reembolsar si ya se pagó?).
-5. Fase 8: calidad (Lighthouse, accesibilidad, build). Pendiente de la Fase 5: subir archivos PDF desde el panel.
+7. Fase 9: calidad (Lighthouse, accesibilidad, build). Pendiente de la Fase 5: subir archivos PDF desde el panel.
 
 ## Pendientes y avisos
 
-- En el otro PC: `pnpm install` (nuevo: `pdfjs-dist`), **reconstruir la BD** (cambió `lector`), `pnpm db:claves-dev` y `pnpm archivos:muestra`.
+- En desarrollo, el indicador de Next muestra `Failed to execute 'measure' on 'Performance': 'PaginaPanel' cannot have a negative time stamp` tras cada `GET /panel`. Es de React 19.2 (pista "Server Components" de DevTools): al medir un componente que "falla" con `redirect()`, no recorta el fin negativo (`react-server-dom-turbopack-client.browser.development.js`). Solo en desarrollo; no se corrige.
+- Mejora opcional (AAA, 2.4.13): contorno de foco de 2 px en los enlaces (hoy 1 px, cumple AA).
+
+- PC de escritorio: BD reconstruida con el esquema de la Fase 5 y PDF de muestra generados (verificado 2026-10-26).
+- **Otro equipo, tras el `git pull` de R5b:** reconstruir la BD (columna `configuracion.dias_aviso_vencimiento` y escenario `BN-0010`), `pnpm db:claves-dev` y `pnpm archivos:muestra`.
+- Al pasar la rama `feat/rediseno` al otro equipo: `pnpm install` (shadcn agrega `radix-ui`, `cn`, `class-variance-authority`, `tw-animate-css`, `@hugeicons/*` y `shadcn`).
 - RN-29, límite asumido: lo que el navegador muestra se puede capturar. La ruta del archivo rechaza abrirlo desde la barra
   de direcciones (`Sec-Fetch-Dest: document`) y otros sitios, pero un programa fuera del navegador puede inventar esas
   cabeceras: la protección real es la sesión + el préstamo vigente o la compra.
