@@ -3,6 +3,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { estiloAlAzar } from "@/lib/avatar";
 import { hashearContrasena } from "@/lib/contrasenas";
 import { enTransaccion } from "@/lib/db";
 import {
@@ -100,6 +101,7 @@ export async function registrarLector(_estadoAnterior: EstadoFormulario, datos: 
       const horas = await insertarLectorRegistrado(conexion, {
         correo, passwordHash, nombre, apellido, nacimiento, tipoDocumento, numeroDocumento, telefono, calle,
         codigoPostal: codigoPostal || null, idCiudad, tokenHash: hashDeToken(token),
+        avatarEstilo: estiloAlAzar(), // RN-81: toda cuenta nace con un avatar genérico al azar
       });
       enviarCorreo(correo, "Verifica tu correo", `Abre este enlace en las próximas ${horas} horas:\n${origen}/verificar?token=${token}`);
     });

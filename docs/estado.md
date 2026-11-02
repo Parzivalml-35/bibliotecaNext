@@ -143,7 +143,7 @@ porque así los citan `diseno.md` y `modelo-datos.md`.
 
 | Paso | Qué | Estado |
 |---|---|---|
-| R7 | Mi cuenta: datos (RN-77), contraseña (RN-78), correo (RN-79), recuperar (RN-80), avatar DiceBear y foto (RN-81, RN-82), tema en la cuenta. Cambia el esquema. Decidir la librería para recodificar fotos (`sharp` está desactivado en `pnpm-workspace.yaml`) | Pendiente |
+| R7 | Mi cuenta: datos (RN-77), contraseña (RN-78), correo (RN-79), recuperar (RN-80), avatar DiceBear y foto (RN-81, RN-82), tema en la cuenta. Cambia el esquema. `sharp` 0.35.4 como dependencia directa (decidido el 2026-11-01; su binario precompilado funciona con `allowBuilds: sharp: false`). Nueve partes: R7a esquema, R7b datos (`/cuenta/perfil`), R7c contraseña (`/cuenta/seguridad`), R7d correo, R7e recuperar, R7f avatar DiceBear, R7g foto, R7h tema en la cuenta, R7i `/panel/perfil` | En curso. R7a hecho (falta reconstruir la BD): `cuenta` con `avatar_estilo`, `avatar_semilla` (DEFAULT aleatorio de MySQL), `avatar_clave` UNIQUE, `tema_base` y `lampara` (dos columnas, como las cookies de la Fase A); `token_cuenta` con `cambiar_correo` + `correo_nuevo` y su CHECK; `configuracion` con `minutos_recuperacion_contrasena` y `max_kb_avatar`; `lib/avatar.ts` (6 estilos CC0) y el registro elige uno |
 | R8 | Lector EPUB con foliate-js: reglas (RN-54, seguridad del HTML del libro), EPUB de muestra, `<Visor>` | Pendiente |
 
 ## Próximo paso

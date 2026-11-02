@@ -185,6 +185,8 @@ erDiagram
         tinyint max_registros_por_ip
         smallint minutos_ventana_intentos
         tinyint dias_aviso_vencimiento
+        smallint minutos_recuperacion_contrasena
+        smallint max_kb_avatar
     }
     tipo_lector {
         int id_tipo_lector PK
@@ -204,12 +206,18 @@ erDiagram
         datetime fecha_registro
         datetime fecha_verificacion "NULL"
         datetime fecha_desactivacion "NULL"
+        varchar avatar_estilo
+        char avatar_semilla "DEFAULT aleatorio"
+        varchar avatar_clave "UK, NULL"
+        enum tema_base "NULL"
+        boolean lampara "NULL"
     }
     token_cuenta {
         int id_token PK
         int id_cuenta FK
         char token_hash UK
         enum tipo
+        varchar correo_nuevo "NULL"
         datetime expira_en
         datetime usado_en "NULL"
     }
@@ -292,10 +300,10 @@ erDiagram
 |---|---|---|
 | `configuracion` | C-04, valores iniciales, RN-14, RN-70, RN-76 | **Una sola fila** con columnas tipadas (`CHECK (id = 1)`), en vez de clave-valor: cada valor tiene su tipo y no se puede escribir mal el nombre. Se crea después de `tipo_lector` por la FK `id_tipo_lector_registro` (tipo con que se registra un lector). |
 | `tipo_lector` | RN-02, RN-12, RN-26, RN-45 | Todos los límites por tipo de lector. |
-| `cuenta` | RN-01, RN-31 | Sin columna de estado: se deduce de `fecha_verificacion`, `lector.fecha_validacion` y `fecha_desactivacion` (RN-01). |
+| `cuenta` | RN-01, RN-31, RN-81, RN-82, DI-04 | Sin columna de estado: se deduce de `fecha_verificacion`, `lector.fecha_validacion` y `fecha_desactivacion` (RN-01). Avatar y tema desde R7a (ver "Cambios para Mi cuenta"). |
 | `sesion` | RN-63, RN-64 | Agregada en la Fase 3. Como `token_cuenta`: se guarda el **hash** (SHA-256) del token, no el token. Vigente ⇔ `expira_en > NOW()` (calculado). Borrar la cuenta borra sus sesiones (`ON DELETE CASCADE`). |
 | `intento_acceso` | RN-73 (Fase 4b) | Bitácora de inicios de sesión y registros (correo, IP, éxito, fecha) para limitar la fuerza bruta. **Sin FK** a `cuenta`: también se anotan correos que no existen. Índices por (tipo, correo, fecha) y (tipo, ip, fecha) para contar la ventana; las filas de más de un día se purgan al anotar. |
-| `token_cuenta` | RN-32 | Se guarda el **hash** del token, no el token: si alguien lee la BD, no puede usar los enlaces. `tipo`: `verificar_correo`, `recuperar_contrasena`. Un solo uso (`usado_en`) y vencimiento (`expira_en`). |
+| `token_cuenta` | RN-32 | Se guarda el **hash** del token, no el token: si alguien lee la BD, no puede usar los enlaces. `tipo`: `verificar_correo`, `recuperar_contrasena`, `cambiar_correo` (con `correo_nuevo`, RN-79). Un solo uso (`usado_en`) y vencimiento (`expira_en`). |
 | `lector` | D-03, RN-02, RN-46, RN-74 | Documento, teléfono, calle y ciudad obligatorios desde el registro (RN-74); solo la validación (quién y cuándo) queda NULL hasta el mostrador. `UNIQUE(tipo_documento, numero_documento)`. El carné de BD2 desaparece: lo identifican la cuenta y el documento. |
 | `empleado` | RN-33, RN-34 | `rol` ENUM: `bibliotecario`, `coordinador`, `admin_red`. `CHECK`: `admin_red` ⇔ `id_sede IS NULL`. `activo` reemplaza a `EstadoEmpleado` de BD2. |
 | `prestamo_fisico` | RN-02 a RN-05, RN-13, RN-34 | Estado **calculado**: devuelto / vencido / activo según las fechas. `renovaciones` como contador (RN-04); la fecha de vencimiento se corre al renovar. |
@@ -336,26 +344,31 @@ erDiagram
 - Vencimiento perezoso de reservas y pedidos → RN-48.
 - Declaración de ejemplar perdido por un empleado, desde una lista calculada → RN-49.
 
-### Cambios planificados para "Mi cuenta" (paso R7, fase aparte "Mi cuenta y lector EPUB")
+### Cambios para "Mi cuenta" (aplicados en R7a, 2026-11-01)
 
-Derivados de RN-76 a RN-82 y DI-04. **Todavía no están en `db/init/01_schema.sql`**: se aplican en R7 y se reconstruye
-la BD.
+Derivados de RN-76 a RN-82 y DI-04. Están en `db/init/01_schema.sql` desde R7a (se reconstruye la BD). Diferencias con
+lo planificado: la semilla la genera MySQL con un `DEFAULT` (así toda cuenta nueva la tiene sin depender del código, y
+"generar otro" es `SET avatar_semilla = DEFAULT`), y el tema son **dos** columnas porque la Fase A separó la base y la
+lámpara (decidido con el usuario el 2026-11-01).
 
 | Tabla | Cambio | Regla |
 |---|---|---|
 | `cuenta` | `avatar_estilo VARCHAR(40) NOT NULL`: estilo de DiceBear, de la lista permitida | RN-81 |
-| `cuenta` | `avatar_semilla CHAR(22) NOT NULL`: semilla aleatoria (16 bytes en base64url), no derivada de datos de la persona | RN-81 |
+| `cuenta` | `avatar_semilla CHAR(22) NOT NULL DEFAULT (…RANDOM_BYTES(16)…)`: semilla aleatoria (16 bytes en base64url), no derivada de datos de la persona | RN-81 |
 | `cuenta` | `avatar_clave VARCHAR(255) NULL` + `UNIQUE`: nombre aleatorio de la foto en el almacenamiento privado. **NULL = usa el generado** (se deduce, no hay columna de tipo; C-02) | RN-82 |
-| `cuenta` | `tema ENUM('claro', 'oscuro', 'lampara') NULL`: preferencia guardada en la cuenta. NULL = sin preferencia, manda la cookie | DI-04 |
+| `cuenta` | `tema_base ENUM('claro', 'oscuro') NULL` y `lampara BOOLEAN NULL`: las mismas dos preferencias que las cookies de la Fase A. NULL = sin preferencia, manda la cookie | DI-04 |
 | `token_cuenta` | `tipo` suma `'cambiar_correo'`; nueva columna `correo_nuevo VARCHAR(254) NULL` con `CHECK ((tipo = 'cambiar_correo') = (correo_nuevo IS NOT NULL))` | RN-79 |
-| `configuracion` | `minutos_recuperacion_contrasena` (60), `max_kb_avatar` (2048). `dias_aviso_vencimiento` (3) se adelantó a R5b (2026-10-29) y ya está en el esquema | RN-80, RN-82 |
+| `configuracion` | `minutos_recuperacion_contrasena` (60), `max_kb_avatar` (2048), con `CHECK > 0`. `dias_aviso_vencimiento` (3) se adelantó a R5b (2026-10-29) | RN-80, RN-82 |
 
 Por qué el avatar va en `cuenta` y no en `lector`: representa a la **persona** (RN-31), y los empleados también lo tienen.
 El estilo y la semilla se guardan aunque haya foto, para que "volver al generado" recupere el mismo avatar.
 
-Nota técnica para R7: volver a codificar la foto (RN-82) necesita una librería de imágenes en el servidor. `sharp` es
-la habitual (Next la usa para `next/image`), pero hoy su compilación está desactivada en `pnpm-workspace.yaml`
-(`allowBuilds: sharp: false`). Hay que decidirlo en R7.
+La lista de estilos permitidos está en `lib/avatar.ts` y no en una tabla: cada estilo es un archivo del paquete
+instalado, así que agregar uno exige código.
+
+Nota técnica para R7g: volver a codificar la foto (RN-82) usa `sharp`. Decidido el 2026-11-01: declararlo como
+dependencia directa con la misma versión que trae Next (0.35.4). `allowBuilds: sharp: false` en `pnpm-workspace.yaml`
+se queda: solo omite su script de instalación, y el binario precompilado (`@img/sharp-linux-x64`) funciona sin él.
 
 ## Bloque 3 — Operación de sede: traslados y auditorías
 
