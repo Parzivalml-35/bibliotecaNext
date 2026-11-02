@@ -2,12 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { hashearContrasena, verificarContrasena } from "@/lib/contrasenas";
-import { ipDeLaPeticion } from "@/lib/actions/reglas";
+import { ipDeLaPeticion, operar } from "@/lib/actions/reglas";
 import { anotarIntento, loginBloqueado } from "@/lib/data/intentos";
-import { buscarCuentaPorCorreo } from "@/lib/data/sesiones";
+import { buscarCuentaPorCorreo, cambiarContrasenaYCerrarOtras } from "@/lib/data/sesiones";
 import type { EstadoFormulario } from "@/lib/definitions";
 import { inicioDe } from "@/lib/permisos";
-import { cerrarSesion, crearSesion, rutaInterna } from "@/lib/sesion";
+import { cerrarSesion, crearSesion, hashDeLaSesionActual, obtenerUsuario, rutaInterna } from "@/lib/sesion";
 
 // "use server" convierte CADA función exportada de este archivo en un endpoint al que cualquiera puede
 // hacer POST, no solo nuestro formulario. Por eso se valida todo lo que llega y no se exportan ayudantes.
@@ -64,4 +64,52 @@ export async function salir(): Promise<void> {
   // No exige estar conectado: si no hay sesión, no hay nada que borrar.
   await cerrarSesion();
   redirect("/");
+}
+
+// RN-78: cambiar la contraseña desde una sesión abierta. Es de la CUENTA (RN-31), no del perfil: por eso pide
+// cualquier sesión (obtenerUsuario) y no exigirLector; el panel la reutilizará para los empleados (R7i).
+export async function cambiarContrasena(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const usuario = await obtenerUsuario();
+  if (!usuario) redirect("/login");
+  const actual = String(datos.get("contrasena_actual") ?? "");
+  const nueva = String(datos.get("contrasena_nueva") ?? "");
+  const confirmacion = String(datos.get("contrasena_confirmacion") ?? "");
+  // Sin `valores`: ninguna contraseña vuelve al navegador. Tras la acción, React vacía los campos.
+
+  if (!actual) return { error: "Escribe tu contraseña actual." };
+  if (nueva.length < 12 || nueva.length > 256) return { error: "La contraseña nueva debe tener al menos 12 caracteres." }; // RN-70
+  // RN-78: escrita dos veces, para no quedar con una contraseña que nadie sabe por un error al teclear.
+  if (nueva !== confirmacion) return { error: "Las dos contraseñas nuevas no coinciden." };
+  // RN-78: distinta de la actual (cambiarla por la misma no protege nada). Se comparan los dos textos del formulario,
+  // con la misma normalización NFC que usa scrypt (lib/contrasenas.ts): "ñ" escrita de dos formas cuenta como igual.
+  // No revela nada: si `actual` no fuera la correcta, la comparación solo dice que el usuario escribió lo mismo dos veces.
+  if (nueva.normalize("NFC") === actual.normalize("NFC")) return { error: "La contraseña nueva debe ser distinta de la actual." };
+  if (actual.length > 256) return { error: "La contraseña actual no es correcta." };
+
+  // RN-73: un fallo aquí cuenta como fallo de inicio de sesión del correo de la cuenta. Así, quien encuentre una
+  // sesión ajena abierta tiene los mismos 5 intentos que en el login, y el bloqueo se comprueba ANTES de scrypt.
+  const ip = await ipDeLaPeticion();
+  if (await loginBloqueado(usuario.correo, ip)) {
+    return { error: "Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo." };
+  }
+  const cuenta = await buscarCuentaPorCorreo(usuario.correo);
+  const correcta = cuenta !== null && (await verificarContrasena(actual, cuenta.password_hash));
+  await anotarIntento("login", usuario.correo, ip, correcta);
+  // Aquí sí se puede decir cuál falló: quien pregunta ya está dentro de la cuenta, no se revela nada nuevo.
+  if (!cuenta || !correcta) return { error: "La contraseña actual no es correcta." };
+
+  const tokenHashActual = await hashDeLaSesionActual();
+  if (!tokenHashActual) redirect("/login"); // no debería pasar: obtenerUsuario ya leyó la cookie
+  const passwordHash = await hashearContrasena(nueva); // RN-62. ~300 ms: fuera de la transacción
+
+  return operar(
+    {},
+    async (conexion) => {
+      const cerradas = await cambiarContrasenaYCerrarOtras(conexion, usuario.idCuenta, passwordHash, tokenHashActual);
+      return cerradas === 0
+        ? "Contraseña cambiada."
+        : `Contraseña cambiada. Cerramos tu sesión en ${cerradas === 1 ? "otro dispositivo" : `${cerradas} dispositivos más`}.`;
+    },
+    [], // nada que revalidar: ninguna página muestra la contraseña ni las sesiones
+  );
 }

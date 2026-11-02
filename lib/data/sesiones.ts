@@ -1,5 +1,5 @@
 import "server-only";
-import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
+import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
 import type { RolEmpleado } from "@/lib/definitions";
 
@@ -76,4 +76,20 @@ export async function buscarSesionVigente(tokenHash: string) {
 export async function borrarSesion(tokenHash: string): Promise<boolean> {
   const [resultado] = await pool.execute<ResultSetHeader>("DELETE FROM sesion WHERE token_hash = ?", [tokenHash]);
   return resultado.affectedRows > 0;
+}
+
+// RN-78: contraseña nueva y cierre de las DEMÁS sesiones, en la misma transacción (o las dos cosas, o ninguna).
+// `tokenHashActual` es la sesión que se conserva: la del navegador que hizo el cambio. Devuelve cuántas se cerraron.
+export async function cambiarContrasenaYCerrarOtras(
+  conexion: PoolConnection,
+  idCuenta: number,
+  passwordHash: string,
+  tokenHashActual: string,
+): Promise<number> {
+  await conexion.execute("UPDATE cuenta SET password_hash = ? WHERE id_cuenta = ?", [passwordHash, idCuenta]);
+  const [resultado] = await conexion.execute<ResultSetHeader>(
+    "DELETE FROM sesion WHERE id_cuenta = ? AND token_hash <> ?",
+    [idCuenta, tokenHashActual],
+  );
+  return resultado.affectedRows;
 }

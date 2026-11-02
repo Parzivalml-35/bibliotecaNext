@@ -34,6 +34,13 @@ export async function crearSesion(idCuenta: number): Promise<void> {
   });
 }
 
+// RN-78: el hash de la sesión de este navegador, para conservarla al cerrar las demás. null si no hay cookie.
+// Devuelve el hash, no el token: el token solo vive en la cookie y nunca sale de este archivo.
+export async function hashDeLaSesionActual(): Promise<string | null> {
+  const token = (await cookies()).get(NOMBRE_COOKIE)?.value;
+  return token ? hashDeToken(token) : null;
+}
+
 export async function cerrarSesion(): Promise<void> {
   const almacen = await cookies();
   const token = almacen.get(NOMBRE_COOKIE)?.value;
