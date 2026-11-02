@@ -19,11 +19,13 @@ import {
   usarTokenYVerificar,
 } from "@/lib/data/lectores";
 import type { EstadoFormulario } from "@/lib/definitions";
-import { empleadoDeMostrador, enviarCorreo, ErrorDeRegla, idDe, ipDeLaPeticion, operar, texto, TIPOS_DOCUMENTO } from "@/lib/actions/reglas";
+import { empleadoDeMostrador, enviarCorreo, ErrorDeRegla, errorDeContrasenaActual, idDe, ipDeLaPeticion, operar, texto, TIPOS_DOCUMENTO } from "@/lib/actions/reglas";
 import { anotarIntento, registroBloqueado } from "@/lib/data/intentos";
-import { exigirLector } from "@/lib/sesion";
+import { bloquearTokenCambioCorreo, correoOcupado, crearTokenCambioCorreo, usarTokenYCambiarCorreo } from "@/lib/data/sesiones";
+import { exigirLector, obtenerUsuario } from "@/lib/sesion";
 
-// Registro y verificación de lectores (D-02, RN-32, RN-70), validación en mostrador (D-03) y perfil (RN-77).
+// Registro y verificación de lectores (D-02, RN-32, RN-70), validación en mostrador (D-03), perfil (RN-77) y
+// cambio de correo (RN-79).
 
 const hashDeToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -202,5 +204,66 @@ export async function actualizarContacto(_estadoAnterior: EstadoFormulario, dato
       return "Datos guardados.";
     },
     ["/cuenta/perfil"],
+  );
+}
+
+// RN-79, paso 1: pedir el cambio de correo. Exige la contraseña actual (RN-73, como RN-78) y envía un enlace AL CORREO
+// NUEVO: así se comprueba que la persona lo controla. Hasta que lo abra, la cuenta sigue con el correo anterior.
+// Es de la cuenta (RN-31): pide cualquier sesión, no exigirLector.
+export async function solicitarCambioCorreo(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const usuario = await obtenerUsuario();
+  if (!usuario) redirect("/login");
+  const correoNuevo = texto(datos, "correo_nuevo").toLowerCase();
+  const contrasena = String(datos.get("contrasena_actual") ?? "");
+  const valores = { correo_nuevo: correoNuevo }; // la contraseña nunca vuelve
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoNuevo) || correoNuevo.length > 254) return { error: "Escribe un correo válido.", valores };
+  if (correoNuevo === usuario.correo) return { error: "Ese ya es el correo de tu cuenta.", valores };
+  const error = await errorDeContrasenaActual(usuario.correo, contrasena);
+  if (error) return { error, valores };
+
+  const origen = (await headers()).get("origin") ?? "http://localhost:3000";
+  const token = randomBytes(32).toString("base64url");
+  // Mismo mensaje haya o no otra cuenta con ese correo (RN-79, como RN-70): la respuesta no revela qué correos
+  // están registrados. Si está ocupado, simplemente no se crea el enlace.
+  const respuesta = `Si ${correoNuevo} puede usarse, te enviamos ahí un enlace para confirmar el cambio. Hasta que lo abras, tu correo sigue siendo ${usuario.correo}.`;
+  return operar(
+    valores,
+    async (conexion) => {
+      if (await correoOcupado(conexion, correoNuevo)) return respuesta;
+      const horas = await crearTokenCambioCorreo(conexion, usuario.idCuenta, correoNuevo, hashDeToken(token));
+      enviarCorreo(correoNuevo, "Confirma tu nuevo correo",
+        `Para usar este correo en tu cuenta de la biblioteca, abre este enlace en las próximas ${horas} horas:\n${origen}/confirmar-correo?token=${token}\nSi no lo pediste, ignora este mensaje.`);
+      return respuesta;
+    },
+    [],
+  );
+}
+
+// RN-79, paso 2: el POST del botón de /confirmar-correo (abrir el enlace no cambia nada, RN-32). No exige sesión:
+// el enlace puede abrirse en otro dispositivo, y lo que prueba quién es la persona es el token, que solo llegó al
+// correo nuevo. Se comprueba OTRA VEZ que el correo sigue libre: pudo registrarse alguien con él mientras tanto.
+export async function confirmarCambioCorreo(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const token = texto(datos, "token");
+  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return { error: "El enlace no es válido." };
+
+  return operar(
+    {},
+    async (conexion) => {
+      const fila = await bloquearTokenCambioCorreo(conexion, hashDeToken(token));
+      if (!fila || fila.desactivada) throw new ErrorDeRegla("El enlace no es válido.");
+      if (fila.usado) throw new ErrorDeRegla("Este enlace ya se usó.");
+      if (!fila.vigente) throw new ErrorDeRegla("El enlace venció. Pide el cambio otra vez desde Seguridad.");
+      if (await correoOcupado(conexion, fila.correo_nuevo)) {
+        throw new ErrorDeRegla("Ese correo ya no está disponible. Tu cuenta sigue con el correo anterior.");
+      }
+      await usarTokenYCambiarCorreo(conexion, fila.id_token, fila.id_cuenta, fila.correo_nuevo);
+      // Aviso al correo ANTERIOR: si no fue su dueño quien hizo el cambio, así se entera (RN-79).
+      enviarCorreo(fila.correo_actual, "Tu correo cambió",
+        `El correo de tu cuenta de la biblioteca cambió a ${fila.correo_nuevo}. Si no fuiste tú, acércate a cualquier sede.`);
+      return `Listo: tu cuenta ahora usa ${fila.correo_nuevo}. Úsalo para iniciar sesión.`;
+    },
+    // "/" con "layout": todo el sitio, porque el correo aparece en el menú de la cuenta de la barra superior.
+    ["/"],
   );
 }

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { hashearContrasena, verificarContrasena } from "@/lib/contrasenas";
-import { ipDeLaPeticion, operar } from "@/lib/actions/reglas";
+import { errorDeContrasenaActual, ipDeLaPeticion, operar } from "@/lib/actions/reglas";
 import { anotarIntento, loginBloqueado } from "@/lib/data/intentos";
 import { buscarCuentaPorCorreo, cambiarContrasenaYCerrarOtras } from "@/lib/data/sesiones";
 import type { EstadoFormulario } from "@/lib/definitions";
@@ -76,7 +76,6 @@ export async function cambiarContrasena(_estadoAnterior: EstadoFormulario, datos
   const confirmacion = String(datos.get("contrasena_confirmacion") ?? "");
   // Sin `valores`: ninguna contraseña vuelve al navegador. Tras la acción, React vacía los campos.
 
-  if (!actual) return { error: "Escribe tu contraseña actual." };
   if (nueva.length < 12 || nueva.length > 256) return { error: "La contraseña nueva debe tener al menos 12 caracteres." }; // RN-70
   // RN-78: escrita dos veces, para no quedar con una contraseña que nadie sabe por un error al teclear.
   if (nueva !== confirmacion) return { error: "Las dos contraseñas nuevas no coinciden." };
@@ -84,19 +83,10 @@ export async function cambiarContrasena(_estadoAnterior: EstadoFormulario, datos
   // con la misma normalización NFC que usa scrypt (lib/contrasenas.ts): "ñ" escrita de dos formas cuenta como igual.
   // No revela nada: si `actual` no fuera la correcta, la comparación solo dice que el usuario escribió lo mismo dos veces.
   if (nueva.normalize("NFC") === actual.normalize("NFC")) return { error: "La contraseña nueva debe ser distinta de la actual." };
-  if (actual.length > 256) return { error: "La contraseña actual no es correcta." };
 
-  // RN-73: un fallo aquí cuenta como fallo de inicio de sesión del correo de la cuenta. Así, quien encuentre una
-  // sesión ajena abierta tiene los mismos 5 intentos que en el login, y el bloqueo se comprueba ANTES de scrypt.
-  const ip = await ipDeLaPeticion();
-  if (await loginBloqueado(usuario.correo, ip)) {
-    return { error: "Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo." };
-  }
-  const cuenta = await buscarCuentaPorCorreo(usuario.correo);
-  const correcta = cuenta !== null && (await verificarContrasena(actual, cuenta.password_hash));
-  await anotarIntento("login", usuario.correo, ip, correcta);
-  // Aquí sí se puede decir cuál falló: quien pregunta ya está dentro de la cuenta, no se revela nada nuevo.
-  if (!cuenta || !correcta) return { error: "La contraseña actual no es correcta." };
+  // RN-73 y la contraseña actual, como en el login (ver errorDeContrasenaActual).
+  const error = await errorDeContrasenaActual(usuario.correo, actual);
+  if (error) return { error };
 
   const tokenHashActual = await hashDeLaSesionActual();
   if (!tokenHashActual) redirect("/login"); // no debería pasar: obtenerUsuario ya leyó la cookie

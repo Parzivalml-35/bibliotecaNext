@@ -20,6 +20,9 @@ import {
   vencerReservasDigitales,
   type LoteConUso,
 } from "@/lib/data/digital";
+import { verificarContrasena } from "@/lib/contrasenas";
+import { anotarIntento, loginBloqueado } from "@/lib/data/intentos";
+import { buscarCuentaPorCorreo } from "@/lib/data/sesiones";
 import { enTransaccion } from "@/lib/db";
 import type { EstadoFormulario } from "@/lib/definitions";
 import { exigirEmpleado } from "@/lib/sesion";
@@ -185,6 +188,21 @@ export async function cancelarOtrasReservasDeLaObra(
 export async function ipDeLaPeticion(): Promise<string> {
   const lista = (await headers()).get("x-forwarded-for") ?? "";
   return lista.split(",").map((parte) => parte.trim()).filter(Boolean).at(-1)?.slice(0, 45) ?? "desconocida";
+}
+
+// RN-78, RN-79: confirmar la contraseña actual dentro de una sesión abierta (cambiar contraseña o correo). Cuenta como
+// un inicio de sesión para RN-73: el bloqueo se mira ANTES de scrypt y el resultado se anota con el correo de la cuenta.
+// Así, quien encuentre una sesión ajena abierta tiene los mismos intentos que en el login. Devuelve el mensaje de
+// error o null si es correcta. Aquí sí se dice qué falló: quien pregunta ya está dentro de la cuenta.
+export async function errorDeContrasenaActual(correo: string, contrasena: string): Promise<string | null> {
+  if (!contrasena) return "Escribe tu contraseña actual.";
+  if (contrasena.length > 256) return "La contraseña actual no es correcta.";
+  const ip = await ipDeLaPeticion();
+  if (await loginBloqueado(correo, ip)) return "Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.";
+  const cuenta = await buscarCuentaPorCorreo(correo);
+  const correcta = cuenta !== null && (await verificarContrasena(contrasena, cuenta.password_hash));
+  await anotarIntento("login", correo, ip, correcta);
+  return correcta ? null : "La contraseña actual no es correcta.";
 }
 
 // "Enviar" un correo: no hay proveedor de correo todavía (RN-70), así que se escribe en la consola del

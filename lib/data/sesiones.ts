@@ -93,3 +93,65 @@ export async function cambiarContrasenaYCerrarOtras(
   );
   return resultado.affectedRows;
 }
+
+// ---------------------------------------------------------------------
+// Cambio de correo (RN-79)
+// ---------------------------------------------------------------------
+
+// ¿Hay ya una cuenta con ese correo? FOR SHARE: dentro de la transacción, nadie puede tomar el correo hasta que
+// esta termine. Desactivadas incluidas: su correo sigue ocupado (UNIQUE de cuenta.correo).
+export async function correoOcupado(conexion: PoolConnection, correo: string): Promise<boolean> {
+  const [filas] = await conexion.execute<RowDataPacket[]>("SELECT 1 FROM cuenta WHERE correo = ? FOR SHARE", [correo]);
+  return filas.length > 0;
+}
+
+// Una solicitud nueva reemplaza a las anteriores sin usar: solo vale el último enlace, el del correo que el usuario
+// escribió por última vez. Devuelve las horas de validez (RN-70), para el texto del correo.
+export async function crearTokenCambioCorreo(
+  conexion: PoolConnection,
+  idCuenta: number,
+  correoNuevo: string,
+  tokenHash: string,
+): Promise<number> {
+  await conexion.execute(
+    "DELETE FROM token_cuenta WHERE id_cuenta = ? AND tipo = 'cambiar_correo' AND usado_en IS NULL",
+    [idCuenta],
+  );
+  await conexion.execute(
+    `INSERT INTO token_cuenta (id_cuenta, token_hash, tipo, correo_nuevo, expira_en)
+     SELECT ?, ?, 'cambiar_correo', ?, NOW() + INTERVAL horas_verificacion_correo HOUR FROM configuracion`,
+    [idCuenta, tokenHash, correoNuevo],
+  );
+  const [filas] = await conexion.execute<({ horas_verificacion_correo: number } & RowDataPacket)[]>(
+    "SELECT horas_verificacion_correo FROM configuracion",
+  );
+  return filas[0].horas_verificacion_correo;
+}
+
+type FilaTokenCorreo = {
+  id_token: number;
+  id_cuenta: number;
+  correo_nuevo: string;
+  correo_actual: string;
+  vigente: number;
+  usado: number;
+  desactivada: number;
+} & RowDataPacket;
+
+// FOR UPDATE OF t: bloquea el token (dos clics a la vez no lo usan dos veces) y la fila de la cuenta, que se va a cambiar.
+export async function bloquearTokenCambioCorreo(conexion: PoolConnection, tokenHash: string) {
+  const [filas] = await conexion.execute<FilaTokenCorreo[]>(
+    `SELECT t.id_token, t.id_cuenta, t.correo_nuevo, c.correo AS correo_actual,
+            t.expira_en > NOW() AS vigente, t.usado_en IS NOT NULL AS usado, c.fecha_desactivacion IS NOT NULL AS desactivada
+     FROM token_cuenta t JOIN cuenta c ON c.id_cuenta = t.id_cuenta
+     WHERE t.token_hash = ? AND t.tipo = 'cambiar_correo'
+     FOR UPDATE OF t, c`,
+    [tokenHash],
+  );
+  return filas[0] ?? null;
+}
+
+export async function usarTokenYCambiarCorreo(conexion: PoolConnection, idToken: number, idCuenta: number, correoNuevo: string) {
+  await conexion.execute("UPDATE token_cuenta SET usado_en = NOW() WHERE id_token = ? AND usado_en IS NULL", [idToken]);
+  await conexion.execute("UPDATE cuenta SET correo = ? WHERE id_cuenta = ?", [correoNuevo, idCuenta]);
+}

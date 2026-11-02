@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { claseBoton, claseCampo, claseEtiqueta, MensajeFormulario } from "@/components/ui-formulario";
+import { confirmarCambioCorreo, solicitarCambioCorreo } from "@/lib/actions/cuenta";
 import { cambiarContrasena } from "@/lib/actions/sesion";
 import type { EstadoFormulario } from "@/lib/definitions";
 
@@ -41,6 +42,48 @@ export function FormularioContrasena({ correo }: { correo: string }) {
       <button type="submit" disabled={pendiente} className={claseBoton}>
         {pendiente ? "Cambiando…" : "Cambiar contraseña"}
       </button>
+    </form>
+  );
+}
+
+// RN-79, paso 1. El correo nuevo vuelve tras un error (estado.valores) para no tener que escribirlo otra vez.
+// Tras pedir el cambio, el formulario muestra el aviso y no se oculta: se puede pedir otro enlace (reemplaza al anterior).
+export function FormularioCorreo() {
+  const [estado, accion, pendiente] = useActionState(solicitarCambioCorreo, estadoInicial);
+  return (
+    <form action={accion} className="space-y-4">
+      <div>
+        <label htmlFor="correo_nuevo" className={claseEtiqueta}>Correo nuevo</label>
+        {/* autoComplete="email" y no "username": es un dato que se escribe, no la cuenta con la que se entra hoy. */}
+        <input id="correo_nuevo" name="correo_nuevo" type="email" required maxLength={254} autoComplete="email"
+               defaultValue={estado.valores?.correo_nuevo} className={claseCampo} />
+      </div>
+      <div>
+        {/* id distinto del formulario de contraseña: los dos viven en la misma página y un id se repite una sola vez. */}
+        <label htmlFor="contrasena_actual_correo" className={claseEtiqueta}>Contraseña actual</label>
+        <input id="contrasena_actual_correo" name="contrasena_actual" type="password" required autoComplete="current-password"
+               className={claseCampo} />
+      </div>
+      <MensajeFormulario estado={estado} />
+      <button type="submit" disabled={pendiente} className={claseBoton}>
+        {pendiente ? "Enviando…" : "Enviar enlace de confirmación"}
+      </button>
+    </form>
+  );
+}
+
+// RN-79, paso 2, como FormularioVerificar (RN-32): el token llega en la URL, pero solo se usa con este POST.
+export function FormularioConfirmarCorreo({ token }: { token: string }) {
+  const [estado, accion, pendiente] = useActionState(confirmarCambioCorreo, estadoInicial);
+  return (
+    <form action={accion} className="space-y-4">
+      <input type="hidden" name="token" value={token} />
+      <MensajeFormulario estado={estado} />
+      {!estado.exito && (
+        <button type="submit" disabled={pendiente} className={claseBoton}>
+          {pendiente ? "Confirmando…" : "Confirmar el nuevo correo"}
+        </button>
+      )}
     </form>
   );
 }
