@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 // DI-10 (resuelve UX-04): las pestañas de "Mi cuenta". Son las mismas para todo lector, así que no dependen de la
-// sesión ni del rol: una lista fija. Perfil y Seguridad se agregan en R7, cuando existan sus páginas.
+// sesión ni del rol: una lista fija. Seguridad se agrega en R7c, cuando exista su página.
 const PESTANAS = [
   { titulo: "Resumen", ruta: "/cuenta" },
   { titulo: "Préstamos y reservas", ruta: "/cuenta/prestamos" },
   { titulo: "Digitales", ruta: "/cuenta/digitales" },
   { titulo: "Multas", ruta: "/cuenta/multas" },
+  { titulo: "Perfil", ruta: "/cuenta/perfil" },
 ];
 
 // Client Component solo por usePathname, como NavegacionPanel: el layout no se vuelve a renderizar al navegar y no

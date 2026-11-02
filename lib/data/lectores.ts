@@ -102,6 +102,48 @@ export async function usarTokenYVerificar(conexion: Conexion, idToken: number, i
 }
 
 // ---------------------------------------------------------------------
+// Perfil del lector (RN-77)
+// ---------------------------------------------------------------------
+
+export type PerfilLector = {
+  nombre: string;
+  apellido: string;
+  correo: string;
+  fecha_nacimiento: string; // AAAA-MM-DD (DATE_FORMAT: sin la conversión a Date de mysql2 ni su zona horaria)
+  tipo_documento: string;
+  numero_documento: string;
+  telefono: string;
+  calle: string;
+  codigo_postal: string | null;
+  id_ciudad: number;
+};
+
+// Lo que muestra /cuenta/perfil: los datos verificados (solo lectura) y los de contacto (editables).
+export async function obtenerPerfilDeLector(idLector: number): Promise<PerfilLector | null> {
+  const [filas] = await pool.execute<(PerfilLector & RowDataPacket)[]>(
+    `SELECT l.nombre, l.apellido, c.correo, DATE_FORMAT(l.fecha_nacimiento, '%Y-%m-%d') AS fecha_nacimiento,
+            l.tipo_documento, l.numero_documento, l.telefono, l.calle, l.codigo_postal, l.id_ciudad
+     FROM lector l JOIN cuenta c ON c.id_cuenta = l.id_cuenta
+     WHERE l.id_lector = ?`,
+    [idLector],
+  );
+  return filas[0] ?? null;
+}
+
+// RN-77: el lector solo cambia su contacto. El SET nombra únicamente esas cuatro columnas: aunque el formulario
+// trajera un "nombre" o un "numero_documento" de más, esta sentencia no puede tocarlos.
+export async function actualizarContactoDeLector(
+  conexion: Conexion,
+  idLector: number,
+  datos: { telefono: string; calle: string; codigoPostal: string | null; idCiudad: number },
+) {
+  await conexion.execute(
+    "UPDATE lector SET telefono = ?, calle = ?, codigo_postal = ?, id_ciudad = ? WHERE id_lector = ?",
+    [datos.telefono, datos.calle, datos.codigoPostal, datos.idCiudad, idLector],
+  );
+}
+
+// ---------------------------------------------------------------------
 // Resumen de un lector: "Mi cuenta" y ficha en mostrador
 // ---------------------------------------------------------------------
 

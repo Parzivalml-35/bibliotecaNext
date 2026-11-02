@@ -7,6 +7,7 @@ import { estiloAlAzar } from "@/lib/avatar";
 import { hashearContrasena } from "@/lib/contrasenas";
 import { enTransaccion } from "@/lib/db";
 import {
+  actualizarContactoDeLector,
   bloquearLectorAValidar,
   bloquearTokenDeVerificacion,
   correoDelDocumento,
@@ -20,8 +21,9 @@ import {
 import type { EstadoFormulario } from "@/lib/definitions";
 import { empleadoDeMostrador, enviarCorreo, ErrorDeRegla, idDe, ipDeLaPeticion, operar, texto, TIPOS_DOCUMENTO } from "@/lib/actions/reglas";
 import { anotarIntento, registroBloqueado } from "@/lib/data/intentos";
+import { exigirLector } from "@/lib/sesion";
 
-// Registro y verificación de lectores (D-02, RN-32, RN-70) y validación en mostrador (D-03).
+// Registro y verificación de lectores (D-02, RN-32, RN-70), validación en mostrador (D-03) y perfil (RN-77).
 
 const hashDeToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -36,6 +38,17 @@ function edadCumplida(nacimiento: string): number | null {
     || (hoy.getUTCMonth() === fecha.getUTCMonth() && hoy.getUTCDate() < fecha.getUTCDate());
   if (antesDelCumple) edad--;
   return edad >= 0 && edad <= 120 ? edad : null;
+}
+
+// RN-74, RN-77: teléfono y dirección se validan igual en el registro y en el perfil. Una sola función para que las
+// dos no se separen con el tiempo. Devuelve el mensaje del primer error o null. Sin export: en un archivo
+// "use server" cada export se vuelve una acción que el navegador puede llamar.
+function errorDeContacto(telefono: string, calle: string, codigoPostal: string, idCiudad: number | null): string | null {
+  if (!/^\+?[0-9 ]{7,20}$/.test(telefono)) return "Escribe un teléfono válido (solo números y espacios).";
+  if (!calle || calle.length > 120) return "Escribe tu dirección.";
+  if (codigoPostal && !/^[0-9]{4,10}$/.test(codigoPostal)) return "El código postal no es válido.";
+  if (!idCiudad) return "Elige tu ciudad.";
+  return null;
 }
 
 export async function registrarLector(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
@@ -66,10 +79,9 @@ export async function registrarLector(_estadoAnterior: EstadoFormulario, datos: 
   if (!/^[A-Z0-9]{3,20}$/.test(numeroDocumento)) return { error: "El número de documento no es válido (solo letras y números).", valores };
   if (tipoDocumento === "CC" && edad < 18) return { error: "La cédula de ciudadanía es para mayores de 18 años; si eres menor, usa tu tarjeta de identidad.", valores };
   if (tipoDocumento === "TI" && edad >= 18) return { error: "La tarjeta de identidad es para menores de 18 años; usa tu cédula.", valores };
-  if (!/^\+?[0-9 ]{7,20}$/.test(telefono)) return { error: "Escribe un teléfono válido (solo números y espacios).", valores };
-  if (!calle || calle.length > 120) return { error: "Escribe tu dirección.", valores };
-  if (codigoPostal && !/^[0-9]{4,10}$/.test(codigoPostal)) return { error: "El código postal no es válido.", valores };
-  if (!idCiudad) return { error: "Elige tu ciudad.", valores };
+  const errorContacto = errorDeContacto(telefono, calle, codigoPostal, idCiudad);
+  // `|| !idCiudad`: errorDeContacto ya lo comprueba, pero TypeScript no lo sabe; así idCiudad queda como number.
+  if (errorContacto || !idCiudad) return { error: errorContacto ?? "Elige tu ciudad.", valores };
 
   // RN-73: un límite de registros por IP frena la creación masiva de cuentas (y de "correos" enviados).
   const ip = await ipDeLaPeticion();
@@ -166,4 +178,29 @@ export async function validarLector(_estadoAnterior: EstadoFormulario, datos: Fo
     }
     return `${lector.nombre} quedó validado: ya puede llevarse libros.`;
   });
+}
+
+// RN-77: el lector cambia su teléfono y su dirección desde "Mi cuenta". El idLector sale de la sesión, nunca del
+// formulario: así nadie puede cambiar los datos de otro lector mandando otro id (RN-35).
+export async function actualizarContacto(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const lector = await exigirLector();
+  const telefono = texto(datos, "telefono");
+  const calle = texto(datos, "calle");
+  const codigoPostal = texto(datos, "codigo_postal");
+  const idCiudad = idDe(datos, "id_ciudad");
+  const valores = { telefono, calle, codigo_postal: codigoPostal, id_ciudad: texto(datos, "id_ciudad") };
+
+  const errorContacto = errorDeContacto(telefono, calle, codigoPostal, idCiudad);
+  // `|| !idCiudad`: errorDeContacto ya lo comprueba, pero TypeScript no lo sabe; así idCiudad queda como number.
+  if (errorContacto || !idCiudad) return { error: errorContacto ?? "Elige tu ciudad.", valores };
+
+  return operar(
+    valores,
+    async (conexion) => {
+      if (!(await existeCiudad(conexion, idCiudad))) throw new ErrorDeRegla("Elige tu ciudad.");
+      await actualizarContactoDeLector(conexion, lector.idLector, { telefono, calle, codigoPostal: codigoPostal || null, idCiudad });
+      return "Datos guardados.";
+    },
+    ["/cuenta/perfil"],
+  );
 }
