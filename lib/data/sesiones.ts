@@ -53,6 +53,8 @@ type FilaSesion = {
   id_lector: number | null;
   nombre_lector: string | null;
   verificada: number;
+  avatar_estilo: string;
+  avatar_semilla: string;
 } & RowDataPacket;
 
 // RN-64 en una sola consulta: la sesión existe, no venció y la cuenta no está desactivada. El empleado
@@ -61,7 +63,8 @@ type FilaSesion = {
 export async function buscarSesionVigente(tokenHash: string) {
   const [filas] = await pool.execute<FilaSesion[]>(
     `SELECT c.id_cuenta, c.correo, e.id_empleado, e.nombre, e.apellido, e.rol, e.id_sede, sd.nombre AS sede,
-            lc.id_lector, CONCAT(lc.nombre, ' ', lc.apellido) AS nombre_lector, c.fecha_verificacion IS NOT NULL AS verificada
+            lc.id_lector, CONCAT(lc.nombre, ' ', lc.apellido) AS nombre_lector, c.fecha_verificacion IS NOT NULL AS verificada,
+            c.avatar_estilo, c.avatar_semilla
      FROM sesion s
      JOIN cuenta c ON c.id_cuenta = s.id_cuenta
      LEFT JOIN empleado e ON e.id_cuenta = c.id_cuenta AND e.activo

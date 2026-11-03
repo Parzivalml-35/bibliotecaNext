@@ -62,6 +62,7 @@ export const obtenerUsuario = cache(async (): Promise<UsuarioSesion | null> => {
   return {
     idCuenta: fila.id_cuenta,
     correo: fila.correo,
+    avatar: { estilo: fila.avatar_estilo, semilla: fila.avatar_semilla },
     empleado:
       fila.id_empleado === null
         ? null

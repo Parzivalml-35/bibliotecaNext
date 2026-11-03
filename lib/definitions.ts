@@ -87,6 +87,7 @@ export type RolEmpleado = "bibliotecario" | "coordinador" | "admin_red";
 export type UsuarioSesion = {
   idCuenta: number;
   correo: string;
+  avatar: { estilo: string; semilla: string }; // RN-81: de la cuenta, sea lector o empleado
   empleado: {
     idEmpleado: number;
     nombre: string;
