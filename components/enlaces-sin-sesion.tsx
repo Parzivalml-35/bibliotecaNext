@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 // Páginas desde las que no tiene sentido "volver" después de entrar.
-const SIN_VUELTA = ["/", "/login", "/registro", "/verificar"];
+const SIN_VUELTA = ["/", "/login", "/registro", "/verificar", "/recuperar", "/restablecer", "/confirmar-correo"];
 
 // DI-02 y RN-83: "Iniciar sesión" lleva la página actual en ?siguiente= para volver a ella al entrar.
 // Client Component por usePathname (el layout no conoce la ruta). La ruta no se valida aquí: la validan

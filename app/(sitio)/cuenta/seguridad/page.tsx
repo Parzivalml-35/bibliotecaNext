@@ -17,7 +17,7 @@ export default async function PaginaSeguridad() {
       <section aria-labelledby="contrasena" className="rounded-2xl border border-border bg-card p-5">
         <h2 id="contrasena" className="font-heading text-lg font-semibold">Contraseña</h2>
         <p className="mt-1 mb-4 text-sm text-muted-foreground">
-          Para cambiarla necesitas la actual.
+          Para cambiarla necesitas la actual. Si la olvidaste, cierra sesión y usa «¿Olvidaste tu contraseña?» en el inicio de sesión.
         </p>
         <FormularioContrasena correo={usuario.correo} />
       </section>

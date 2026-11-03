@@ -2,14 +2,14 @@
 
 import { useActionState } from "react";
 import { claseBoton, claseCampo, claseEtiqueta, MensajeFormulario } from "@/components/ui-formulario";
-import { confirmarCambioCorreo, solicitarCambioCorreo } from "@/lib/actions/cuenta";
+import { confirmarCambioCorreo, restablecerContrasena, solicitarCambioCorreo, solicitarRecuperacion } from "@/lib/actions/cuenta";
 import { cambiarContrasena } from "@/lib/actions/sesion";
 import type { EstadoFormulario } from "@/lib/definitions";
 
 const estadoInicial: EstadoFormulario = {};
 
-// Formularios de la seguridad de la CUENTA (RN-78, RN-79): sirven igual a un lector (/cuenta/seguridad) y a un
-// empleado (/panel/perfil, R7i). Client Components solo por useActionState.
+// Formularios de la seguridad de la CUENTA (RN-78, RN-79, RN-80): sirven igual a un lector (/cuenta/seguridad) y a un
+// empleado (/panel/perfil, R7i); los de recuperar, a cualquiera sin sesión. Client Components solo por useActionState.
 
 // RN-78. `correo` va en un campo oculto con autoComplete="username": así el gestor de contraseñas sabe de QUÉ cuenta
 // es la contraseña nueva y actualiza la entrada correcta en vez de crear una sin usuario.
@@ -84,6 +84,54 @@ export function FormularioConfirmarCorreo({ token }: { token: string }) {
           {pendiente ? "Confirmando…" : "Confirmar el nuevo correo"}
         </button>
       )}
+    </form>
+  );
+}
+
+// RN-80, paso 1. Si todo va bien, la acción redirige a /recuperar?enviado=1 (el mismo aviso para todos); este estado
+// solo trae errores de formato o del límite de solicitudes.
+export function FormularioRecuperar() {
+  const [estado, accion, pendiente] = useActionState(solicitarRecuperacion, estadoInicial);
+  return (
+    <form action={accion} className="space-y-4">
+      <div>
+        <label htmlFor="correo" className={claseEtiqueta}>Correo de tu cuenta</label>
+        <input id="correo" name="correo" type="email" required maxLength={254} autoComplete="email"
+               defaultValue={estado.valores?.correo} className={claseCampo} />
+      </div>
+      <MensajeFormulario estado={estado} />
+      <button type="submit" disabled={pendiente} className={`${claseBoton} w-full`}>
+        {pendiente ? "Enviando…" : "Enviar enlace"}
+      </button>
+    </form>
+  );
+}
+
+// RN-80, paso 2. Sin campo "usuario": aquí no se sabe el correo (el token no se consulta al pintar la página) y no
+// vale la pena revelarlo; el gestor de contraseñas igual ofrece guardar la nueva.
+export function FormularioRestablecer({ token }: { token: string }) {
+  const [estado, accion, pendiente] = useActionState(restablecerContrasena, estadoInicial);
+  if (estado.exito) return <MensajeFormulario estado={estado} />; // listo: ya no hay nada que enviar
+  return (
+    <form action={accion} className="space-y-4">
+      <input type="hidden" name="token" value={token} />
+      <div>
+        <label htmlFor="contrasena_nueva" className={claseEtiqueta}>Contraseña nueva</label>
+        <input id="contrasena_nueva" name="contrasena_nueva" type="password" required minLength={12} maxLength={256}
+               autoComplete="new-password" className={claseCampo} aria-describedby="ayuda-restablecer" />
+        <p id="ayuda-restablecer" className="mt-1 text-xs text-muted-foreground">
+          Mínimo 12 caracteres. Al guardarla se cierran todas las sesiones abiertas de tu cuenta.
+        </p>
+      </div>
+      <div>
+        <label htmlFor="contrasena_confirmacion" className={claseEtiqueta}>Repite la contraseña nueva</label>
+        <input id="contrasena_confirmacion" name="contrasena_confirmacion" type="password" required minLength={12} maxLength={256}
+               autoComplete="new-password" className={claseCampo} />
+      </div>
+      <MensajeFormulario estado={estado} />
+      <button type="submit" disabled={pendiente} className={`${claseBoton} w-full`}>
+        {pendiente ? "Guardando…" : "Guardar contraseña nueva"}
+      </button>
     </form>
   );
 }

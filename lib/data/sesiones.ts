@@ -155,3 +155,52 @@ export async function usarTokenYCambiarCorreo(conexion: PoolConnection, idToken:
   await conexion.execute("UPDATE token_cuenta SET usado_en = NOW() WHERE id_token = ? AND usado_en IS NULL", [idToken]);
   await conexion.execute("UPDATE cuenta SET correo = ? WHERE id_cuenta = ?", [correoNuevo, idCuenta]);
 }
+
+// ---------------------------------------------------------------------
+// Recuperar la contraseña (RN-80)
+// ---------------------------------------------------------------------
+
+// Como crearTokenCambioCorreo: pedir un enlace nuevo anula los anteriores sin usar (RN-80). Vence en
+// minutos_recuperacion_contrasena (C-04), mucho menos que la verificación: este enlace da control de la cuenta.
+export async function crearTokenRecuperacion(conexion: PoolConnection, idCuenta: number, tokenHash: string): Promise<number> {
+  await conexion.execute(
+    "DELETE FROM token_cuenta WHERE id_cuenta = ? AND tipo = 'recuperar_contrasena' AND usado_en IS NULL",
+    [idCuenta],
+  );
+  await conexion.execute(
+    `INSERT INTO token_cuenta (id_cuenta, token_hash, tipo, expira_en)
+     SELECT ?, ?, 'recuperar_contrasena', NOW() + INTERVAL minutos_recuperacion_contrasena MINUTE FROM configuracion`,
+    [idCuenta, tokenHash],
+  );
+  const [filas] = await conexion.execute<({ minutos_recuperacion_contrasena: number } & RowDataPacket)[]>(
+    "SELECT minutos_recuperacion_contrasena FROM configuracion",
+  );
+  return filas[0].minutos_recuperacion_contrasena;
+}
+
+type FilaTokenRecuperacion = { id_token: number; id_cuenta: number; vigente: number; usado: number; desactivada: number } & RowDataPacket;
+
+const SQL_TOKEN_RECUPERACION = `
+  SELECT t.id_token, t.id_cuenta, t.expira_en > NOW() AS vigente, t.usado_en IS NOT NULL AS usado,
+         c.fecha_desactivacion IS NOT NULL AS desactivada
+  FROM token_cuenta t JOIN cuenta c ON c.id_cuenta = t.id_cuenta
+  WHERE t.token_hash = ? AND t.tipo = 'recuperar_contrasena'`;
+
+// Sin candado: una mirada previa para no gastar scrypt (~300 ms) en enlaces que no sirven. La que manda es la de abajo.
+export async function consultarTokenRecuperacion(tokenHash: string) {
+  const [filas] = await pool.execute<FilaTokenRecuperacion[]>(SQL_TOKEN_RECUPERACION, [tokenHash]);
+  return filas[0] ?? null;
+}
+
+export async function bloquearTokenRecuperacion(conexion: PoolConnection, tokenHash: string) {
+  const [filas] = await conexion.execute<FilaTokenRecuperacion[]>(`${SQL_TOKEN_RECUPERACION} FOR UPDATE OF t, c`, [tokenHash]);
+  return filas[0] ?? null;
+}
+
+// RN-80: contraseña nueva, token usado y TODAS las sesiones cerradas (a diferencia de RN-78, aquí no hay una sesión
+// "propia" que conservar: quien recupera no tenía la contraseña, y alguien más podría tener una sesión abierta).
+export async function usarTokenYRestablecer(conexion: PoolConnection, idToken: number, idCuenta: number, passwordHash: string) {
+  await conexion.execute("UPDATE token_cuenta SET usado_en = NOW() WHERE id_token = ? AND usado_en IS NULL", [idToken]);
+  await conexion.execute("UPDATE cuenta SET password_hash = ? WHERE id_cuenta = ?", [passwordHash, idCuenta]);
+  await conexion.execute("DELETE FROM sesion WHERE id_cuenta = ?", [idCuenta]);
+}

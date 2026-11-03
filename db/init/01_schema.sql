@@ -267,12 +267,12 @@ CREATE TABLE sesion (
     CONSTRAINT fk_sesion_cuenta FOREIGN KEY (id_cuenta) REFERENCES cuenta (id_cuenta) ON DELETE CASCADE
 );
 
--- RN-73 (Fase 4b): bitácora de intentos de inicio de sesión y registro, para limitar los ataques de fuerza
+-- RN-73 (Fase 4b): bitácora de intentos de inicio de sesión, registro y recuperación (RN-80), para limitar los ataques de fuerza
 -- bruta. Sin FK a cuenta a propósito: también se anotan intentos con correos que no existen. Se purga sola
 -- (las filas de más de un día se borran al anotar una nueva).
 CREATE TABLE intento_acceso (
     id_intento  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tipo        ENUM('login', 'registro') NOT NULL,
+    tipo        ENUM('login', 'registro', 'recuperacion') NOT NULL,  -- RN-80 (R7e): pedir un enlace de recuperación
     correo      VARCHAR(254) NOT NULL,
     ip          VARCHAR(45) NOT NULL,          -- 45: el largo máximo de una IPv6 en texto
     exito       BOOLEAN NOT NULL,
