@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { FormularioAvatar, type OpcionAvatar } from "@/components/formularios-avatar";
 import { FormularioContacto } from "@/components/formularios-lector";
 import { ESTILOS_AVATAR, esEstiloAvatar, NOMBRES_ESTILO, urlDeAvatar } from "@/lib/avatar";
+import { maxKbAvatar } from "@/lib/data/avatar";
 import { listarCiudades, obtenerPerfilDeLector } from "@/lib/data/lectores";
 import { exigirLector, obtenerUsuario } from "@/lib/sesion";
 
@@ -13,11 +14,11 @@ const NOMBRE_DOCUMENTO: Record<string, string> = {
 };
 
 // Pestaña "Perfil" (DI-10, RN-77). Arriba, los datos verificados en mostrador, solo para leer; abajo, el contacto,
-// que el lector cambia solo; al final, el avatar (RN-81). El tema se suma aquí en R7h.
+// que el lector cambia solo; al final, el avatar (RN-81 generado, RN-82 foto). El tema se suma aquí en R7h.
 export default async function PaginaPerfil() {
   const lector = await exigirLector("/cuenta/perfil"); // RN-83
   // Las dos consultas no dependen una de la otra: Promise.all las lanza a la vez en lugar de una tras otra.
-  const [perfil, ciudades] = await Promise.all([obtenerPerfilDeLector(lector.idLector), listarCiudades()]);
+  const [perfil, ciudades, maxKb] = await Promise.all([obtenerPerfilDeLector(lector.idLector), listarCiudades(), maxKbAvatar()]);
   if (!perfil) notFound(); // no debería pasar: la sesión ya comprobó que el lector existe
   // El avatar es de la cuenta y ya viene en la sesión (obtenerUsuario está en cache(): no consulta otra vez).
   const { avatar } = (await obtenerUsuario())!;
@@ -69,9 +70,12 @@ export default async function PaginaPerfil() {
       <section aria-labelledby="avatar" className="mt-6 rounded-2xl border border-border bg-card p-5">
         <h2 id="avatar" className="font-heading text-lg font-semibold">Avatar</h2>
         <p className="mt-1 mb-4 text-sm text-muted-foreground">
-          Lo dibujamos al azar en nuestro servidor: no sale de tu nombre ni de tu correo. Puedes generar otro o cambiar el estilo.
+          Lo dibujamos al azar en nuestro servidor: no sale de tu nombre ni de tu correo. Puedes generar otro, cambiar el
+          estilo o usar una foto tuya.
         </p>
-        <FormularioAvatar actual={opciones.find((o) => o.estilo === estiloActual)!} opciones={opciones} />
+        {/* foto: con clave, urlDeAvatar devuelve la ruta de la foto; sin ella, null (el formulario muestra el generado). */}
+        <FormularioAvatar actual={opciones.find((o) => o.estilo === estiloActual)!} opciones={opciones}
+                          foto={avatar.clave ? urlDeAvatar(avatar) : null} maxKb={maxKb} />
       </section>
     </>
   );

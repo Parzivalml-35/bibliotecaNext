@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState } from "react";
+import { type FormEvent, useActionState, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { claseBoton, claseEtiqueta, MensajeFormulario } from "@/components/ui-formulario";
-import { elegirEstiloAvatar, generarOtroAvatar } from "@/lib/actions/avatar";
+import { elegirEstiloAvatar, generarOtroAvatar, quitarFotoAvatar, subirFotoAvatar } from "@/lib/actions/avatar";
 import type { EstadoFormulario } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
 
@@ -13,35 +13,102 @@ const estadoInicial: EstadoFormulario = {};
 // Una opción del selector, ya resuelta en el servidor: lib/avatar.ts usa node:crypto y no puede venir al navegador.
 export type OpcionAvatar = { estilo: string; nombre: string; url: string };
 
-type Props = { actual: OpcionAvatar; opciones: OpcionAvatar[] };
+// actual: el avatar generado con el estilo de la cuenta. foto: URL de la foto (RN-82) o null si usa el generado.
+// maxKb: configuracion.max_kb_avatar, para el texto de ayuda y la revisión previa en el navegador.
+type Props = { actual: OpcionAvatar; opciones: OpcionAvatar[]; foto: string | null; maxKb: number };
 
-// RN-81: avatar generado de la CUENTA (sirve a un lector y, en R7i, a un empleado). Dos formularios con su propia
-// acción: "Generar otro" (semilla nueva) y "Usar este estilo" (misma semilla). Client Component solo por useActionState.
-// Funciona sin JavaScript: las imágenes son <img> normales y el selector son radios de HTML.
-export function FormularioAvatar({ actual, opciones }: Props) {
+const claseBotonSecundario = cn(buttonVariants({ variant: "outline", size: "lg" }), "disabled:cursor-wait");
+
+// RN-81 y RN-82: avatar de la CUENTA (sirve a un lector y, en R7i, a un empleado). Cuatro formularios, cada uno con su
+// acción: "Generar otro" o "Volver al avatar generado" junto a la imagen, subir una foto y elegir el estilo.
+// Client Component por useActionState y la revisión del tamaño. Funciona sin JavaScript: las imágenes son <img>
+// normales, el selector son radios de HTML y la foto un <input type="file"> en un formulario multipart.
+export function FormularioAvatar({ actual, opciones, foto, maxKb }: Props) {
   const [estadoSemilla, accionSemilla, generando] = useActionState(generarOtroAvatar, estadoInicial);
   const [estadoEstilo, accionEstilo, guardando] = useActionState(elegirEstiloAvatar, estadoInicial);
+  const [estadoFoto, accionFoto, subiendo] = useActionState(subirFotoAvatar, estadoInicial);
+  const [estadoQuitar, accionQuitar, quitando] = useActionState(quitarFotoAvatar, estadoInicial);
+  // Mensaje de la revisión hecha en el navegador (no pasó por el servidor, así que no está en estadoFoto).
+  const [errorLocal, setErrorLocal] = useState<string | null>(null);
+  // El último formulario de la imagen que se usó: la fila muestra "Generar otro" O "Volver al avatar generado" según
+  // haya foto, así que al volver el botón cambia y su mensaje no puede depender de qué botón se ve ahora (se perdería,
+  // como anota docs/estado.md). Y el "Listo" de una foto ya quitada no debe quedarse junto al de volver.
+  // Sin JavaScript onSubmit no corre (ultimo = null), pero cada envío dibuja la página de nuevo y solo un estado trae mensaje.
+  const [ultimo, setUltimo] = useState<"semilla" | "quitar" | "foto" | null>(null);
+  const conMensaje = (estado: EstadoFormulario) => Boolean(estado.error || estado.exito);
+  const estadoFila = ultimo === "quitar" || (ultimo === null && conMensaje(estadoQuitar)) ? estadoQuitar : estadoSemilla;
+  const estadoFotoVisible: EstadoFormulario = errorLocal ? { error: errorLocal } : ultimo === "foto" || ultimo === null ? estadoFoto : {};
+
+  const limite = maxKb >= 1024 ? `${(maxKb / 1024).toLocaleString("es-CO", { maximumFractionDigits: 1 })} MB` : `${maxKb} KB`;
+
+  // Solo una comodidad: el servidor vuelve a comprobarlo todo (procesarFoto). Hace falta porque un archivo de más de
+  // 3 MB (bodySizeLimit en next.config.ts) lo corta Next antes de llegar a la acción, y el usuario vería la página de
+  // error en vez de un mensaje. preventDefault() en onSubmit hace que React NO ejecute la acción del formulario.
+  function revisarTamano(evento: FormEvent<HTMLFormElement>) {
+    setUltimo("foto");
+    const archivo = new FormData(evento.currentTarget).get("foto");
+    if (archivo instanceof File && archivo.size > maxKb * 1024) {
+      evento.preventDefault();
+      setErrorLocal(`La foto pesa más de ${limite}. Elige una más liviana.`);
+    } else {
+      setErrorLocal(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-4">
-        {/* next/image con unoptimized: un SVG no se optimiza (la guía lo recomienda así) y sale como un <img> que el
-            navegador pide a /avatar/…, cacheado para siempre. width/height reservan el espacio: la página no salta. */}
-        <Image src={actual.url} alt="Tu avatar actual" width={96} height={96} unoptimized
-               className="size-24 rounded-full border border-border bg-muted" />
-        <form action={accionSemilla}>
-          <button type="submit" disabled={generando} className={cn(buttonVariants({ variant: "outline", size: "lg" }), "disabled:cursor-wait")}>
-            {generando ? "Generando…" : "Generar otro"}
-          </button>
-        </form>
+        {/* next/image con unoptimized: no pasa por el optimizador de Next (un SVG no se optimiza, y la foto ya llega en
+            WebP de 256 px desde una ruta que exige la cookie de sesión) y sale como un <img> normal. width/height
+            reservan el espacio: la página no salta al cargar. */}
+        <Image src={foto ?? actual.url} alt="Tu avatar actual" width={96} height={96} unoptimized
+               className="size-24 rounded-full border border-border bg-muted object-cover" />
+        {foto ? (
+          // Con foto, la acción de esta fila es volver al generado (RN-81: "volver al generado cuando quiera").
+          <form action={accionQuitar} onSubmit={() => setUltimo("quitar")}>
+            <button type="submit" disabled={quitando} className={claseBotonSecundario}>
+              {quitando ? "Cambiando…" : "Volver al avatar generado"}
+            </button>
+          </form>
+        ) : (
+          <form action={accionSemilla} onSubmit={() => setUltimo("semilla")}>
+            <button type="submit" disabled={generando} className={claseBotonSecundario}>
+              {generando ? "Generando…" : "Generar otro"}
+            </button>
+          </form>
+        )}
       </div>
-      <MensajeFormulario estado={estadoSemilla} />
+      <MensajeFormulario estado={estadoFila} />
+
+      {/* La foto (RN-82). Con una función como action, React pone method="post" y encType="multipart/form-data" él
+          solo: sin multipart, el navegador enviaría solo el NOMBRE del archivo. */}
+      <form action={accionFoto} onSubmit={revisarTamano} className="space-y-3">
+        <div>
+          <label htmlFor="foto" className={claseEtiqueta}>{foto ? "Cambiar tu foto" : "Usar una foto"}</label>
+          <p id="ayuda-foto" className="mt-1 text-sm text-muted-foreground">
+            JPEG, PNG o WebP de hasta {limite}. La recortamos cuadrada y le quitamos los datos ocultos, como la ubicación.
+            Solo la ven tú y el personal de la biblioteca.
+          </p>
+          {/* accept solo filtra lo que ofrece el selector de archivos: el servidor comprueba el tipo por el contenido.
+              file:* (Tailwind) da estilo al botón interno del campo (el pseudo-elemento ::file-selector-button). */}
+          <input id="foto" name="foto" type="file" accept="image/jpeg,image/png,image/webp" required
+                 aria-describedby="ayuda-foto"
+                 className="mt-2 block w-full max-w-md text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-4xl file:border file:border-borde-campo file:bg-secondary file:px-4 file:py-2 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" />
+        </div>
+        <MensajeFormulario estado={estadoFotoVisible} />
+        <button type="submit" disabled={subiendo} className={claseBoton}>
+          {subiendo ? "Subiendo…" : "Subir foto"}
+        </button>
+      </form>
 
       <form action={accionEstilo} className="space-y-4">
         {/* fieldset + legend: el lector de pantalla anuncia "Estilo" al entrar al grupo de radios. */}
         <fieldset>
           <legend className={claseEtiqueta}>Estilo</legend>
-          <p className="mt-1 text-sm text-muted-foreground">Cada opción muestra cómo quedaría tu avatar con ese estilo.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Cada opción muestra cómo quedaría tu avatar generado con ese estilo.
+            {foto && " Mientras uses tu foto, el estilo que elijas se guarda para cuando vuelvas al avatar generado."}
+          </p>
           <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6">
             {opciones.map((o) => (
               // La tarjeta entera es la <label>: un clic en cualquier parte marca su radio. has-checked: y

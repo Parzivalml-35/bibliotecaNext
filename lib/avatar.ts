@@ -34,10 +34,13 @@ export function esEstiloAvatar(valor: unknown): valor is EstiloAvatar {
 // Forma de la semilla que genera el DEFAULT de cuenta.avatar_semilla: 16 bytes en base64url = 22 caracteres.
 export const FORMA_SEMILLA = /^[A-Za-z0-9_-]{22}$/;
 
-// RN-81: la URL del avatar generado. El dibujo depende SOLO de estilo y semilla, así que la URL es el contenido y se
-// puede cachear para siempre (ver app/avatar/[estilo]/[semilla]/route.ts). Si la cuenta tiene un estilo que ya no está
-// en la lista (se quitó del código), se dibuja con el primero: el avatar cambia, pero nunca queda roto.
-export function urlDeAvatar(avatar: { estilo: string; semilla: string }): string {
+// RN-81 y RN-82: la URL del avatar de una cuenta. Con foto (clave), la de app/avatar/foto/[clave]/route.ts, que exige
+// sesión. Sin foto, la del avatar generado: el dibujo depende SOLO de estilo y semilla, así que la URL es el contenido y
+// se puede cachear para siempre (ver app/avatar/[estilo]/[semilla]/route.ts). Si la cuenta tiene un estilo que ya no
+// está en la lista (se quitó del código), se dibuja con el primero: el avatar cambia, pero nunca queda roto.
+// `clave` es opcional: el selector de estilos de /cuenta/perfil pide a propósito el GENERADO aunque haya foto.
+export function urlDeAvatar(avatar: { estilo: string; semilla: string; clave?: string | null }): string {
+  if (avatar.clave) return `/avatar/foto/${avatar.clave}`;
   const estilo = esEstiloAvatar(avatar.estilo) ? avatar.estilo : ESTILOS_AVATAR[0];
   return `/avatar/${estilo}/${avatar.semilla}`;
 }

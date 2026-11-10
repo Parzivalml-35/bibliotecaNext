@@ -1,6 +1,6 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 
@@ -67,6 +67,17 @@ export async function guardarFoto(webp: Buffer): Promise<string> {
   await mkdir(CARPETA, { recursive: true }); // la primera vez en un equipo nuevo la carpeta no existe
   await writeFile(path.join(CARPETA, clave), webp, { flag: "wx" });
   return clave;
+}
+
+// Lee una foto para entregarla (app/avatar/foto/[clave]/route.ts). null si la clave no tiene la forma esperada o el
+// archivo no está (por ejemplo, la BD vino de otro equipo: storage/ no va a git y la cuenta nombra una foto que aquí no hay).
+export async function leerFoto(clave: string): Promise<Buffer | null> {
+  if (!FORMA_CLAVE_FOTO.test(clave)) return null;
+  try {
+    return await readFile(path.join(CARPETA, clave));
+  } catch {
+    return null;
+  }
 }
 
 // Borra una foto que ya no usa ninguna cuenta. No lanza: se llama DESPUÉS del COMMIT, cuando la BD ya cambió, y un

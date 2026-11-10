@@ -25,6 +25,13 @@ export async function maxKbAvatar(): Promise<number> {
   return filas[0].max_kb_avatar;
 }
 
+// ¿Alguna cuenta usa hoy esta foto? Para que un empleado vea solo fotos vigentes, no un archivo que quedó huérfano.
+// uq_cuenta_avatar_clave (UNIQUE) es también un índice: la búsqueda no recorre la tabla.
+export async function existeFotoDeAvatar(clave: string): Promise<boolean> {
+  const [filas] = await pool.execute<RowDataPacket[]>("SELECT 1 FROM cuenta WHERE avatar_clave = ? LIMIT 1", [clave]);
+  return filas.length > 0;
+}
+
 // La foto actual de la cuenta, con la fila BLOQUEADA hasta el COMMIT. Si llegan dos subidas a la vez, la segunda espera
 // aquí y luego lee la clave que dejó la primera: así cada una sabe qué archivo quedó sin usar y lo borra. Sin el
 // candado, las dos leerían la misma clave vieja y la foto de la que pierde quedaría huérfana en el disco.
