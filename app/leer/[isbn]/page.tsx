@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotonLampara, LamparaDeEsquina } from "@/components/boton-lampara";
-import { Visor } from "@/components/visor";
+import { Portada } from "@/components/portada";
+import { type FichaLibro, Visor } from "@/components/visor";
 import { obtenerAccesoDeLectura } from "@/lib/data/digital";
+import { obtenerLibroPorIsbn } from "@/lib/data/libros";
 import type { FormatoDigital } from "@/lib/definitions";
 import { esIsbnValido } from "@/lib/isbn";
 import { exigirLector } from "@/lib/sesion";
@@ -18,6 +20,8 @@ const NOMBRE_FORMATO: Record<FormatoDigital, string> = { epub: "EPUB", pdf: "PDF
 // mínima (volver, título, tema) la pone la propia página: es la única que tiene el título del libro.
 // DI-06 (R8d): si el título tiene EPUB se abre ese (el texto se acomoda a la pantalla y toma el tema); el PDF queda
 // como "Ver en PDF" (?formato=pdf). Un ?formato= que no sea una edición del título se ignora.
+// Lector inmersivo: con EPUB, la página es SOLO el visor a pantalla completa (la barra lateral trae volver, título y
+// lámpara). Con PDF se mantiene la cápsula de arriba.
 export default async function PaginaLeer({ params, searchParams }: PageProps<"/leer/[isbn]">) {
   const { isbn } = await params;
   const { formato: pedido } = await searchParams;
@@ -30,6 +34,24 @@ export default async function PaginaLeer({ params, searchParams }: PageProps<"/l
   // El pedido solo vale si es un formato que este título tiene: así no hace falta otra lista permitida.
   const formato = formatos.find((f) => f === pedido) ?? (formatos.includes("epub") ? "epub" : formatos[0]);
   const otro = formatos.find((f) => f !== formato); // el formato al que se puede cambiar, si hay
+
+  // La ficha del libro para el visor. obtenerLibroPorIsbn está en cache(): si otra parte de la petición ya lo pidió, no
+  // vuelve a consultar. Si no lo encontrara (no debería: el acceso ya lo encontró), se usan los datos del acceso.
+  const libro = await obtenerLibroPorIsbn(isbn);
+  const autores = libro?.autores.map((a) => `${a.nombre} ${a.apellido}`).join(", ") ?? "";
+  const ficha: FichaLibro = {
+    isbn,
+    titulo: acceso.titulo,
+    autores,
+    acceso: acceso.por === "compra" ? "Comprado: acceso permanente" : `Préstamo digital hasta el ${acceso.fin}`,
+    // <a> y no <Link> en quien lo use (RN-84): cambiar de formato vuelve a entrar a /leer y necesita su CSP.
+    otroFormato: otro ? { href: `/leer/${isbn}${otro === "epub" ? "" : `?formato=${otro}`}`, nombre: NOMBRE_FORMATO[otro] } : null,
+  };
+  // La portada se dibuja AQUÍ, en el servidor, y viaja al visor (Client Component) como JSX ya armado.
+  const portada = <Portada isbn={isbn} titulo={acceso.titulo} autores={autores} className="w-full" />;
+  const visor = <Visor formato={formato} url={`/leer/${isbn}/archivo/${formato}`} ficha={ficha} portada={portada} />;
+
+  if (formato === "epub") return visor;
 
   return (
     <>
@@ -55,17 +77,16 @@ export default async function PaginaLeer({ params, searchParams }: PageProps<"/l
       {/* Sin fondo propio: la pared y su luz (DI-14) se ven alrededor de la hoja, como en el resto de la app. */}
       <main className="flex-1">
         <div className="mx-auto w-full max-w-5xl space-y-3 px-2 py-4 sm:px-6">
-          {otro && (
+          {ficha.otroFormato && (
             <p className="text-right text-sm text-muted-foreground">
               Estás leyendo en {NOMBRE_FORMATO[formato]}.{" "}
               {/* <a> y no <Link> (RN-84): navegación completa, como los enlaces "Leer". */}
-              <a href={`/leer/${isbn}${otro === "epub" ? "" : `?formato=${otro}`}`}
-                 className="font-medium text-primary underline-offset-4 hover:underline">
-                Ver en {NOMBRE_FORMATO[otro]}
+              <a href={ficha.otroFormato.href} className="font-medium text-primary underline-offset-4 hover:underline">
+                Ver en {ficha.otroFormato.nombre}
               </a>
             </p>
           )}
-          <Visor formato={formato} url={`/leer/${isbn}/archivo/${formato}`} titulo={acceso.titulo} />
+          {visor}
         </div>
       </main>
     </>
