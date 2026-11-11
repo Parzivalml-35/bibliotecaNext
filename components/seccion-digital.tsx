@@ -47,9 +47,11 @@ export function SeccionDigital({
           {situacion.compra ? "Lo compraste: puedes leerlo cuando quieras." : `Lo tienes prestado hasta el ${situacion.fin_prestamo}.`}
         </p>
         <div className="flex items-start gap-2">
-          <Link href={`/leer/${isbn}`} className={buttonVariants({ size: "sm" })}>
+          {/* <a> y no <Link>, a propósito (RN-84): la CSP que protege del JavaScript de un EPUB es una cabecera del
+              DOCUMENTO. Con <Link> la navegación es del cliente y el documento (sin CSP) seguiría siendo este. */}
+          <a href={`/leer/${isbn}`} className={buttonVariants({ size: "sm" })}>
             Leer ahora
-          </Link>
+          </a>
           {situacion.id_prestamo_digital !== null && (
             <BotonAccion accion={devolverDigital} campos={{ id_prestamo_digital: situacion.id_prestamo_digital, isbn }}
                          etiqueta="Devolver" etiquetaPendiente="Devolviendo…" />
