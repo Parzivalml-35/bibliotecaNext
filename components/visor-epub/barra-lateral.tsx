@@ -7,15 +7,17 @@ import type { ReactNode } from "react";
 import { BotonLampara } from "@/components/boton-lampara";
 import { Button } from "@/components/ui/button";
 import type { FichaLibro } from "@/components/visor";
+import { BotonDetalles, PortadaAmpliable } from "@/components/visor-epub/dialogos-libro";
 import { IndiceLibro } from "@/components/visor-epub/indice-libro";
 import type { EntradaIndice, Progreso } from "@/components/visor-epub/motor";
 
 // La barra lateral del visor EPUB (idea de Readest; código nuestro): arriba los controles, la ficha del libro, el
 // índice con su propio scroll y, al pie, el avance. La misma barra se usa fija en el escritorio y dentro del cajón en el
 // celular: lo que cambia lo dicen alOcultar (solo en el escritorio) y alElegir (en el celular, además cierra el cajón).
-export function BarraLateral({ ficha, portada, indice, progreso, alElegir, alOcultar }: {
+export function BarraLateral({ ficha, portada, detalles, indice, progreso, alElegir, alOcultar }: {
   ficha: FichaLibro;
   portada: ReactNode;
+  detalles: ReactNode;
   indice: EntradaIndice[];
   progreso: Progreso | null;
   alElegir: (destino: string) => void;
@@ -43,7 +45,8 @@ export function BarraLateral({ ficha, portada, indice, progreso, alElegir, alOcu
       </div>
 
       <div className="flex gap-3 border-b border-border px-4 pt-2 pb-4">
-        <div className="w-12 shrink-0">{portada}</div>
+        {/* Clic en la portada: se ve en grande. (i): detalles del libro. */}
+        <PortadaAmpliable ficha={ficha} portada={portada} />
         <div className="min-w-0 flex-1">
           {/* line-clamp-2: un título largo ocupa hasta dos líneas y termina en "…". */}
           <p className="line-clamp-2 font-heading font-semibold">{ficha.titulo}</p>
@@ -56,6 +59,7 @@ export function BarraLateral({ ficha, portada, indice, progreso, alElegir, alOcu
             </a>
           )}
         </div>
+        <BotonDetalles ficha={ficha} portada={portada} detalles={detalles} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

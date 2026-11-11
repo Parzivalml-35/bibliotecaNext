@@ -19,7 +19,12 @@ import { usePreferencia } from "@/components/visor-epub/preferencias";
 
 const esSiNo = (v: string) => (v === "si" || v === "no" ? v : null);
 
-export function VisorEpub({ url, ficha, portada }: { url: string; ficha: FichaLibro; portada: ReactNode }) {
+export function VisorEpub({ url, ficha, portada, detalles }: {
+  url: string;
+  ficha: FichaLibro;
+  portada: ReactNode;
+  detalles: ReactNode;
+}) {
   const contenedor = useRef<HTMLDivElement>(null);
   const superficie = useRef<HTMLDivElement>(null);
   const { listo, error, indice, progreso, ir, izquierda, derecha } = useLibroEpub(url, contenedor, superficie);
@@ -27,7 +32,7 @@ export function VisorEpub({ url, ficha, portada }: { url: string; ficha: FichaLi
   const [cajonAbierto, setCajonAbierto] = useState(false);
 
   const barra = (enCajon: boolean) => (
-    <BarraLateral ficha={ficha} portada={portada} indice={indice} progreso={progreso}
+    <BarraLateral ficha={ficha} portada={portada} detalles={detalles} indice={indice} progreso={progreso}
                   // En el cajón, elegir un capítulo también lo cierra: si no, taparía la página a la que se saltó.
                   alElegir={(destino) => { ir(destino); if (enCajon) setCajonAbierto(false); }}
                   alOcultar={enCajon ? undefined : () => setBarraOculta("si")} />

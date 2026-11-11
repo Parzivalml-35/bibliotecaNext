@@ -6,7 +6,7 @@ import { Portada } from "@/components/portada";
 import { type FichaLibro, Visor } from "@/components/visor";
 import { obtenerAccesoDeLectura } from "@/lib/data/digital";
 import { obtenerLibroPorIsbn } from "@/lib/data/libros";
-import type { FormatoDigital } from "@/lib/definitions";
+import type { FormatoDigital, LibroDetalle } from "@/lib/definitions";
 import { esIsbnValido } from "@/lib/isbn";
 import { exigirLector } from "@/lib/sesion";
 
@@ -49,7 +49,11 @@ export default async function PaginaLeer({ params, searchParams }: PageProps<"/l
   };
   // La portada se dibuja AQUÍ, en el servidor, y viaja al visor (Client Component) como JSX ya armado.
   const portada = <Portada isbn={isbn} titulo={acceso.titulo} autores={autores} className="w-full" />;
-  const visor = <Visor formato={formato} url={`/leer/${isbn}/archivo/${formato}`} ficha={ficha} portada={portada} />;
+  // "Detalles del libro" (diálogo del visor EPUB): datos del catálogo, también dibujados aquí.
+  const detalles = libro && (
+    <DetallesDelLibro libro={libro} formatos={formatos.map((f) => NOMBRE_FORMATO[f]).join(" y ")} />
+  );
+  const visor = <Visor formato={formato} url={`/leer/${isbn}/archivo/${formato}`} ficha={ficha} portada={portada} detalles={detalles} />;
 
   if (formato === "epub") return visor;
 
@@ -90,5 +94,39 @@ export default async function PaginaLeer({ params, searchParams }: PageProps<"/l
         </div>
       </main>
     </>
+  );
+}
+
+// Los datos del catálogo para "Detalles del libro". Server Component (sin "use client"): se dibuja aquí y el visor lo
+// recibe hecho. <dl> (lista de descripciones): cada dato es un par término (<dt>) y valor (<dd>), que es lo que es.
+function DetallesDelLibro({ libro, formatos }: { libro: LibroDetalle; formatos: string }) {
+  const generos = [libro.genero, ...libro.generos_secundarios].join(", ");
+  const datos: [string, string][] = [
+    ["Editorial", libro.editorial],
+    ["Publicado", libro.anio_publicacion ? String(libro.anio_publicacion) : "Sin dato"],
+    ["ISBN", libro.isbn],
+    ["Géneros", generos],
+    ["Clasificación", libro.clasificacion],
+    ["Formatos digitales", formatos],
+  ];
+  return (
+    <div className="space-y-4">
+      {/* grid-cols-2 (3 desde sm): los datos en columnas, como en la ficha de Readest. */}
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+        {datos.map(([termino, valor]) => (
+          <div key={termino} className="min-w-0">
+            <dt className="text-xs font-medium text-muted-foreground">{termino}</dt>
+            <dd className="mt-0.5 break-words">{valor}</dd>
+          </div>
+        ))}
+      </dl>
+      {libro.sinopsis && (
+        // <details>/<summary>: plegable nativo del navegador, sin JavaScript. Empieza cerrado.
+        <details className="group rounded-xl border border-border px-4 py-3">
+          <summary className="cursor-pointer font-medium marker:text-muted-foreground">Sinopsis</summary>
+          <p className="mt-2 leading-relaxed text-muted-foreground">{libro.sinopsis}</p>
+        </details>
+      )}
+    </div>
   );
 }
