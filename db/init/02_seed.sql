@@ -326,6 +326,13 @@ FROM (VALUES ROW('9788420471839', 'cien-anos-de-soledad.pdf', 2400000), ROW('978
              ROW('9788408053040', 'cosmos.pdf', 5200000), ROW('9789580415329', 'maria.pdf', 1100000)) AS v (isbn, clave, tamano)
 JOIN libro l ON l.isbn = v.isbn;
 
+-- R8, RN-54: ediciones EPUB de dos títulos que también tienen PDF (DI-06: se abre el EPUB y el PDF queda como
+-- "Ver en PDF"). maria.epub trae el capítulo "Prueba de seguridad" de RN-84 (lo genera pnpm archivos:muestra).
+INSERT INTO edicion_digital (id_libro, formato, clave_archivo, tamano_bytes)
+SELECT l.id_libro, 'epub', v.clave, v.tamano
+FROM (VALUES ROW('9788418797453', 'el-principito.epub', 300000), ROW('9789580415329', 'maria.epub', 450000)) AS v (isbn, clave, tamano)
+JOIN libro l ON l.isbn = v.isbn;
+
 INSERT INTO licencia_digital (id_libro, cantidad, fecha_adquisicion, fecha_vencimiento, id_empleado_registra)
 SELECT l.id_libro, v.cantidad, v.adquirida, v.vence, @laura
 FROM (VALUES ROW('9788420471839', 2, DATE('2026-01-15'), DATE('2026-12-31')),   -- dos lotes del mismo título (RN-55)

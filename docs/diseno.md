@@ -290,8 +290,9 @@ con el tema. Revisarla con `grep -nE "zinc-|red-|emerald-|amber-|blue-|dark:" ar
 
 - El EPUB y el PDF son **ediciones** del mismo título (`edicion_digital`, `UNIQUE (id_libro, formato)`). Si el título
   tiene EPUB, se abre ese; el PDF queda como "Ver en PDF".
-- **Seguridad:** un EPUB es HTML y puede traer JavaScript. Se pinta en un `iframe` sin ejecutar scripts (foliate-js no
-  los ejecuta) y la ruta del lector lleva una CSP. Pendiente de escribir como regla RN en R8.
+- **Seguridad (RN-84):** un EPUB es HTML y puede traer JavaScript. foliate-js **no** lo bloquea: su `iframe` necesita
+  `allow-scripts` por un bug de WebKit y los capítulos se cargan como `blob:` del mismo origen (lo advierte su README).
+  Lo bloquea la CSP de `/leer` (`proxy.ts`, con *nonce*), y por eso a `/leer` se entra con navegación completa.
 - Tema: el contenido del libro toma `background` y `foreground` del tema activo. En PDF, la lámpara se aproxima con un
   filtro (`sepia`) sobre el canvas.
 
