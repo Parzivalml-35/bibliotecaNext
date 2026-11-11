@@ -21,6 +21,8 @@ export type EntradaIndice = { titulo: string; destino: string; pagina: number | 
 // pero no cambian con el tamaño de la pantalla, así que sirven para ubicarse. capitulo/destino: la entrada del
 // índice en la que está (null antes del primer capítulo).
 export type Progreso = { capitulo: string | null; destino: string | null; pagina: number; total: number; fraccion: number };
+// Ajustes de lectura de este navegador: tamaño de letra en % y cuántas columnas como máximo (2 solo si caben).
+export type AjustesLectura = { letra: number; columnas: 1 | 2 };
 
 // foliate-js (view.js: new SectionProgress(book.sections, 1500, 1600)) cuenta una "ubicación" cada 1500 bytes de texto.
 const BYTES_POR_UBICACION = 1500;
@@ -36,12 +38,13 @@ function documentoCargadoAqui(): boolean {
   return !!carga && new URL(carga.name).pathname === location.pathname;
 }
 
+// El CSS que se inyecta en cada capítulo: los colores del tema activo y el tamaño de letra elegido.
 // Los colores del tema activo para el texto del libro (DI-06). Las variables CSS están en <html> (globals.css) y cambian
 // con data-tema; los capítulos viven en iframes, que no las heredan: se leen aquí y se escriben en su CSS.
 // Fondo TRANSPARENTE: se ve el fondo del contenedor, que ya sigue el tema. (foliate-js pinta los márgenes con el fondo
 // que lee del capítulo al cargarlo y no lo vuelve a leer: con un color fijo, al cambiar de tema el marco quedaba con el
 // color anterior.)
-function estiloDelTema(): string {
+function estiloDelLibro(ajustes: AjustesLectura): string {
   const raiz = getComputedStyle(document.documentElement);
   const v = (nombre: string) => raiz.getPropertyValue(nombre).trim();
   // color-scheme IGUAL al de la página: si el iframe y la página no coinciden, el navegador pinta el iframe con un
@@ -51,6 +54,8 @@ function estiloDelTema(): string {
     html, body { background: transparent !important; color: ${v("--foreground")} !important; }
     a:link, a:visited { color: ${v("--primary")} !important; }
     p, li, blockquote { line-height: 1.6; hyphens: auto; }
+    /* Tamaño de letra: sobre <html>, así escala todo lo que el libro mide en em o rem (los px quedan igual). */
+    html { font-size: ${ajustes.letra}% !important; }
   `;
 }
 
@@ -81,12 +86,30 @@ function indiceDe(libro: Libro): EntradaIndice[] {
 
 // contenedor: donde se monta el libro. superficie: lo que lo envuelve junto con los controles que van encima (las zonas
 // laterales); ahí se escucha la rueda, para que funcione también con el puntero sobre esos controles.
-export function useLibroEpub(url: string, contenedor: RefObject<HTMLDivElement | null>, superficie: RefObject<HTMLElement | null>) {
+export function useLibroEpub(
+  url: string,
+  contenedor: RefObject<HTMLDivElement | null>,
+  superficie: RefObject<HTMLElement | null>,
+  ajustes: AjustesLectura,
+) {
   const vista = useRef<View | null>(null);
+  // Los ajustes vigentes, para quien los lee "después" (al abrir el libro, al cambiar el tema). Una ref y no una
+  // dependencia del efecto principal: cambiar la letra NO debe cerrar y volver a abrir el libro.
+  const ajustesVigentes = useRef(ajustes);
   const [listo, setListo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [indice, setIndice] = useState<EntradaIndice[]>([]);
   const [progreso, setProgreso] = useState<Progreso | null>(null);
+
+  // Cambio de ajustes con el libro abierto: se aplican en el momento. Va ANTES del efecto principal: los efectos corren
+  // en orden, así la ref ya tiene los ajustes guardados cuando el principal abre el libro.
+  useEffect(() => {
+    ajustesVigentes.current = ajustes;
+    const v = vista.current;
+    if (!v || !listo) return;
+    v.renderer.setAttribute("max-column-count", String(ajustes.columnas));
+    v.renderer.setStyles(estiloDelLibro(ajustes));
+  }, [ajustes, listo]);
 
   useEffect(() => {
     if (!documentoCargadoAqui()) {
@@ -98,7 +121,7 @@ export function useLibroEpub(url: string, contenedor: RefObject<HTMLDivElement |
     let ultimoGiro = 0;
     // El tema puede cambiar mientras se lee (botón flotante, lámpara): un MutationObserver sobre <html> vuelve a
     // escribir los colores en el libro.
-    const observador = new MutationObserver(() => abierta?.renderer.setStyles(estiloDelTema()));
+    const observador = new MutationObserver(() => abierta?.renderer.setStyles(estiloDelLibro(ajustesVigentes.current)));
 
     // Flechas: goLeft/goRight respetan los libros de derecha a izquierda.
     function alPresionar(e: KeyboardEvent) {
@@ -165,7 +188,8 @@ export function useLibroEpub(url: string, contenedor: RefObject<HTMLDivElement |
         v.renderer.setAttribute("flow", "paginated");
         v.renderer.setAttribute("max-inline-size", "720px");
         v.renderer.setAttribute("gap", "6%");
-        v.renderer.setStyles(estiloDelTema());
+        v.renderer.setAttribute("max-column-count", String(ajustesVigentes.current.columnas));
+        v.renderer.setStyles(estiloDelLibro(ajustesVigentes.current));
         observador.observe(document.documentElement, { attributes: true, attributeFilter: ["data-tema", "data-tema-base"] });
         setIndice(indiceDe(v.book));
         await v.renderer.next(); // muestra la primera página

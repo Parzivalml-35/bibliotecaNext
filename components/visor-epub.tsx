@@ -2,12 +2,13 @@
 
 import { SidebarLeft01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import type { FichaLibro } from "@/components/visor";
 import { BarraLateral } from "@/components/visor-epub/barra-lateral";
-import { useLibroEpub } from "@/components/visor-epub/motor";
+import { TAMANOS_LETRA } from "@/components/visor-epub/ajustes-lectura";
+import { type AjustesLectura, useLibroEpub } from "@/components/visor-epub/motor";
 import { usePreferencia } from "@/components/visor-epub/preferencias";
 
 // RN-29, RN-84, DI-06: la INTERFAZ del visor EPUB, a casi pantalla completa (idea de Readest; código nuestro).
@@ -18,6 +19,9 @@ import { usePreferencia } from "@/components/visor-epub/preferencias";
 // navegador). Celular: la barra es un cajón (Sheet) que se abre encima del libro.
 
 const esSiNo = (v: string) => (v === "si" || v === "no" ? v : null);
+// Lo guardado en localStorage se valida: un valor viejo o manipulado vuelve al valor por defecto.
+const esLetra = (v: string) => (TAMANOS_LETRA.map(String).includes(v) ? v : null);
+const esColumnas = (v: string) => (v === "1" || v === "2" ? v : null);
 
 export function VisorEpub({ url, ficha, portada, detalles }: {
   url: string;
@@ -27,12 +31,18 @@ export function VisorEpub({ url, ficha, portada, detalles }: {
 }) {
   const contenedor = useRef<HTMLDivElement>(null);
   const superficie = useRef<HTMLDivElement>(null);
-  const { listo, error, indice, progreso, ir, izquierda, derecha } = useLibroEpub(url, contenedor, superficie);
   const [barraOculta, setBarraOculta] = usePreferencia("visor-epub:barra-oculta", "no", esSiNo);
+  const [letra, setLetra] = usePreferencia("visor-epub:letra", "100", esLetra);
+  const [columnas, setColumnas] = usePreferencia<"1" | "2">("visor-epub:columnas", "2", esColumnas);
+  // useMemo: el mismo objeto mientras no cambien los valores. El motor reacciona a cambios de `ajustes`; un objeto
+  // nuevo en cada render volvería a aplicar los estilos al libro sin necesidad.
+  const ajustes = useMemo<AjustesLectura>(() => ({ letra: Number(letra), columnas: columnas === "1" ? 1 : 2 }), [letra, columnas]);
+  const { listo, error, indice, progreso, ir, izquierda, derecha } = useLibroEpub(url, contenedor, superficie, ajustes);
   const [cajonAbierto, setCajonAbierto] = useState(false);
 
   const barra = (enCajon: boolean) => (
     <BarraLateral ficha={ficha} portada={portada} detalles={detalles} indice={indice} progreso={progreso}
+                  ajustes={ajustes} alCambiarAjustes={(a) => { setLetra(String(a.letra)); setColumnas(a.columnas === 1 ? "1" : "2"); }}
                   // En el cajón, elegir un capítulo también lo cierra: si no, taparía la página a la que se saltó.
                   alElegir={(destino) => { ir(destino); if (enCajon) setCajonAbierto(false); }}
                   alOcultar={enCajon ? undefined : () => setBarraOculta("si")} />
