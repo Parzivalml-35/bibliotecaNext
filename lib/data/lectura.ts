@@ -1,7 +1,7 @@
 import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
-import type { ColorAnotacion, EstiloAnotacion } from "@/lib/lectura";
+import type { Anotacion, ColorAnotacion, EstiloAnotacion } from "@/lib/lectura";
 import type { FormatoDigital } from "@/lib/definitions";
 
 // SQL de lo que el lector escribe y hace mientras lee (RN-85 a RN-88, bloque 6 del esquema). REGLA DE ESTE ARCHIVO:
@@ -27,15 +27,6 @@ export async function limitesDeLectura(): Promise<LimitesDeLectura> {
 // Resaltados (RN-85)
 // ---------------------------------------------------------------------
 
-export type Anotacion = {
-  id_anotacion: number;
-  cfi: string;
-  texto_citado: string;
-  color: ColorAnotacion;
-  estilo: EstiloAnotacion;
-  nota: string | null;
-  fecha_creacion: string; // "11/11/2026 14:05", ya formateada para mostrar
-};
 
 const COLUMNAS_ANOTACION = `id_anotacion, cfi, texto_citado, color, estilo, nota,
        DATE_FORMAT(fecha_creacion, '%d/%m/%Y %H:%i') AS fecha_creacion`;

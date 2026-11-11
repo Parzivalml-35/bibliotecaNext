@@ -42,5 +42,24 @@ declare module "foliate-js/view.js" {
     // next/prev: avanzar o retroceder en el orden de lectura, sin importar el sentido.
     next(): Promise<void>;
     prev(): Promise<void>;
+    // Anotaciones (view.js): `value` es el CFI. addAnnotation resuelve la sección y, si está cargada, emite
+    // "draw-annotation" (detail: { draw, annotation }) para que quien la usa elija cómo dibujarla; si no está cargada,
+    // no hace nada (se vuelve a pedir en "create-overlay", detail: { index }). Un clic sobre una dibujada emite
+    // "show-annotation" (detail: { value, range }).
+    addAnnotation(anotacion: { value: string }, quitar?: boolean): Promise<unknown>;
+    deleteAnnotation(anotacion: { value: string }): Promise<unknown>;
+    // El CFI de un rango dentro de la sección `index` (la del evento "load").
+    getCFI(index: number, rango: Range): string;
+  }
+}
+
+// overlayer.js: las formas con que se dibuja una anotación (SVG sobre el texto). Reciben los rectángulos del rango y
+// opciones (color; width para las líneas). Se pasan a la función `draw` del evento "draw-annotation".
+declare module "foliate-js/overlayer.js" {
+  type Forma = (rects: unknown, opciones?: { color?: string; width?: number }) => SVGElement;
+  export class Overlayer {
+    static highlight: Forma;
+    static underline: Forma;
+    static squiggly: Forma;
   }
 }

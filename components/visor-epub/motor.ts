@@ -1,7 +1,8 @@
 "use client";
 
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { EntradaToc, Libro, View } from "foliate-js/view.js";
+import { COLOR_ANOTACION, type ColorAnotacion, type EstiloAnotacion } from "@/lib/lectura";
 
 // El MOTOR del visor EPUB (foliate-js), separado de la interfaz. Abre el libro dentro de `contenedor` y entrega datos
 // neutros (índice, progreso) y acciones (ir, avanzar, retroceder). La interfaz (components/visor-epub.tsx y
@@ -23,6 +24,18 @@ export type EntradaIndice = { titulo: string; destino: string; pagina: number | 
 export type Progreso = { capitulo: string | null; destino: string | null; pagina: number; total: number; fraccion: number };
 // Ajustes de lectura de este navegador: tamaño de letra en % y cuántas columnas como máximo (2 solo si caben).
 export type AjustesLectura = { letra: number; columnas: 1 | 2 };
+// RN-85: lo que el motor dibuja sobre el texto. cfi: dónde (EPUB CFI); color y estilo: cómo.
+export type Marca = { cfi: string; color: ColorAnotacion; estilo: EstiloAnotacion };
+// Un rectángulo en coordenadas de la PÁGINA (no del capítulo): para ubicar un menú junto al texto.
+export type Rectangulo = { x: number; y: number; ancho: number; alto: number };
+// Texto seleccionado por el lector en el libro.
+export type Seleccion = { cfi: string; texto: string; rect: Rectangulo };
+// Las marcas a dibujar y qué hacer cuando el lector selecciona texto o toca una marca.
+export type OpcionesDeMarcas = {
+  marcas: Marca[];
+  alSeleccionar: (seleccion: Seleccion | null) => void; // null: se deshizo la selección (o se pasó de página)
+  alTocarMarca: (cfi: string, rect: Rectangulo) => void;
+};
 
 // foliate-js (view.js: new SectionProgress(book.sections, 1500, 1600)) cuenta una "ubicación" cada 1500 bytes de texto.
 const BYTES_POR_UBICACION = 1500;
@@ -30,6 +43,10 @@ const BYTES_POR_UBICACION = 1500;
 // después de pasar una página, los eventos de los siguientes PAUSA_RUEDA ms (si no, un gesto saltaría varias).
 const MINIMO_RUEDA = 4;
 const PAUSA_RUEDA = 450;
+// Zonas para pasar página con el mouse o el dedo: un clic (sin arrastrar) en el 20 % izquierdo o derecho del área de
+// lectura. Se detectan DENTRO del capítulo y no con elementos encima del texto: un elemento encima tapaba el comienzo
+// de las líneas e impedía seleccionar desde ahí (encontrado probando R10-C).
+const ZONA_PAGINA = 0.2;
 
 // ¿El documento se cargó (navegación completa) en esta misma ruta? performance.getEntriesByType("navigation") describe
 // la carga del documento actual y no cambia con las navegaciones del cliente.
@@ -57,6 +74,14 @@ function estiloDelLibro(ajustes: AjustesLectura): string {
     /* Tamaño de letra: sobre <html>, así escala todo lo que el libro mide en em o rem (los px quedan igual). */
     html { font-size: ${ajustes.letra}% !important; }
   `;
+}
+
+// El rectángulo de un rango del capítulo, pasado a coordenadas de la página: el del rango es relativo a su iframe, y
+// frameElement es ese iframe dentro de la página (accesible porque es del mismo origen).
+function rectEnPagina(rango: Range): Rectangulo {
+  const r = rango.getBoundingClientRect();
+  const marco = rango.startContainer.ownerDocument?.defaultView?.frameElement?.getBoundingClientRect();
+  return { x: (marco?.left ?? 0) + r.left, y: (marco?.top ?? 0) + r.top, ancho: r.width, alto: r.height };
 }
 
 // El índice del libro, aplanado (los subcapítulos quedan debajo de su capítulo, con nivel + 1) y con la página donde
@@ -91,8 +116,19 @@ export function useLibroEpub(
   contenedor: RefObject<HTMLDivElement | null>,
   superficie: RefObject<HTMLElement | null>,
   ajustes: AjustesLectura,
+  opciones: OpcionesDeMarcas,
 ) {
   const vista = useRef<View | null>(null);
+  // Las marcas vigentes (para dibujar cuando foliate lo pida) y las ya dibujadas (para saber qué cambió).
+  const marcasVigentes = useRef(new Map<string, Marca>());
+  const marcasDibujadas = useRef(new Map<string, Marca>());
+  // El capítulo donde está la última selección, para poder deshacerla.
+  const docSeleccion = useRef<Document | null>(null);
+  // useEffectEvent (React 19.2): una función que los listeners del efecto llaman y que SIEMPRE ve las props más
+  // recientes, sin ser dependencia del efecto. Si alSeleccionar fuera dependencia, cada render de la interfaz cerraría
+  // y volvería a abrir el libro.
+  const avisarSeleccion = useEffectEvent((s: Seleccion | null) => opciones.alSeleccionar(s));
+  const avisarMarca = useEffectEvent((cfi: string, rect: Rectangulo) => opciones.alTocarMarca(cfi, rect));
   // Los ajustes vigentes, para quien los lee "después" (al abrir el libro, al cambiar el tema). Una ref y no una
   // dependencia del efecto principal: cambiar la letra NO debe cerrar y volver a abrir el libro.
   const ajustesVigentes = useRef(ajustes);
@@ -111,6 +147,22 @@ export function useLibroEpub(
     v.renderer.setStyles(estiloDelLibro(ajustes));
   }, [ajustes, listo]);
 
+  // Cambio de marcas con el libro abierto: se borran las que ya no están y se (re)dibujan las nuevas o cambiadas.
+  // addAnnotation solo dibuja si su capítulo está cargado; los demás se dibujan al cargarse (evento create-overlay).
+  useEffect(() => {
+    const nuevas = new Map(opciones.marcas.map((m) => [m.cfi, m]));
+    marcasVigentes.current = nuevas;
+    const v = vista.current;
+    if (!v || !listo) return;
+    const antes = marcasDibujadas.current;
+    for (const cfi of antes.keys()) if (!nuevas.has(cfi)) void v.deleteAnnotation({ value: cfi });
+    for (const [cfi, m] of nuevas) {
+      const a = antes.get(cfi);
+      if (!a || a.color !== m.color || a.estilo !== m.estilo) void v.addAnnotation({ value: cfi });
+    }
+    marcasDibujadas.current = nuevas;
+  }, [opciones.marcas, listo]);
+
   useEffect(() => {
     if (!documentoCargadoAqui()) {
       location.reload(); // navegación completa: ahora sí llega la CSP de proxy.ts
@@ -119,6 +171,7 @@ export function useLibroEpub(
     let cancelado = false;
     let abierta: View | null = null;
     let ultimoGiro = 0;
+    let ultimoToqueMarca = 0; // el clic sobre una marca abre su menú: no debe pasar de página
     // El tema puede cambiar mientras se lee (botón flotante, lámpara): un MutationObserver sobre <html> vuelve a
     // escribir los colores en el libro.
     const observador = new MutationObserver(() => abierta?.renderer.setStyles(estiloDelLibro(ajustesVigentes.current)));
@@ -128,6 +181,18 @@ export function useLibroEpub(
       if (e.key === "ArrowLeft") void abierta?.goLeft();
       if (e.key === "ArrowRight") void abierta?.goRight();
     }
+    // Clic en x (coordenada de la página): si cae en el 20 % izquierdo o derecho del área de lectura, pasa de página.
+    function pasarSiEsBorde(x: number) {
+      const area = superficie.current?.getBoundingClientRect();
+      if (!area) return;
+      if (x < area.left + area.width * ZONA_PAGINA) void abierta?.goLeft();
+      else if (x > area.right - area.width * ZONA_PAGINA) void abierta?.goRight();
+    }
+    // El clic en los MÁRGENES del área (fuera del iframe del capítulo): los del capítulo no llegan aquí.
+    function alHacerClicEnMargen(ev: MouseEvent) {
+      if (ev.button === 0) pasarSiEsBorde(ev.clientX);
+    }
+
     // Rueda: hacia abajo (o hacia la derecha en el touchpad) avanza. next/prev siguen el orden de lectura.
     // preventDefault: que la rueda no desplace también la página. Por eso se registra con { passive: false }.
     function alGirar(e: WheelEvent) {
@@ -150,6 +215,7 @@ export function useLibroEpub(
         // import() dinámico: foliate-js solo existe en el navegador (define un custom element), así que no entra en
         // el render del servidor. Importarlo registra <foliate-view>.
         await import("foliate-js/view.js");
+        const { Overlayer } = await import("foliate-js/overlayer.js");
         if (cancelado || !contenedor.current) return;
 
         const v = document.createElement("foliate-view") as View;
@@ -161,19 +227,78 @@ export function useLibroEpub(
         v.addEventListener("relocate", (e) => {
           const d = (e as CustomEvent<{ fraction: number; location?: { current: number; total: number };
             tocItem?: { label?: string; href?: string } }>).detail;
+          avisarSeleccion(null); // al pasar de página, un menú abierto quedaría lejos de su texto
+          const pagina = (d.location?.current ?? 0) + 1;
+          const total = d.location?.total ?? 0;
           setProgreso({
             capitulo: d.tocItem?.label?.trim() || null,
             destino: d.tocItem?.href ?? null,
-            pagina: (d.location?.current ?? 0) + 1,
-            total: d.location?.total ?? 0,
-            fraccion: d.fraction,
+            pagina,
+            total,
+            // foliate-js (paginator.js) calcula la fracción como (page - 1) / (pages - 2): en una sección de una sola
+            // pantalla (la portada) da 0 / 0 = NaN. Entonces se usa la cuenta de ubicaciones.
+            fraccion: Number.isFinite(d.fraction) ? d.fraction : total > 0 ? Math.min(1, (pagina - 1) / total) : 0,
           });
         });
         // Cada capítulo es OTRO documento (un iframe): el teclado y la rueda que ocurren dentro no llegan a la página.
         v.addEventListener("load", (e) => {
-          const { doc } = (e as CustomEvent<{ doc: Document }>).detail;
+          const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
           doc.addEventListener("keydown", alPresionar);
           doc.addEventListener("wheel", alGirar, { passive: false });
+          // RN-85: selección de texto. Al empezar a tocar, se cierra cualquier menú; al soltar, si quedó texto
+          // seleccionado, se avisa con su CFI. setTimeout: la selección termina de actualizarse DESPUÉS de pointerup.
+          // (Un clic sobre una marca no deja selección: lo atiende "show-annotation".)
+          doc.addEventListener("pointerdown", () => avisarSeleccion(null));
+          // Zonas laterales: un clic simple en el borde pasa de página. setTimeout: deja actuar primero a foliate (que
+          // en el mismo clic avisa si se tocó una marca). No cuenta si quedó texto seleccionado (fue un arrastre),
+          // si se tocó un enlace o una marca, ni si no fue el botón principal.
+          doc.addEventListener("click", (ev) => {
+            if (ev.button !== 0 || (ev.target as Element | null)?.closest?.("a")) return;
+            setTimeout(() => {
+              if (performance.now() - ultimoToqueMarca < 400 || !doc.getSelection()?.isCollapsed) return;
+              const marco = doc.defaultView?.frameElement?.getBoundingClientRect();
+              if (marco) pasarSiEsBorde(marco.left + ev.clientX); // coordenada del clic en la PÁGINA
+            }, 0);
+          });
+          doc.addEventListener("pointerup", () => setTimeout(() => {
+            const sel = doc.getSelection();
+            if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+            const rango = sel.getRangeAt(0);
+            const texto = sel.toString().trim();
+            if (!texto) return;
+            let cfi: string;
+            try {
+              cfi = v.getCFI(index, rango);
+            } catch {
+              return; // un rango que foliate no sabe ubicar (fuera del texto): no se ofrece marcarlo
+            }
+            docSeleccion.current = doc;
+            avisarSeleccion({ cfi, texto, rect: rectEnPagina(rango) });
+          }, 0));
+        });
+        // RN-85: dibujar una marca. foliate entrega `draw` y la marca (value = CFI); el estilo y el color salen de las
+        // marcas vigentes. El resaltado va con el color de fondo (foliate le pone 30 % de opacidad); las líneas, con
+        // el color de línea, más oscuro.
+        v.addEventListener("draw-annotation", (e) => {
+          const { draw, annotation } = (e as CustomEvent<{
+            draw: (forma: unknown, opciones?: { color?: string; width?: number }) => void;
+            annotation: { value: string };
+          }>).detail;
+          const m = marcasVigentes.current.get(annotation.value);
+          if (!m) return;
+          const c = COLOR_ANOTACION[m.color];
+          if (m.estilo === "resaltado") draw(Overlayer.highlight, { color: c.fondo });
+          else draw(m.estilo === "subrayado" ? Overlayer.underline : Overlayer.squiggly, { color: c.linea, width: 2 });
+        });
+        // Un capítulo nuevo en pantalla: se piden todas las marcas; foliate dibuja solo las de ESE capítulo.
+        v.addEventListener("create-overlay", () => {
+          for (const cfi of marcasVigentes.current.keys()) void v.addAnnotation({ value: cfi });
+        });
+        // Clic sobre una marca: la interfaz abre su menú (color, estilo, nota, borrar) junto a ella.
+        v.addEventListener("show-annotation", (e) => {
+          const { value, range } = (e as CustomEvent<{ value: string; range: Range }>).detail;
+          ultimoToqueMarca = performance.now();
+          avisarMarca(value, rectEnPagina(range));
         });
         // Enlaces a otros sitios: foliate-js los abriría con window.open(href, "_blank"), y la página abierta tendría
         // window.opener apuntando aquí (tabnabbing). Se cancela y se abre con noopener, solo si es http(s).
@@ -193,6 +318,7 @@ export function useLibroEpub(
         observador.observe(document.documentElement, { attributes: true, attributeFilter: ["data-tema", "data-tema-base"] });
         setIndice(indiceDe(v.book));
         await v.renderer.next(); // muestra la primera página
+        marcasDibujadas.current = new Map(marcasVigentes.current); // las dibuja create-overlay al cargar cada capítulo
         setListo(true);
       } catch (e) {
         if (!cancelado) setError(e instanceof Error && e.message ? e.message : "No se pudo abrir el libro.");
@@ -204,17 +330,23 @@ export function useLibroEpub(
     const caja = superficie.current;
     window.addEventListener("keydown", alPresionar);
     caja?.addEventListener("wheel", alGirar, { passive: false });
+    caja?.addEventListener("click", alHacerClicEnMargen);
 
     return () => {
       cancelado = true;
       observador.disconnect();
       window.removeEventListener("keydown", alPresionar);
       caja?.removeEventListener("wheel", alGirar);
+      caja?.removeEventListener("click", alHacerClicEnMargen);
       abierta?.close(); // libera los capítulos y sus blob:
       abierta?.remove();
       vista.current = null;
     };
   }, [url, contenedor, superficie]);
+
+  // Deshace la selección de texto en el libro (después de marcarla, o al cancelar). useCallback: la misma función en
+  // cada render (la interfaz la usa como dependencia; solo lee una ref).
+  const limpiarSeleccion = useCallback(() => docSeleccion.current?.getSelection()?.removeAllRanges(), []);
 
   return {
     listo,
@@ -225,5 +357,6 @@ export function useLibroEpub(
     // Los botones y las zonas laterales son "izquierda" y "derecha" en pantalla: respetan el sentido del libro.
     izquierda: () => void vista.current?.goLeft(),
     derecha: () => void vista.current?.goRight(),
+    limpiarSeleccion,
   };
 }

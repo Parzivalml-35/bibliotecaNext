@@ -8,6 +8,32 @@ export type ColorAnotacion = (typeof COLORES_ANOTACION)[number];
 export const ESTILOS_ANOTACION = ["resaltado", "subrayado", "ondulado"] as const;
 export type EstiloAnotacion = (typeof ESTILOS_ANOTACION)[number];
 
+// Nombre para mostrar y colores de cada opción. `fondo`: el resaltado (foliate lo dibuja con 30 % de opacidad, así se
+// lee el texto encima en los tres temas). `linea`: subrayado y ondulado, más oscuro (una línea fina amarilla clara no
+// se vería sobre papel blanco). Record<…>: si el ENUM gana un valor, no compila sin su nombre y sus colores.
+export const COLOR_ANOTACION: Record<ColorAnotacion, { nombre: string; fondo: string; linea: string }> = {
+  amarillo: { nombre: "Amarillo", fondo: "#facc15", linea: "#ca8a04" },
+  verde: { nombre: "Verde", fondo: "#4ade80", linea: "#16a34a" },
+  azul: { nombre: "Azul", fondo: "#60a5fa", linea: "#2563eb" },
+  rosa: { nombre: "Rosa", fondo: "#f472b6", linea: "#db2777" },
+};
+export const NOMBRE_ESTILO_ANOTACION: Record<EstiloAnotacion, string> = {
+  resaltado: "Resaltado",
+  subrayado: "Subrayado",
+  ondulado: "Ondulado",
+};
+
+// Un resaltado como lo usan la página, el visor y "Mis lecturas" (las columnas de `anotacion` que se muestran).
+export type Anotacion = {
+  id_anotacion: number;
+  cfi: string;
+  texto_citado: string;
+  color: ColorAnotacion;
+  estilo: EstiloAnotacion;
+  nota: string | null;
+  fecha_creacion: string; // "11/11/2026 14:05", ya formateada para mostrar
+};
+
 // ENUM de formato en sesion_lectura y posicion_lectura (el mismo de edicion_digital).
 export const FORMATOS_LECTURA = ["pdf", "epub"] as const;
 

@@ -6,6 +6,7 @@ import { Portada } from "@/components/portada";
 import { type FichaLibro, Visor } from "@/components/visor";
 import { obtenerAccesoDeLectura } from "@/lib/data/digital";
 import { obtenerLibroPorIsbn } from "@/lib/data/libros";
+import { limitesDeLectura, listarAnotaciones } from "@/lib/data/lectura";
 import type { FormatoDigital, LibroDetalle } from "@/lib/definitions";
 import { esIsbnValido } from "@/lib/isbn";
 import { exigirLector } from "@/lib/sesion";
@@ -53,7 +54,13 @@ export default async function PaginaLeer({ params, searchParams }: PageProps<"/l
   const detalles = libro && (
     <DetallesDelLibro libro={libro} formatos={formatos.map((f) => NOMBRE_FORMATO[f]).join(" y ")} />
   );
-  const visor = <Visor formato={formato} url={`/leer/${isbn}/archivo/${formato}`} ficha={ficha} portada={portada} detalles={detalles} />;
+  // RN-85, RN-87: las marcas del lector en este título (solo las suyas: id_lector de la sesión) y el largo de la nota.
+  // Solo hacen falta en el EPUB; las dos consultas no dependen una de otra (Promise.all).
+  const [anotaciones, limites] = formato === "epub"
+    ? await Promise.all([listarAnotaciones(lector.idLector, acceso.id_libro), limitesDeLectura()])
+    : [[], null];
+  const lectura = { anotaciones, maxNota: limites?.max_caracteres_nota ?? 0 };
+  const visor = <Visor formato={formato} url={`/leer/${isbn}/archivo/${formato}`} ficha={ficha} portada={portada} detalles={detalles} lectura={lectura} />;
 
   if (formato === "epub") return visor;
 
