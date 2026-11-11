@@ -24,6 +24,14 @@ export const PERMISOS = {
 
 export type Permiso = keyof typeof PERMISOS;
 
+// Nombre para mostrar de cada rol (el mostrador y /panel/perfil). Record<RolEmpleado, …>: si se agrega un rol, no
+// compila hasta darle nombre.
+export const NOMBRE_ROL: Record<RolEmpleado, string> = {
+  bibliotecario: "Bibliotecario",
+  coordinador: "Coordinador de sede",
+  admin_red: "Administrador de red",
+};
+
 export function tienePermiso(rol: RolEmpleado, permiso: Permiso): boolean {
   // El `as` solo ensancha el tipo: includes() de una tupla `as const` no acepta un RolEmpleado cualquiera.
   return (PERMISOS[permiso] as readonly RolEmpleado[]).includes(rol);

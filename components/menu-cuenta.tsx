@@ -56,6 +56,16 @@ export function MenuCuenta({ nombre, correo, avatar, esLector, inicioPanel }: Pr
             </Link>
           </DropdownMenuItem>
         )}
+        {/* R7i: el empleado sin perfil de lector cambia su avatar, tema y seguridad en /panel/perfil. Quien tiene los dos
+            perfiles (RN-31) lo hace en "Mi cuenta": un segundo enlace llevaría a las mismas secciones. */}
+        {inicioPanel && !esLector && (
+          <DropdownMenuItem asChild>
+            <Link href="/panel/perfil">
+              <HugeiconsIcon icon={UserIcon} aria-hidden="true" />
+              Mi perfil
+            </Link>
+          </DropdownMenuItem>
+        )}
         {inicioPanel && (
           <DropdownMenuItem asChild>
             <Link href={inicioPanel}>

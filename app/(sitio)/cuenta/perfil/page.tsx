@@ -1,14 +1,9 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
-import { FormularioAvatar, type OpcionAvatar } from "@/components/formularios-avatar";
 import { FormularioContacto } from "@/components/formularios-lector";
-import { FormularioTema } from "@/components/formulario-tema";
-import { ESTILOS_AVATAR, esEstiloAvatar, NOMBRES_ESTILO, urlDeAvatar } from "@/lib/avatar";
-import { maxKbAvatar } from "@/lib/data/avatar";
+import { SeccionAvatar, SeccionTema } from "@/components/secciones-cuenta";
 import { listarCiudades, obtenerPerfilDeLector } from "@/lib/data/lectores";
-import { exigirLector, obtenerUsuario } from "@/lib/sesion";
-import { resolverPreferencia } from "@/lib/tema";
+import { exigirLector } from "@/lib/sesion";
 
 export const metadata: Metadata = { title: "Perfil" };
 
@@ -21,21 +16,8 @@ const NOMBRE_DOCUMENTO: Record<string, string> = {
 export default async function PaginaPerfil() {
   const lector = await exigirLector("/cuenta/perfil"); // RN-83
   // Las dos consultas no dependen una de la otra: Promise.all las lanza a la vez en lugar de una tras otra.
-  const [perfil, ciudades, maxKb] = await Promise.all([obtenerPerfilDeLector(lector.idLector), listarCiudades(), maxKbAvatar()]);
+  const [perfil, ciudades] = await Promise.all([obtenerPerfilDeLector(lector.idLector), listarCiudades()]);
   if (!perfil) notFound(); // no debería pasar: la sesión ya comprobó que el lector existe
-  // El avatar es de la cuenta y ya viene en la sesión (obtenerUsuario está en cache(): no consulta otra vez).
-  const { avatar } = (await obtenerUsuario())!;
-  // Un estilo que ya no está en la lista se muestra (y se marca) como el primero, igual que lo dibuja urlDeAvatar.
-  const estiloActual = esEstiloAvatar(avatar.estilo) ? avatar.estilo : ESTILOS_AVATAR[0];
-  // Cada opción con la semilla ACTUAL: así se ve cómo quedaría el mismo avatar en otro estilo.
-  const opciones: OpcionAvatar[] = ESTILOS_AVATAR.map((estilo) => ({
-    estilo, nombre: NOMBRES_ESTILO[estilo], url: urlDeAvatar({ estilo, semilla: avatar.semilla }),
-  }));
-
-  // DI-04 (R7h): la preferencia de ESTE equipo (sus cookies), para que el formulario llegue marcado desde el servidor.
-  // Esta página ya es dinámica (lee la sesión), así que leer cookies() aquí no cambia nada; en el layout raíz sí lo haría.
-  // toString() da "tema=oscuro; lampara=encendida; …", la misma forma que document.cookie.
-  const temaDelEquipo = resolverPreferencia((await cookies()).toString());
 
   // "1995-05-05" → "5 de mayo de 1995". T00:00:00Z + timeZone UTC: la fecha no se corre un día por la zona horaria.
   const nacimiento = new Intl.DateTimeFormat("es-CO", { dateStyle: "long", timeZone: "UTC" })
@@ -75,24 +57,11 @@ export default async function PaginaPerfil() {
         />
       </section>
 
-      <section aria-labelledby="avatar" className="mt-6 rounded-2xl border border-border bg-card p-5">
-        <h2 id="avatar" className="font-heading text-lg font-semibold">Avatar</h2>
-        <p className="mt-1 mb-4 text-sm text-muted-foreground">
-          Lo dibujamos al azar en nuestro servidor: no sale de tu nombre ni de tu correo. Puedes generar otro, cambiar el
-          estilo o usar una foto tuya.
-        </p>
-        {/* foto: con clave, urlDeAvatar devuelve la ruta de la foto; sin ella, null (el formulario muestra el generado). */}
-        <FormularioAvatar actual={opciones.find((o) => o.estilo === estiloActual)!} opciones={opciones}
-                          foto={avatar.clave ? urlDeAvatar(avatar) : null} maxKb={maxKb} />
-      </section>
-
-      <section aria-labelledby="tema" className="mt-6 rounded-2xl border border-border bg-card p-5">
-        <h2 id="tema" className="font-heading text-lg font-semibold">Tema</h2>
-        <p className="mt-1 mb-4 text-sm text-muted-foreground">
-          Se aplica al instante y lo guardamos en tu cuenta: al entrar desde otro equipo se usará el mismo.
-        </p>
-        <FormularioTema inicial={temaDelEquipo} />
-      </section>
+      {/* Avatar y tema son de la cuenta: las mismas secciones que /panel/perfil (components/secciones-cuenta.tsx). */}
+      <div className="mt-6 space-y-6">
+        <SeccionAvatar />
+        <SeccionTema />
+      </div>
     </>
   );
 }

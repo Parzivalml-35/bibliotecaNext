@@ -87,7 +87,7 @@ La barra de pestañas del panel muestra solo las secciones del rol; dentro de ca
 | | `/panel/red/catalogo` | Libros, autores, editoriales, ediciones digitales | | | ✓ | Fase de administración |
 | | `/panel/red/empleados` | Empleados | | | ✓ | Fase de administración |
 | | `/panel/red/tipos-lector`, `/panel/red/configuracion` | Tipos de lector y configuración | | | ✓ | Fase de administración |
-| (sin sección) | `/panel/perfil` | Perfil, avatar, tema y seguridad del empleado | ✓ | ✓ | ✓ | **Nueva** (R7) |
+| (sin sección) | `/panel/perfil` | Perfil, avatar, tema y seguridad del empleado; se llega desde "Mi perfil" en el menú de la cuenta | ✓ | ✓ | ✓ | Hecho (R7i) |
 
 **`/panel` deja de ser una página**: redirige a la primera sección del rol. El bibliotecario y el coordinador van a
 Mostrador; el administrador, a Reportes. Una persona con los dos perfiles (RN-31) ve "Panel" y "Mi cuenta" en su menú.
