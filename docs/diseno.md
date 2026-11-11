@@ -293,13 +293,28 @@ con el tema. Revisarla con `grep -nE "zinc-|red-|emerald-|amber-|blue-|dark:" ar
 - **Seguridad (RN-84):** un EPUB es HTML y puede traer JavaScript. foliate-js **no** lo bloquea: su `iframe` necesita
   `allow-scripts` por un bug de WebKit y los capítulos se cargan como `blob:` del mismo origen (lo advierte su README).
   Lo bloquea la CSP de `/leer` (`proxy.ts`, con *nonce*), y por eso a `/leer` se entra con navegación completa.
-- Tema: el contenido del libro toma `background` y `foreground` del tema activo. En PDF, la lámpara se aproxima con un
-  filtro (`sepia`) sobre el canvas.
+- Tema: el contenido del libro toma el `foreground` del tema activo, con fondo transparente y el mismo `color-scheme`
+  que la página (si no coinciden, el navegador pinta el iframe opaco). En PDF, la lámpara se aproxima con un filtro
+  (`sepia`) sobre el canvas.
+- **Lector inmersivo del EPUB** (2026-11-11). La referencia es Readest (AGPL-3.0: se tomaron ideas, no código).
+  - **Pantalla completa:** sin la cápsula, con el visor en `h-dvh`.
+  - **Barra lateral izquierda, "el libro":**
+    - volver, la lámpara y "Ver en PDF";
+    - la ficha: portada ampliable y (i) "Detalles del libro";
+    - el índice con la página de cada capítulo y la fila "Posición actual";
+    - el avance;
+    - pestañas al pie: Índice y Ajustes (tamaño de letra y columnas).
+    Se oculta y se recuerda en el navegador. En el celular es un cajón.
+  - **Área de lectura:** el capítulo arriba, el contador de ubicaciones de foliate-js (bloques de 1500 bytes: no
+    cambian con la pantalla) abajo a la derecha, y zonas laterales, flechas y rueda (con pausa) para pasar página.
+  - **Lo que viene después** (decidido): un panel derecho, "lo mío", con notas libres y resaltados, más un lápiz ✎ con
+    menú arriba a la derecha. Lo escrito por el lector va a la derecha; el libro, a la izquierda.
 
 **Para poder cambiar a Readium después**, tres límites:
 
 1. **El motor queda detrás de un componente.** Las páginas usan `<Visor formato="epub" | "pdf" …>` y no saben qué
-   librería hay dentro. Cambiar el motor toca un solo archivo.
+   librería hay dentro. En el EPUB, el motor está en `components/visor-epub/motor.ts` y entrega a la interfaz datos
+   neutros (índice, progreso, acciones), sin objetos de foliate-js: cambiar de motor es reescribir ese archivo.
 2. **El archivo guardado no cambia.** En `storage/` sigue el `.epub` original y la ruta que verifica el acceso (RN-29)
    sigue siendo la misma. Readium necesitaría además un paso en el servidor que abra el EPUB y publique su *manifest*:
    sería una ruta nueva, sin tocar los datos.
