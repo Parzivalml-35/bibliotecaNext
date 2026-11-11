@@ -187,6 +187,10 @@ erDiagram
         tinyint dias_aviso_vencimiento
         smallint minutos_recuperacion_contrasena
         smallint max_kb_avatar
+        smallint max_caracteres_nota
+        smallint max_caracteres_cita
+        smallint segundos_latido_lectura
+        smallint minutos_pausa_lectura
     }
     tipo_lector {
         int id_tipo_lector PK
@@ -666,3 +670,78 @@ erDiagram
 - **Subtotal y total del pedido**: `SUM(cantidad * precio_unitario)` del detalle + `costo_envio` (ambos congelados).
 - **Pedido vencido por falta de pago**: se detecta con `fecha_limite_pago < NOW()` y se procesa con vencimiento perezoso
   (RN-48), que pasa el estado a `vencido` y devuelve el stock.
+
+## Bloque 6 — Lectura: anotaciones, notas libres, historial y posición
+
+Agregado el 2026-11-11 (anotaciones del visor EPUB, RN-85 a RN-88). Todo es **del lector y de un título**: no depende de
+la edición ni del préstamo, así sobrevive al fin del préstamo (RN-87) y vale para un préstamo o una compra posteriores.
+
+```mermaid
+erDiagram
+    lector ||--o{ anotacion : "marca"
+    libro ||--o{ anotacion : ""
+    lector ||--o{ nota_libre : "escribe"
+    libro ||--o{ nota_libre : ""
+    lector ||--o{ sesion_lectura : "lee"
+    libro ||--o{ sesion_lectura : ""
+    lector ||--o{ posicion_lectura : "va en"
+    libro ||--o{ posicion_lectura : ""
+
+    anotacion {
+        int id_anotacion PK
+        int id_lector FK
+        int id_libro FK
+        varchar cfi
+        varchar texto_citado
+        enum color
+        enum estilo
+        text nota "NULL = sin nota"
+        datetime fecha_creacion
+        datetime fecha_edicion
+    }
+    nota_libre {
+        int id_nota_libre PK
+        int id_lector FK
+        int id_libro FK
+        text texto
+        varchar cfi "NULL"
+        varchar capitulo "NULL"
+        datetime fecha_creacion
+        datetime fecha_edicion
+    }
+    sesion_lectura {
+        int id_sesion_lectura PK
+        int id_lector FK
+        int id_libro FK
+        enum formato
+        datetime inicio
+        datetime ultimo_aviso
+        decimal progreso_inicial
+        decimal progreso_final
+    }
+    posicion_lectura {
+        int id_lector PK
+        int id_libro PK
+        enum formato PK
+        varchar cfi "EPUB"
+        smallint pagina "PDF"
+        decimal fraccion
+        datetime fecha_actualizacion
+    }
+```
+
+### De dónde sale cada tabla
+
+| Tabla | Reglas | Notas de diseño |
+|---|---|---|
+| `anotacion` | RN-85, RN-87 | `cfi` (EPUB CFI) es la ubicación estándar del fragmento: no depende de foliate-js (DI-06, límite 3). `UNIQUE (id_lector, id_libro, cfi)`: un fragmento se marca una vez; volver a marcarlo actualiza (`INSERT … ON DUPLICATE KEY UPDATE`). `color` y `estilo` como ENUM (C-02: cada valor se dibuja distinto en el código). `nota` NULL = sin nota; `CHECK` contra la nota vacía. El largo de la nota y de la cita sale de `configuracion` (C-04); `texto_citado` es `VARCHAR(1000)` y un `CHECK` impide configurar una cita mayor. |
+| `nota_libre` | RN-86, RN-87 | Tabla propia y no una `anotacion` sin cita: no tiene fragmento, color ni estilo, y su texto es obligatorio. `cfi` y `capitulo` recuerdan dónde estaba el lector al escribirla. |
+| `sesion_lectura` | RN-88 | Una fila por sesión. El visor avisa cada `segundos_latido_lectura`; el aviso **extiende** la última sesión del lector en ese título si su `ultimo_aviso` es más reciente que `minutos_pausa_lectura`, o **crea** otra. Duración = `ultimo_aviso - inicio`. |
+| `posicion_lectura` | RN-88 | PK `(id_lector, id_libro, formato)`: una posición por formato. `CHECK`: EPUB ⇒ `cfi` y no `pagina`; PDF ⇒ `pagina` y no `cfi`. Se escribe con `INSERT … ON DUPLICATE KEY UPDATE`. |
+
+### Lo que valida la capa de lógica
+
+- **Acceso vigente** (RN-29) para crear y editar anotaciones y notas, y para registrar avisos y la posición; **no** para
+  ver ni borrar las propias (RN-87).
+- El lector sale **siempre de la sesión**; una anotación o nota ajena se trata como inexistente (RN-87, RN-35).
+- Forma del `cfi` (empieza por `epubcfi(` y cabe en 500), largo de la nota y recorte de la cita según `configuracion`.

@@ -201,12 +201,19 @@ CREATE TABLE configuracion (
     dias_aviso_vencimiento           TINYINT UNSIGNED NOT NULL,   -- RN-76: 0 = avisar solo el día que vence
     minutos_recuperacion_contrasena  SMALLINT UNSIGNED NOT NULL,  -- RN-80
     max_kb_avatar                    SMALLINT UNSIGNED NOT NULL,  -- RN-82
+    max_caracteres_nota              SMALLINT UNSIGNED NOT NULL,  -- RN-85, RN-86
+    max_caracteres_cita              SMALLINT UNSIGNED NOT NULL,  -- RN-85: texto citado (la columna admite 1000)
+    segundos_latido_lectura          SMALLINT UNSIGNED NOT NULL,  -- RN-88
+    minutos_pausa_lectura            SMALLINT UNSIGNED NOT NULL,  -- RN-88
     CONSTRAINT ck_configuracion_unica CHECK (id = 1),
     CONSTRAINT ck_configuracion_multa CHECK (multa_por_dia > 0 AND multa_tope >= multa_por_dia),
     CONSTRAINT ck_configuracion_plazos CHECK (dias_atraso_perdido > 0 AND horas_confirmar_reserva_digital > 0
                                               AND minutos_pago_pedido > 0 AND dias_devolucion_compra > 0
                                               AND horas_verificacion_correo > 0 AND minutos_recuperacion_contrasena > 0),
     CONSTRAINT ck_configuracion_avatar CHECK (max_kb_avatar > 0),
+    -- La cita no puede superar el tamaño de la columna anotacion.texto_citado (VARCHAR(1000)).
+    CONSTRAINT ck_configuracion_lectura CHECK (max_caracteres_nota > 0 AND max_caracteres_cita BETWEEN 1 AND 1000
+                                               AND segundos_latido_lectura > 0 AND minutos_pausa_lectura > 0),
     CONSTRAINT ck_configuracion_intentos CHECK (max_fallos_por_correo > 0 AND max_fallos_por_ip > 0
                                                 AND max_registros_por_ip > 0 AND minutos_ventana_intentos > 0),
     CONSTRAINT fk_configuracion_tipo_lector FOREIGN KEY (id_tipo_lector_registro) REFERENCES tipo_lector (id_tipo_lector)
@@ -769,4 +776,85 @@ CREATE TABLE acceso_digital (
     CONSTRAINT fk_acceso_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
     CONSTRAINT fk_acceso_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro),
     CONSTRAINT fk_acceso_pedido FOREIGN KEY (id_pedido) REFERENCES pedido (id_pedido)
+);
+
+-- =====================================================================
+-- Bloque 6 — Lectura: anotaciones, notas libres, historial y posición (RN-85 a RN-88)
+-- =====================================================================
+-- Todo es del LECTOR (RN-87: solo su dueño lo ve) y de un TÍTULO (no de una edición ni de un préstamo): sobrevive al
+-- fin del préstamo y a un préstamo o una compra posteriores del mismo título.
+-- cfi: EPUB Canonical Fragment Identifier, la forma estándar de señalar un punto o un rango dentro de un EPUB
+-- (p. ej. "epubcfi(/6/4!/4/2,/1:0,/1:42)"). No depende del visor: otro motor lo entiende igual (DI-06).
+
+-- RN-85: un fragmento marcado del EPUB (resaltado, subrayado u ondulado), con nota opcional.
+CREATE TABLE anotacion (
+    id_anotacion    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_lector       INT UNSIGNED NOT NULL,
+    id_libro        INT UNSIGNED NOT NULL,
+    cfi             VARCHAR(500) NOT NULL,
+    texto_citado    VARCHAR(1000) NOT NULL,   -- recortado a configuracion.max_caracteres_cita
+    color           ENUM('amarillo', 'verde', 'azul', 'rosa') NOT NULL,
+    estilo          ENUM('resaltado', 'subrayado', 'ondulado') NOT NULL,
+    nota            TEXT NULL,                -- NULL = sin nota; el largo lo limita la lógica (max_caracteres_nota)
+    fecha_creacion  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_edicion   DATETIME NULL,
+    -- RN-85: un mismo fragmento se marca una sola vez (volver a marcarlo lo actualiza).
+    CONSTRAINT uq_anotacion_fragmento UNIQUE (id_lector, id_libro, cfi),
+    CONSTRAINT ck_anotacion_nota CHECK (nota IS NULL OR CHAR_LENGTH(nota) > 0),
+    CONSTRAINT ck_anotacion_fechas CHECK (fecha_edicion IS NULL OR fecha_edicion >= fecha_creacion),
+    CONSTRAINT fk_anotacion_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_anotacion_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro)
+);
+
+-- RN-86: nota libre del libro; recuerda dónde estaba el lector al escribirla (para volver ahí).
+CREATE TABLE nota_libre (
+    id_nota_libre   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_lector       INT UNSIGNED NOT NULL,
+    id_libro        INT UNSIGNED NOT NULL,
+    texto           TEXT NOT NULL,
+    cfi             VARCHAR(500) NULL,        -- NULL si se escribió sin el libro abierto en una posición conocida
+    capitulo        VARCHAR(255) NULL,
+    fecha_creacion  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_edicion   DATETIME NULL,
+    CONSTRAINT ck_nota_libre_texto CHECK (CHAR_LENGTH(texto) > 0),
+    CONSTRAINT ck_nota_libre_fechas CHECK (fecha_edicion IS NULL OR fecha_edicion >= fecha_creacion),
+    CONSTRAINT fk_nota_libre_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_nota_libre_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro),
+    INDEX idx_nota_libre_lector_libro (id_lector, id_libro)
+);
+
+-- RN-88: una sesión de lectura = avisos seguidos del visor sin una pausa mayor a minutos_pausa_lectura.
+-- progreso_*: fracción del libro (0 a 1) al empezar y en el último aviso.
+CREATE TABLE sesion_lectura (
+    id_sesion_lectura  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_lector          INT UNSIGNED NOT NULL,
+    id_libro           INT UNSIGNED NOT NULL,
+    formato            ENUM('pdf', 'epub') NOT NULL,
+    inicio             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ultimo_aviso       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    progreso_inicial   DECIMAL(5,4) NOT NULL,
+    progreso_final     DECIMAL(5,4) NOT NULL,
+    CONSTRAINT ck_sesion_lectura_fechas CHECK (ultimo_aviso >= inicio),
+    CONSTRAINT ck_sesion_lectura_progreso CHECK (progreso_inicial BETWEEN 0 AND 1 AND progreso_final BETWEEN 0 AND 1),
+    CONSTRAINT fk_sesion_lectura_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_sesion_lectura_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro),
+    -- Buscar la sesión abierta (el último aviso de este lector y título) y listar el historial.
+    INDEX idx_sesion_lectura_lector_libro (id_lector, id_libro, ultimo_aviso)
+);
+
+-- RN-88: dónde va el lector en cada formato del título. EPUB: cfi; PDF: pagina (exactamente uno de los dos).
+CREATE TABLE posicion_lectura (
+    id_lector            INT UNSIGNED NOT NULL,
+    id_libro             INT UNSIGNED NOT NULL,
+    formato              ENUM('pdf', 'epub') NOT NULL,
+    cfi                  VARCHAR(500) NULL,
+    pagina               SMALLINT UNSIGNED NULL,
+    fraccion             DECIMAL(5,4) NOT NULL,
+    fecha_actualizacion  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_lector, id_libro, formato),
+    CONSTRAINT ck_posicion_formato CHECK ((formato = 'epub' AND cfi IS NOT NULL AND pagina IS NULL)
+                                          OR (formato = 'pdf' AND pagina IS NOT NULL AND pagina > 0 AND cfi IS NULL)),
+    CONSTRAINT ck_posicion_fraccion CHECK (fraccion BETWEEN 0 AND 1),
+    CONSTRAINT fk_posicion_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_posicion_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro)
 );
