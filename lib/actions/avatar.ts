@@ -11,7 +11,7 @@ import {
   nuevaSemillaDeAvatar,
 } from "@/lib/data/avatar";
 import type { EstadoFormulario } from "@/lib/definitions";
-import { borrarFoto, guardarFoto, procesarFoto } from "@/lib/foto-avatar";
+import { borrarFoto, guardarFoto, procesarFoto, type Recorte } from "@/lib/foto-avatar";
 import { obtenerUsuario } from "@/lib/sesion";
 
 // RN-81: el dueño de la cuenta cambia su avatar generado. obtenerUsuario y no exigirLector: el avatar es de la CUENTA,
@@ -58,7 +58,7 @@ export async function subirFotoAvatar(_estadoAnterior: EstadoFormulario, datos: 
   const archivo = datos.get("foto");
   if (!(archivo instanceof File) || archivo.size === 0) return { error: "Elige una foto." };
 
-  const resultado = await procesarFoto(archivo, await maxKbAvatar());
+  const resultado = await procesarFoto(archivo, await maxKbAvatar(), recorteDe(datos));
   if ("error" in resultado) return { error: resultado.error };
 
   let clave: string;
@@ -81,6 +81,17 @@ export async function subirFotoAvatar(_estadoAnterior: EstadoFormulario, datos: 
   if (estado.error) await borrarFoto(clave); // ROLLBACK: la BD sigue con la anterior
   else if (cambio.anterior) await borrarFoto(cambio.anterior); // RN-82: la nueva reemplaza a la anterior, que se borra
   return estado;
+}
+
+// RN-82: la zona elegida en la vista previa (campos ocultos que pone AjusteFoto). Sin los tres, o con algo que no sea un
+// número finito, null: se recorta al centro (es lo que pasa sin JavaScript). Que la zona caiga dentro de la imagen lo
+// ajusta procesarFoto, que conoce el tamaño real. No se exporta: en un archivo "use server" sería un endpoint público.
+function recorteDe(datos: FormData): Recorte | null {
+  const campos = ["recorte_x", "recorte_y", "recorte_lado"].map((campo) => texto(datos, campo));
+  // Number("") vale 0, no NaN: sin esta comprobación, un campo vacío parecería "la esquina de arriba a la izquierda".
+  if (campos.some((valor) => valor === "")) return null;
+  const [x, y, lado] = campos.map(Number);
+  return [x, y, lado].every(Number.isFinite) ? { x, y, lado } : null;
 }
 
 // RN-81 y RN-82: volver al avatar generado cuando quiera. Sin parámetros, como generarOtroAvatar.

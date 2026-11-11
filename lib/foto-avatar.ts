@@ -28,8 +28,28 @@ const MAX_PIXELES = 50_000_000;
 
 export type ResultadoFoto = { webp: Buffer } | { error: string };
 
+// RN-82: la zona cuadrada que eligió la persona en la vista previa, en FRACCIONES de la foto ya enderezada (como la
+// muestra el navegador), no en píxeles: así no importa a qué tamaño se vio. x e y: esquina superior izquierda (fracción
+// del ancho y del alto); lado: fracción del lado CORTO (1 = el cuadrado más grande que cabe; 0,5 = zoom ×2).
+export type Recorte = { x: number; y: number; lado: number };
+
+// Zoom máximo que acepta el servidor (lado mínimo 0,1 = ×10). La vista previa llega hasta ×3; esto solo pone un
+// límite a lo que se recibe: un lado minúsculo daría un recorte de pocos píxeles estirado a 256.
+const LADO_MINIMO = 0.1;
+
+// Los píxeles a recortar, ajustados para que el cuadrado quede DENTRO de la imagen (RN-82: "se valida y se ajusta").
+// Math.min/max acotan cada valor; el lado se calcula primero porque de él depende hasta dónde puede llegar la esquina.
+function zonaEnPixeles(recorte: Recorte, ancho: number, alto: number) {
+  const corto = Math.min(ancho, alto);
+  const lado = Math.max(1, Math.round(Math.min(1, Math.max(LADO_MINIMO, recorte.lado)) * corto));
+  const left = Math.min(ancho - lado, Math.max(0, Math.round(recorte.x * ancho)));
+  const top = Math.min(alto - lado, Math.max(0, Math.round(recorte.y * alto)));
+  return { left, top, width: lado, height: lado };
+}
+
 // Valida y vuelve a codificar. Devuelve el WebP listo para guardar o el mensaje para el usuario.
-export async function procesarFoto(archivo: File, maxKb: number): Promise<ResultadoFoto> {
+// recorte null (sin JavaScript, o sin zona válida): el cuadrado del centro, como antes.
+export async function procesarFoto(archivo: File, maxKb: number, recorte: Recorte | null = null): Promise<ResultadoFoto> {
   // Primero el tamaño (lo declara el propio cuerpo de la petición, ya recibido): no se le pasa a sharp nada más grande.
   if (archivo.size > maxKb * 1024) {
     // En MB desde 1024 KB (2048 → "2 MB", 1536 → "1,5 MB"); por debajo, en KB: el valor viene de la BD y puede ser chico.
@@ -44,12 +64,18 @@ export async function procesarFoto(archivo: File, maxKb: number): Promise<Result
     // ante datos dañados, sharp falla en vez de adivinar; es lo que recomienda para entradas de desconocidos.
     const imagen = sharp(entrada, { limitInputPixels: MAX_PIXELES, autoOrient: true, failOn: "warning" });
 
-    const { format } = await imagen.metadata();
+    const { format, autoOrient } = await imagen.metadata();
     if (!FORMATOS_PERMITIDOS.has(format)) {
       return { error: "La foto debe ser JPEG, PNG o WebP." };
     }
 
-    // fit "cover": llena el cuadrado y recorta lo que sobra (centrado). Volver a codificar es la defensa principal:
+    // La zona elegida, sobre la imagen YA enderezada: metadata().autoOrient trae el ancho y el alto con la orientación
+    // EXIF aplicada (width/height a secas son los del archivo, "acostado"), y con autoOrient en el constructor sharp
+    // endereza antes de extract(). Es la misma imagen que mostró el navegador, que también aplica la orientación.
+    if (recorte) imagen.extract(zonaEnPixeles(recorte, autoOrient.width, autoOrient.height));
+
+    // fit "cover": llena el cuadrado y recorta lo que sobra (centrado; con recorte ya es cuadrada y solo se achica).
+    // Volver a codificar es la defensa principal:
     // lo que se guarda son píxeles nuevos escritos por sharp, no el archivo recibido. Sin keepMetadata(), sharp no copia
     // EXIF, XMP ni IPTC (ahí viaja la ubicación GPS). Un WebP o PNG animado: sharp lee solo el primer cuadro.
     const webp = await imagen.resize(LADO, LADO, { fit: "cover" }).webp({ quality: 82 }).toBuffer();

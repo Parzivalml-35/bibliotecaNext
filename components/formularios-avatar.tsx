@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { type FormEvent, useActionState, useState } from "react";
+import { type ChangeEvent, type FormEvent, useActionState, useEffect, useState } from "react";
+import { AjusteFoto } from "@/components/ajuste-foto";
 import { buttonVariants } from "@/components/ui/button";
 import { claseBoton, claseEtiqueta, MensajeFormulario } from "@/components/ui-formulario";
 import { elegirEstiloAvatar, generarOtroAvatar, quitarFotoAvatar, subirFotoAvatar } from "@/lib/actions/avatar";
@@ -37,7 +38,25 @@ export function FormularioAvatar({ actual, opciones, foto, maxKb }: Props) {
   const [ultimo, setUltimo] = useState<"semilla" | "quitar" | "foto" | null>(null);
   const conMensaje = (estado: EstadoFormulario) => Boolean(estado.error || estado.exito);
   const estadoFila = ultimo === "quitar" || (ultimo === null && conMensaje(estadoQuitar)) ? estadoQuitar : estadoSemilla;
-  const estadoFotoVisible: EstadoFormulario = errorLocal ? { error: errorLocal } : ultimo === "foto" || ultimo === null ? estadoFoto : {};
+
+  // RN-82: la foto elegida, para la vista previa (AjusteFoto). `estado` es el estadoFoto que había al elegirla: cuando la
+  // acción responde, useActionState trae un objeto NUEVO y la vista previa deja de mostrarse (React además vacía el
+  // campo de archivo al terminar la acción). Así no queda una vista previa de una foto que ya se subió.
+  const [previa, setPrevia] = useState<{ url: string; estado: EstadoFormulario } | null>(null);
+  const urlPrevia = previa?.url;
+  // URL.createObjectURL reserva memoria hasta que se libera: al cambiar de foto o salir de la página, se libera la anterior.
+  // La función que devuelve el efecto es la "limpieza": React la llama antes del siguiente efecto y al desmontar.
+  useEffect(() => {
+    if (!urlPrevia) return;
+    return () => URL.revokeObjectURL(urlPrevia);
+  }, [urlPrevia]);
+
+  // El mensaje del formulario de la foto: el error del navegador si lo hay; si hay una vista previa pendiente, ninguno
+  // (el "Listo" de la subida anterior no corresponde a la foto nueva que se está ajustando); si no, el de la acción.
+  const previaVisible = previa !== null && previa.estado === estadoFoto;
+  const estadoFotoVisible: EstadoFormulario = errorLocal
+    ? { error: errorLocal }
+    : previaVisible || (ultimo !== "foto" && ultimo !== null) ? {} : estadoFoto;
 
   const limite = maxKb >= 1024 ? `${(maxKb / 1024).toLocaleString("es-CO", { maximumFractionDigits: 1 })} MB` : `${maxKb} KB`;
 
@@ -53,6 +72,19 @@ export function FormularioAvatar({ actual, opciones, foto, maxKb }: Props) {
     } else {
       setErrorLocal(null);
     }
+  }
+
+  // Al elegir un archivo: si pesa de más, el aviso de una vez (sin vista previa); si no, la vista previa local.
+  function elegirArchivo(evento: ChangeEvent<HTMLInputElement>) {
+    const archivo = evento.currentTarget.files?.[0];
+    setUltimo("foto");
+    setErrorLocal(null);
+    if (!archivo) return setPrevia(null);
+    if (archivo.size > maxKb * 1024) {
+      setPrevia(null);
+      return setErrorLocal(`La foto pesa más de ${limite}. Elige una más liviana.`);
+    }
+    setPrevia({ url: URL.createObjectURL(archivo), estado: estadoFoto });
   }
 
   return (
@@ -92,9 +124,17 @@ export function FormularioAvatar({ actual, opciones, foto, maxKb }: Props) {
           {/* accept solo filtra lo que ofrece el selector de archivos: el servidor comprueba el tipo por el contenido.
               file:* (Tailwind) da estilo al botón interno del campo (el pseudo-elemento ::file-selector-button). */}
           <input id="foto" name="foto" type="file" accept="image/jpeg,image/png,image/webp" required
-                 aria-describedby="ayuda-foto"
+                 aria-describedby="ayuda-foto" onChange={elegirArchivo}
                  className="mt-2 block w-full max-w-md text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-4xl file:border file:border-borde-campo file:bg-secondary file:px-4 file:py-2 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" />
         </div>
+        {/* key={url}: otra foto = otro AjusteFoto, con el zoom y la posición desde cero. Si el navegador no puede
+            mostrarla (archivo dañado o que no es imagen), se avisa aquí; el servidor igual la rechazaría. */}
+        {previaVisible && (
+          <AjusteFoto key={previa.url} url={previa.url} alFallar={() => {
+            setPrevia(null);
+            setErrorLocal("No pudimos mostrar esta imagen. Prueba con otra foto JPEG, PNG o WebP.");
+          }} />
+        )}
         <MensajeFormulario estado={estadoFotoVisible} />
         <button type="submit" disabled={subiendo} className={claseBoton}>
           {subiendo ? "Subiendo…" : "Subir foto"}
