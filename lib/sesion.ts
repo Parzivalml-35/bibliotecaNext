@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { borrarSesion, buscarSesionVigente, insertarSesion } from "@/lib/data/sesiones";
 import type { EmpleadoSesion, LectorSesion, UsuarioSesion } from "@/lib/definitions";
 import { inicioDe, type Permiso, tienePermiso } from "@/lib/permisos";
+import { cookiesDePreferencia, type Preferencia } from "@/lib/tema";
 
 // Capa de acceso a la sesión (la "DAL" de la guía de autenticación de Next). Todo lo que necesite saber
 // quién está conectado pasa por aquí: páginas, layouts y Server Actions. RN-35, RN-63, RN-64.
@@ -32,6 +33,17 @@ export async function crearSesion(idCuenta: number): Promise<void> {
     path: "/",
     maxAge: horas * 60 * 60, // en segundos; la BD tiene la fecha real, esto solo limpia el navegador
   });
+}
+
+// DI-04 (R7h): al entrar, el tema guardado en la cuenta pasa a las cookies de este navegador; así la primera página
+// ya se pinta con él (el script del <head> lee estas cookies). Solo desde Server Actions, como crearSesion.
+// A diferencia de la de sesión, estas cookies NO son httpOnly: las tienen que leer el script del <head> y los botones.
+// Las mismas opciones que les pone aplicarPreferencia en el navegador (path, max-age, SameSite=Lax).
+export async function ponerCookiesDeTema(p: Preferencia): Promise<void> {
+  const almacen = await cookies();
+  for (const c of cookiesDePreferencia(p)) {
+    almacen.set(c.nombre, c.valor, { path: "/", maxAge: c.maxAge, sameSite: "lax", httpOnly: false });
+  }
 }
 
 // RN-78: el hash de la sesión de este navegador, para conservarla al cerrar las demás. null si no hay cookie.

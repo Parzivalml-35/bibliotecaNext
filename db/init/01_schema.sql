@@ -229,8 +229,9 @@ CREATE TABLE cuenta (
     -- RN-82: nombre aleatorio de la foto en el almacenamiento privado. NULL = usa el generado (se deduce, C-02).
     -- Estilo y semilla se conservan aunque haya foto: "volver al generado" recupera el mismo avatar.
     avatar_clave         VARCHAR(255) NULL,
-    -- DI-04: preferencias de tema guardadas en la cuenta (las mismas dos cookies). NULL = sin preferencia, manda
-    -- la cookie del equipo (o el sistema).
+    -- DI-04: preferencias de tema guardadas en la cuenta (las mismas dos cookies). lampara NULL = la cuenta nunca eligió
+    -- (manda la cookie del equipo). Al guardar se escriben las dos y lampara nunca queda NULL: tema_base NULL con lampara
+    -- no nula = "seguir al sistema" (R7h, sin ENUM nuevo para no reconstruir la BD).
     tema_base            ENUM('claro', 'oscuro') NULL,
     lampara              BOOLEAN NULL,
     CONSTRAINT uq_cuenta_correo UNIQUE (correo),

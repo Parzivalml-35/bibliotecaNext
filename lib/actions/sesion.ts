@@ -7,7 +7,7 @@ import { anotarIntento, loginBloqueado } from "@/lib/data/intentos";
 import { buscarCuentaPorCorreo, cambiarContrasenaYCerrarOtras } from "@/lib/data/sesiones";
 import type { EstadoFormulario } from "@/lib/definitions";
 import { inicioDe } from "@/lib/permisos";
-import { cerrarSesion, crearSesion, hashDeLaSesionActual, obtenerUsuario, rutaInterna } from "@/lib/sesion";
+import { cerrarSesion, crearSesion, hashDeLaSesionActual, obtenerUsuario, ponerCookiesDeTema, rutaInterna } from "@/lib/sesion";
 
 // "use server" convierte CADA función exportada de este archivo en un endpoint al que cualquiera puede
 // hacer POST, no solo nuestro formulario. Por eso se valida todo lo que llega y no se exportan ayudantes.
@@ -50,6 +50,9 @@ export async function iniciarSesion(_estadoAnterior: EstadoFormulario, datos: Fo
   // Si ya había una sesión en este navegador, se cierra: cada inicio de sesión estrena token.
   await cerrarSesion();
   await crearSesion(cuenta.id_cuenta);
+  // DI-04 (R7h): si la cuenta tiene un tema elegido (lampara no nula), manda sobre el de este equipo. Si nunca eligió,
+  // no se toca nada: el equipo sigue con sus cookies y la cuenta sigue sin preferencia (decidido con el usuario).
+  if (cuenta.lampara !== null) await ponerCookiesDeTema({ base: cuenta.tema_base, lampara: cuenta.lampara === 1 });
 
   // RN-83: volver a donde estaba, si es una ruta de este sitio. Se valida OTRA VEZ aunque la página ya lo hizo:
   // esta acción es un endpoint público y el campo oculto lo puede cambiar cualquiera. Si no vale, el destino por perfil.

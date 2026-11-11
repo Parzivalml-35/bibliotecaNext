@@ -356,7 +356,7 @@ lámpara (decidido con el usuario el 2026-11-01).
 | `cuenta` | `avatar_estilo VARCHAR(40) NOT NULL`: estilo de DiceBear, de la lista permitida | RN-81 |
 | `cuenta` | `avatar_semilla CHAR(22) NOT NULL DEFAULT (…RANDOM_BYTES(16)…)`: semilla aleatoria (16 bytes en base64url), no derivada de datos de la persona | RN-81 |
 | `cuenta` | `avatar_clave VARCHAR(255) NULL` + `UNIQUE`: nombre aleatorio de la foto en el almacenamiento privado. **NULL = usa el generado** (se deduce, no hay columna de tipo; C-02) | RN-82 |
-| `cuenta` | `tema_base ENUM('claro', 'oscuro') NULL` y `lampara BOOLEAN NULL`: las mismas dos preferencias que las cookies de la Fase A. NULL = sin preferencia, manda la cookie | DI-04 |
+| `cuenta` | `tema_base ENUM('claro', 'oscuro') NULL` y `lampara BOOLEAN NULL`: las mismas dos preferencias que las cookies de la Fase A. **`lampara` NULL = la cuenta nunca eligió** (manda la cookie del equipo). Guardar escribe las dos y `lampara` nunca vuelve a NULL: `tema_base` NULL con `lampara` no nula = "seguir al sistema" (R7h, 2026-11-10: sin valor nuevo en el ENUM para no reconstruir la BD) | DI-04 |
 | `token_cuenta` | `tipo` suma `'cambiar_correo'`; nueva columna `correo_nuevo VARCHAR(254) NULL` con `CHECK ((tipo = 'cambiar_correo') = (correo_nuevo IS NOT NULL))` | RN-79 |
 | `configuracion` | `minutos_recuperacion_contrasena` (60), `max_kb_avatar` (2048), con `CHECK > 0`. `dias_aviso_vencimiento` (3) se adelantó a R5b (2026-10-29) | RN-80, RN-82 |
 

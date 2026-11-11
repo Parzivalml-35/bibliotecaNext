@@ -2,6 +2,7 @@ import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
 import type { RolEmpleado } from "@/lib/definitions";
+import type { TemaBase } from "@/lib/tema";
 
 // SQL de cuentas y sesiones (RN-31, RN-63, RN-64). La lógica de cookies y tokens está en lib/sesion.ts.
 
@@ -11,6 +12,9 @@ type FilaCuentaLogin = {
   desactivada: number; // 1/0: MySQL devuelve los booleanos como números
   rol_empleado: RolEmpleado | null; // rol del perfil de empleado activo (NULL si no tiene): decide a qué sección del panel entra
   es_lector: number; // si no es empleado pero es lector, va a "Mi cuenta"
+  // DI-04 (R7h): el tema de la cuenta, para escribirlo en las cookies al entrar. lampara NULL = nunca eligió nada.
+  tema_base: TemaBase | null;
+  lampara: number | null; // BOOLEAN de MySQL: 1/0, o NULL
 } & RowDataPacket;
 
 export async function buscarCuentaPorCorreo(correo: string) {
@@ -18,11 +22,19 @@ export async function buscarCuentaPorCorreo(correo: string) {
     `SELECT c.id_cuenta, c.password_hash, c.fecha_desactivacion IS NOT NULL AS desactivada,
             -- uq_empleado_cuenta: como mucho un empleado por cuenta, así que la subconsulta da una fila o ninguna.
             (SELECT e.rol FROM empleado e WHERE e.id_cuenta = c.id_cuenta AND e.activo) AS rol_empleado,
-            EXISTS (SELECT 1 FROM lector l WHERE l.id_cuenta = c.id_cuenta) AS es_lector
+            EXISTS (SELECT 1 FROM lector l WHERE l.id_cuenta = c.id_cuenta) AS es_lector,
+            c.tema_base, c.lampara
      FROM cuenta c WHERE c.correo = ?`,
     [correo],
   );
   return filas[0] ?? null;
+}
+
+// DI-04 (R7h): guarda el tema elegido en la cuenta. Siempre escribe las DOS columnas, y lampara nunca queda NULL:
+// así "lampara IS NULL" sigue significando "nunca eligió", y tema_base NULL con lampara no nula, "seguir al sistema".
+// Una sola sentencia, sin transacción: no hay nada más que deba cambiar a la vez.
+export async function guardarTemaDeCuenta(idCuenta: number, base: TemaBase | null, lampara: boolean): Promise<void> {
+  await pool.execute("UPDATE cuenta SET tema_base = ?, lampara = ? WHERE id_cuenta = ?", [base, lampara, idCuenta]);
 }
 
 // Crea la sesión con el vencimiento calculado EN MySQL (NOW() + horas_sesion): así la fecha guardada

@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { FormularioAvatar, type OpcionAvatar } from "@/components/formularios-avatar";
 import { FormularioContacto } from "@/components/formularios-lector";
+import { FormularioTema } from "@/components/formulario-tema";
 import { ESTILOS_AVATAR, esEstiloAvatar, NOMBRES_ESTILO, urlDeAvatar } from "@/lib/avatar";
 import { maxKbAvatar } from "@/lib/data/avatar";
 import { listarCiudades, obtenerPerfilDeLector } from "@/lib/data/lectores";
 import { exigirLector, obtenerUsuario } from "@/lib/sesion";
+import { resolverPreferencia } from "@/lib/tema";
 
 export const metadata: Metadata = { title: "Perfil" };
 
@@ -14,7 +17,7 @@ const NOMBRE_DOCUMENTO: Record<string, string> = {
 };
 
 // Pestaña "Perfil" (DI-10, RN-77). Arriba, los datos verificados en mostrador, solo para leer; abajo, el contacto,
-// que el lector cambia solo; al final, el avatar (RN-81 generado, RN-82 foto). El tema se suma aquí en R7h.
+// que el lector cambia solo; después, el avatar (RN-81 generado, RN-82 foto) y el tema (DI-04, R7h).
 export default async function PaginaPerfil() {
   const lector = await exigirLector("/cuenta/perfil"); // RN-83
   // Las dos consultas no dependen una de la otra: Promise.all las lanza a la vez en lugar de una tras otra.
@@ -28,6 +31,11 @@ export default async function PaginaPerfil() {
   const opciones: OpcionAvatar[] = ESTILOS_AVATAR.map((estilo) => ({
     estilo, nombre: NOMBRES_ESTILO[estilo], url: urlDeAvatar({ estilo, semilla: avatar.semilla }),
   }));
+
+  // DI-04 (R7h): la preferencia de ESTE equipo (sus cookies), para que el formulario llegue marcado desde el servidor.
+  // Esta página ya es dinámica (lee la sesión), así que leer cookies() aquí no cambia nada; en el layout raíz sí lo haría.
+  // toString() da "tema=oscuro; lampara=encendida; …", la misma forma que document.cookie.
+  const temaDelEquipo = resolverPreferencia((await cookies()).toString());
 
   // "1995-05-05" → "5 de mayo de 1995". T00:00:00Z + timeZone UTC: la fecha no se corre un día por la zona horaria.
   const nacimiento = new Intl.DateTimeFormat("es-CO", { dateStyle: "long", timeZone: "UTC" })
@@ -76,6 +84,14 @@ export default async function PaginaPerfil() {
         {/* foto: con clave, urlDeAvatar devuelve la ruta de la foto; sin ella, null (el formulario muestra el generado). */}
         <FormularioAvatar actual={opciones.find((o) => o.estilo === estiloActual)!} opciones={opciones}
                           foto={avatar.clave ? urlDeAvatar(avatar) : null} maxKb={maxKb} />
+      </section>
+
+      <section aria-labelledby="tema" className="mt-6 rounded-2xl border border-border bg-card p-5">
+        <h2 id="tema" className="font-heading text-lg font-semibold">Tema</h2>
+        <p className="mt-1 mb-4 text-sm text-muted-foreground">
+          Se aplica al instante y lo guardamos en tu cuenta: al entrar desde otro equipo se usará el mismo.
+        </p>
+        <FormularioTema inicial={temaDelEquipo} />
       </section>
     </>
   );
