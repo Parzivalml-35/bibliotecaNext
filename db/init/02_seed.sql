@@ -30,8 +30,8 @@ INSERT INTO configuracion (id, max_renovaciones, multa_por_dia, multa_tope, dias
                            horas_confirmar_reserva_digital, minutos_pago_pedido, dias_devolucion_compra,
                            minimo_sobrante_traslado, horas_sesion, horas_verificacion_correo, id_tipo_lector_registro,
                            max_fallos_por_correo, max_fallos_por_ip, max_registros_por_ip, minutos_ventana_intentos,
-                           dias_aviso_vencimiento)
-SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector, 5, 20, 5, 15, 3
+                           dias_aviso_vencimiento, minutos_recuperacion_contrasena, max_kb_avatar)
+SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector, 5, 20, 5, 15, 3, 60, 2048
 FROM tipo_lector WHERE nombre = 'Estándar';
 
 INSERT INTO pais (nombre) VALUES
@@ -151,18 +151,19 @@ SET @centro = (SELECT id_sede FROM sede WHERE nombre = 'Sede Centro');
 -- ---------------------------------------------------------------------
 -- Cuentas, empleados y lectores (RN-01, RN-31 a RN-34)
 -- ---------------------------------------------------------------------
-INSERT INTO cuenta (correo, password_hash, fecha_registro, fecha_verificacion) VALUES
-  ('laura.castano@example.com',   @sin_clave, NOW() - INTERVAL 400 DAY, NOW() - INTERVAL 400 DAY),
-  ('jorge.perez@example.com',     @sin_clave, NOW() - INTERVAL 300 DAY, NOW() - INTERVAL 300 DAY),
-  ('marta.torres@example.com',    @sin_clave, NOW() - INTERVAL 300 DAY, NOW() - INTERVAL 300 DAY),
-  ('diego.ramirez@example.com',   @sin_clave, NOW() - INTERVAL 200 DAY, NOW() - INTERVAL 200 DAY),
-  ('ana.ruiz@example.com',        @sin_clave, NOW() - INTERVAL 120 DAY, NOW() - INTERVAL 120 DAY),
-  ('luis.gomez@example.com',      @sin_clave, NOW() - INTERVAL 100 DAY, NOW() - INTERVAL 100 DAY),
-  ('valentina.ospina@example.com', @sin_clave, NOW() - INTERVAL 90 DAY, NOW() - INTERVAL 90 DAY),
-  ('andres.mejia@example.com',    @sin_clave, NOW() - INTERVAL 80 DAY, NOW() - INTERVAL 80 DAY),
-  ('mateo.cardenas@example.com',  @sin_clave, NOW() - INTERVAL 60 DAY, NOW() - INTERVAL 60 DAY),
-  ('sofia.herrera@example.com',   @sin_clave, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY),  -- verificada, sin validar
-  ('camila.torres@example.com',   @sin_clave, NOW() - INTERVAL 1 DAY, NULL);                        -- sin verificar el correo
+-- RN-81: cada cuenta con un estilo de la lista de lib/avatar.ts; la semilla aleatoria la pone el DEFAULT de la columna.
+INSERT INTO cuenta (correo, password_hash, fecha_registro, fecha_verificacion, avatar_estilo) VALUES
+  ('laura.castano@example.com',   @sin_clave, NOW() - INTERVAL 400 DAY, NOW() - INTERVAL 400 DAY, 'shapes'),
+  ('jorge.perez@example.com',     @sin_clave, NOW() - INTERVAL 300 DAY, NOW() - INTERVAL 300 DAY, 'notionists'),
+  ('marta.torres@example.com',    @sin_clave, NOW() - INTERVAL 300 DAY, NOW() - INTERVAL 300 DAY, 'lorelei'),
+  ('diego.ramirez@example.com',   @sin_clave, NOW() - INTERVAL 200 DAY, NOW() - INTERVAL 200 DAY, 'thumbs'),
+  ('ana.ruiz@example.com',        @sin_clave, NOW() - INTERVAL 120 DAY, NOW() - INTERVAL 120 DAY, 'open-peeps'),
+  ('luis.gomez@example.com',      @sin_clave, NOW() - INTERVAL 100 DAY, NOW() - INTERVAL 100 DAY, 'notionists'),
+  ('valentina.ospina@example.com', @sin_clave, NOW() - INTERVAL 90 DAY, NOW() - INTERVAL 90 DAY, 'lorelei'),
+  ('andres.mejia@example.com',    @sin_clave, NOW() - INTERVAL 80 DAY, NOW() - INTERVAL 80 DAY, 'thumbs'),
+  ('mateo.cardenas@example.com',  @sin_clave, NOW() - INTERVAL 60 DAY, NOW() - INTERVAL 60 DAY, 'open-peeps'),
+  ('sofia.herrera@example.com',   @sin_clave, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY, 'glass'),  -- verificada, sin validar
+  ('camila.torres@example.com',   @sin_clave, NOW() - INTERVAL 1 DAY, NULL, 'shapes');                        -- sin verificar el correo
 
 INSERT INTO empleado (id_cuenta, nombre, apellido, rol, id_sede, fecha_contratacion)
 SELECT c.id_cuenta, e.nombre, e.apellido, e.rol, s.id_sede, e.contratacion

@@ -199,11 +199,14 @@ CREATE TABLE configuracion (
     max_registros_por_ip             TINYINT UNSIGNED NOT NULL,   -- RN-73
     minutos_ventana_intentos         SMALLINT UNSIGNED NOT NULL,  -- RN-73
     dias_aviso_vencimiento           TINYINT UNSIGNED NOT NULL,   -- RN-76: 0 = avisar solo el día que vence
+    minutos_recuperacion_contrasena  SMALLINT UNSIGNED NOT NULL,  -- RN-80
+    max_kb_avatar                    SMALLINT UNSIGNED NOT NULL,  -- RN-82
     CONSTRAINT ck_configuracion_unica CHECK (id = 1),
     CONSTRAINT ck_configuracion_multa CHECK (multa_por_dia > 0 AND multa_tope >= multa_por_dia),
     CONSTRAINT ck_configuracion_plazos CHECK (dias_atraso_perdido > 0 AND horas_confirmar_reserva_digital > 0
                                               AND minutos_pago_pedido > 0 AND dias_devolucion_compra > 0
-                                              AND horas_verificacion_correo > 0),
+                                              AND horas_verificacion_correo > 0 AND minutos_recuperacion_contrasena > 0),
+    CONSTRAINT ck_configuracion_avatar CHECK (max_kb_avatar > 0),
     CONSTRAINT ck_configuracion_intentos CHECK (max_fallos_por_correo > 0 AND max_fallos_por_ip > 0
                                                 AND max_registros_por_ip > 0 AND minutos_ventana_intentos > 0),
     CONSTRAINT fk_configuracion_tipo_lector FOREIGN KEY (id_tipo_lector_registro) REFERENCES tipo_lector (id_tipo_lector)
@@ -217,7 +220,22 @@ CREATE TABLE cuenta (
     fecha_registro       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_verificacion   DATETIME NULL,      -- RN-32
     fecha_desactivacion  DATETIME NULL,
+    -- RN-81: avatar generado. El estilo lo elige la aplicación de su lista permitida (lib/avatar.ts: depende de los
+    -- estilos que trae el paquete instalado). La semilla la genera MySQL: 16 bytes aleatorios en base64url (sin "=",
+    -- con "-" y "_"), así no sale del correo ni del id. "Generar otro" = UPDATE ... SET avatar_semilla = DEFAULT.
+    avatar_estilo        VARCHAR(40) NOT NULL,
+    avatar_semilla       CHAR(22) NOT NULL
+                         DEFAULT (REPLACE(REPLACE(TRIM(TRAILING '=' FROM TO_BASE64(RANDOM_BYTES(16))), '+', '-'), '/', '_')),
+    -- RN-82: nombre aleatorio de la foto en el almacenamiento privado. NULL = usa el generado (se deduce, C-02).
+    -- Estilo y semilla se conservan aunque haya foto: "volver al generado" recupera el mismo avatar.
+    avatar_clave         VARCHAR(255) NULL,
+    -- DI-04: preferencias de tema guardadas en la cuenta (las mismas dos cookies). lampara NULL = la cuenta nunca eligió
+    -- (manda la cookie del equipo). Al guardar se escriben las dos y lampara nunca queda NULL: tema_base NULL con lampara
+    -- no nula = "seguir al sistema" (R7h, sin ENUM nuevo para no reconstruir la BD).
+    tema_base            ENUM('claro', 'oscuro') NULL,
+    lampara              BOOLEAN NULL,
     CONSTRAINT uq_cuenta_correo UNIQUE (correo),
+    CONSTRAINT uq_cuenta_avatar_clave UNIQUE (avatar_clave),
     CONSTRAINT ck_cuenta_fechas CHECK (fecha_verificacion IS NULL OR fecha_verificacion >= fecha_registro)
 );
 
@@ -226,12 +244,14 @@ CREATE TABLE token_cuenta (
     id_token    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     id_cuenta   INT UNSIGNED NOT NULL,
     token_hash  CHAR(64) NOT NULL,
-    tipo        ENUM('verificar_correo', 'recuperar_contrasena') NOT NULL,
+    tipo        ENUM('verificar_correo', 'recuperar_contrasena', 'cambiar_correo') NOT NULL,
+    correo_nuevo VARCHAR(254) NULL,  -- RN-79: a dónde se cambia el correo; solo en los tokens de cambiar_correo
     creado_en   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expira_en   DATETIME NOT NULL,
     usado_en    DATETIME NULL,
     CONSTRAINT uq_token_hash UNIQUE (token_hash),
     CONSTRAINT ck_token_expira CHECK (expira_en > creado_en),
+    CONSTRAINT ck_token_correo_nuevo CHECK ((tipo = 'cambiar_correo') = (correo_nuevo IS NOT NULL)),
     CONSTRAINT fk_token_cuenta FOREIGN KEY (id_cuenta) REFERENCES cuenta (id_cuenta) ON DELETE CASCADE
 );
 
@@ -248,12 +268,12 @@ CREATE TABLE sesion (
     CONSTRAINT fk_sesion_cuenta FOREIGN KEY (id_cuenta) REFERENCES cuenta (id_cuenta) ON DELETE CASCADE
 );
 
--- RN-73 (Fase 4b): bitácora de intentos de inicio de sesión y registro, para limitar los ataques de fuerza
+-- RN-73 (Fase 4b): bitácora de intentos de inicio de sesión, registro y recuperación (RN-80), para limitar los ataques de fuerza
 -- bruta. Sin FK a cuenta a propósito: también se anotan intentos con correos que no existen. Se purga sola
 -- (las filas de más de un día se borran al anotar una nueva).
 CREATE TABLE intento_acceso (
     id_intento  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tipo        ENUM('login', 'registro') NOT NULL,
+    tipo        ENUM('login', 'registro', 'recuperacion') NOT NULL,  -- RN-80 (R7e): pedir un enlace de recuperación
     correo      VARCHAR(254) NOT NULL,
     ip          VARCHAR(45) NOT NULL,          -- 45: el largo máximo de una IPv6 en texto
     exito       BOOLEAN NOT NULL,

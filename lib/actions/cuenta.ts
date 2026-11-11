@@ -3,9 +3,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { estiloAlAzar } from "@/lib/avatar";
 import { hashearContrasena } from "@/lib/contrasenas";
 import { enTransaccion } from "@/lib/db";
 import {
+  actualizarContactoDeLector,
   bloquearLectorAValidar,
   bloquearTokenDeVerificacion,
   correoDelDocumento,
@@ -17,10 +19,23 @@ import {
   usarTokenYVerificar,
 } from "@/lib/data/lectores";
 import type { EstadoFormulario } from "@/lib/definitions";
-import { empleadoDeMostrador, enviarCorreo, ErrorDeRegla, idDe, ipDeLaPeticion, operar, texto, TIPOS_DOCUMENTO } from "@/lib/actions/reglas";
-import { anotarIntento, registroBloqueado } from "@/lib/data/intentos";
+import { empleadoDeMostrador, enviarCorreo, ErrorDeRegla, errorDeContrasenaActual, idDe, ipDeLaPeticion, operar, texto, TIPOS_DOCUMENTO } from "@/lib/actions/reglas";
+import { anotarIntento, recuperacionBloqueada, registroBloqueado } from "@/lib/data/intentos";
+import {
+  bloquearTokenCambioCorreo,
+  bloquearTokenRecuperacion,
+  buscarCuentaPorCorreo,
+  consultarTokenRecuperacion,
+  correoOcupado,
+  crearTokenCambioCorreo,
+  crearTokenRecuperacion,
+  usarTokenYCambiarCorreo,
+  usarTokenYRestablecer,
+} from "@/lib/data/sesiones";
+import { exigirLector, obtenerUsuario } from "@/lib/sesion";
 
-// Registro y verificación de lectores (D-02, RN-32, RN-70) y validación en mostrador (D-03).
+// Registro y verificación de lectores (D-02, RN-32, RN-70), validación en mostrador (D-03), perfil (RN-77),
+// cambio de correo (RN-79) y recuperación de la contraseña (RN-80).
 
 const hashDeToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -35,6 +50,17 @@ function edadCumplida(nacimiento: string): number | null {
     || (hoy.getUTCMonth() === fecha.getUTCMonth() && hoy.getUTCDate() < fecha.getUTCDate());
   if (antesDelCumple) edad--;
   return edad >= 0 && edad <= 120 ? edad : null;
+}
+
+// RN-74, RN-77: teléfono y dirección se validan igual en el registro y en el perfil. Una sola función para que las
+// dos no se separen con el tiempo. Devuelve el mensaje del primer error o null. Sin export: en un archivo
+// "use server" cada export se vuelve una acción que el navegador puede llamar.
+function errorDeContacto(telefono: string, calle: string, codigoPostal: string, idCiudad: number | null): string | null {
+  if (!/^\+?[0-9 ]{7,20}$/.test(telefono)) return "Escribe un teléfono válido (solo números y espacios).";
+  if (!calle || calle.length > 120) return "Escribe tu dirección.";
+  if (codigoPostal && !/^[0-9]{4,10}$/.test(codigoPostal)) return "El código postal no es válido.";
+  if (!idCiudad) return "Elige tu ciudad.";
+  return null;
 }
 
 export async function registrarLector(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
@@ -65,10 +91,9 @@ export async function registrarLector(_estadoAnterior: EstadoFormulario, datos: 
   if (!/^[A-Z0-9]{3,20}$/.test(numeroDocumento)) return { error: "El número de documento no es válido (solo letras y números).", valores };
   if (tipoDocumento === "CC" && edad < 18) return { error: "La cédula de ciudadanía es para mayores de 18 años; si eres menor, usa tu tarjeta de identidad.", valores };
   if (tipoDocumento === "TI" && edad >= 18) return { error: "La tarjeta de identidad es para menores de 18 años; usa tu cédula.", valores };
-  if (!/^\+?[0-9 ]{7,20}$/.test(telefono)) return { error: "Escribe un teléfono válido (solo números y espacios).", valores };
-  if (!calle || calle.length > 120) return { error: "Escribe tu dirección.", valores };
-  if (codigoPostal && !/^[0-9]{4,10}$/.test(codigoPostal)) return { error: "El código postal no es válido.", valores };
-  if (!idCiudad) return { error: "Elige tu ciudad.", valores };
+  const errorContacto = errorDeContacto(telefono, calle, codigoPostal, idCiudad);
+  // `|| !idCiudad`: errorDeContacto ya lo comprueba, pero TypeScript no lo sabe; así idCiudad queda como number.
+  if (errorContacto || !idCiudad) return { error: errorContacto ?? "Elige tu ciudad.", valores };
 
   // RN-73: un límite de registros por IP frena la creación masiva de cuentas (y de "correos" enviados).
   const ip = await ipDeLaPeticion();
@@ -100,6 +125,7 @@ export async function registrarLector(_estadoAnterior: EstadoFormulario, datos: 
       const horas = await insertarLectorRegistrado(conexion, {
         correo, passwordHash, nombre, apellido, nacimiento, tipoDocumento, numeroDocumento, telefono, calle,
         codigoPostal: codigoPostal || null, idCiudad, tokenHash: hashDeToken(token),
+        avatarEstilo: estiloAlAzar(), // RN-81: toda cuenta nace con un avatar genérico al azar
       });
       enviarCorreo(correo, "Verifica tu correo", `Abre este enlace en las próximas ${horas} horas:\n${origen}/verificar?token=${token}`);
     });
@@ -164,4 +190,161 @@ export async function validarLector(_estadoAnterior: EstadoFormulario, datos: Fo
     }
     return `${lector.nombre} quedó validado: ya puede llevarse libros.`;
   });
+}
+
+// RN-77: el lector cambia su teléfono y su dirección desde "Mi cuenta". El idLector sale de la sesión, nunca del
+// formulario: así nadie puede cambiar los datos de otro lector mandando otro id (RN-35).
+export async function actualizarContacto(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const lector = await exigirLector();
+  const telefono = texto(datos, "telefono");
+  const calle = texto(datos, "calle");
+  const codigoPostal = texto(datos, "codigo_postal");
+  const idCiudad = idDe(datos, "id_ciudad");
+  const valores = { telefono, calle, codigo_postal: codigoPostal, id_ciudad: texto(datos, "id_ciudad") };
+
+  const errorContacto = errorDeContacto(telefono, calle, codigoPostal, idCiudad);
+  // `|| !idCiudad`: errorDeContacto ya lo comprueba, pero TypeScript no lo sabe; así idCiudad queda como number.
+  if (errorContacto || !idCiudad) return { error: errorContacto ?? "Elige tu ciudad.", valores };
+
+  return operar(
+    valores,
+    async (conexion) => {
+      if (!(await existeCiudad(conexion, idCiudad))) throw new ErrorDeRegla("Elige tu ciudad.");
+      await actualizarContactoDeLector(conexion, lector.idLector, { telefono, calle, codigoPostal: codigoPostal || null, idCiudad });
+      return "Datos guardados.";
+    },
+    ["/cuenta/perfil"],
+  );
+}
+
+// RN-79, paso 1: pedir el cambio de correo. Exige la contraseña actual (RN-73, como RN-78) y envía un enlace AL CORREO
+// NUEVO: así se comprueba que la persona lo controla. Hasta que lo abra, la cuenta sigue con el correo anterior.
+// Es de la cuenta (RN-31): pide cualquier sesión, no exigirLector.
+export async function solicitarCambioCorreo(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const usuario = await obtenerUsuario();
+  if (!usuario) redirect("/login");
+  const correoNuevo = texto(datos, "correo_nuevo").toLowerCase();
+  const contrasena = String(datos.get("contrasena_actual") ?? "");
+  const valores = { correo_nuevo: correoNuevo }; // la contraseña nunca vuelve
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoNuevo) || correoNuevo.length > 254) return { error: "Escribe un correo válido.", valores };
+  if (correoNuevo === usuario.correo) return { error: "Ese ya es el correo de tu cuenta.", valores };
+  const error = await errorDeContrasenaActual(usuario.correo, contrasena);
+  if (error) return { error, valores };
+
+  const origen = (await headers()).get("origin") ?? "http://localhost:3000";
+  const token = randomBytes(32).toString("base64url");
+  // Mismo mensaje haya o no otra cuenta con ese correo (RN-79, como RN-70): la respuesta no revela qué correos
+  // están registrados. Si está ocupado, simplemente no se crea el enlace.
+  const respuesta = `Si ${correoNuevo} puede usarse, te enviamos ahí un enlace para confirmar el cambio. Hasta que lo abras, tu correo sigue siendo ${usuario.correo}.`;
+  return operar(
+    valores,
+    async (conexion) => {
+      if (await correoOcupado(conexion, correoNuevo)) return respuesta;
+      const horas = await crearTokenCambioCorreo(conexion, usuario.idCuenta, correoNuevo, hashDeToken(token));
+      enviarCorreo(correoNuevo, "Confirma tu nuevo correo",
+        `Para usar este correo en tu cuenta de la biblioteca, abre este enlace en las próximas ${horas} horas:\n${origen}/confirmar-correo?token=${token}\nSi no lo pediste, ignora este mensaje.`);
+      return respuesta;
+    },
+    [],
+  );
+}
+
+// RN-79, paso 2: el POST del botón de /confirmar-correo (abrir el enlace no cambia nada, RN-32). No exige sesión:
+// el enlace puede abrirse en otro dispositivo, y lo que prueba quién es la persona es el token, que solo llegó al
+// correo nuevo. Se comprueba OTRA VEZ que el correo sigue libre: pudo registrarse alguien con él mientras tanto.
+export async function confirmarCambioCorreo(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const token = texto(datos, "token");
+  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return { error: "El enlace no es válido." };
+
+  return operar(
+    {},
+    async (conexion) => {
+      const fila = await bloquearTokenCambioCorreo(conexion, hashDeToken(token));
+      if (!fila || fila.desactivada) throw new ErrorDeRegla("El enlace no es válido.");
+      if (fila.usado) throw new ErrorDeRegla("Este enlace ya se usó.");
+      if (!fila.vigente) throw new ErrorDeRegla("El enlace venció. Pide el cambio otra vez desde Seguridad.");
+      if (await correoOcupado(conexion, fila.correo_nuevo)) {
+        throw new ErrorDeRegla("Ese correo ya no está disponible. Tu cuenta sigue con el correo anterior.");
+      }
+      await usarTokenYCambiarCorreo(conexion, fila.id_token, fila.id_cuenta, fila.correo_nuevo);
+      // Aviso al correo ANTERIOR: si no fue su dueño quien hizo el cambio, así se entera (RN-79).
+      enviarCorreo(fila.correo_actual, "Tu correo cambió",
+        `El correo de tu cuenta de la biblioteca cambió a ${fila.correo_nuevo}. Si no fuiste tú, acércate a cualquier sede.`);
+      return `Listo: tu cuenta ahora usa ${fila.correo_nuevo}. Úsalo para iniciar sesión.`;
+    },
+    // "/" con "layout": todo el sitio, porque el correo aparece en el menú de la cuenta de la barra superior.
+    ["/"],
+  );
+}
+
+// RN-80, paso 1: pedir el enlace. La respuesta es SIEMPRE la misma (redirect a ?enviado=1), exista o no la cuenta:
+// el formulario no sirve para averiguar qué correos están registrados. La solicitud se anota y se limita (RN-73).
+export async function solicitarRecuperacion(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const correo = texto(datos, "correo").toLowerCase();
+  const valores = { correo };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo) || correo.length > 254) return { error: "Escribe un correo válido.", valores };
+
+  const ip = await ipDeLaPeticion();
+  // El límite tampoco revela nada: se cuenta igual exista o no la cuenta.
+  if (await recuperacionBloqueada(correo, ip)) {
+    return { error: "Demasiadas solicitudes. Espera unos minutos e inténtalo de nuevo.", valores };
+  }
+  await anotarIntento("recuperacion", correo, ip, true); // `exito` no aplica aquí: la respuesta es siempre la misma
+
+  const cuenta = await buscarCuentaPorCorreo(correo);
+  // RN-80: a una cuenta desactivada no se le envía nada (RN-64: no puede entrar aunque cambie la contraseña).
+  if (cuenta && !cuenta.desactivada) {
+    const origen = (await headers()).get("origin") ?? "http://localhost:3000";
+    const token = randomBytes(32).toString("base64url");
+    try {
+      await enTransaccion(async (conexion) => {
+        const minutos = await crearTokenRecuperacion(conexion, cuenta.id_cuenta, hashDeToken(token));
+        enviarCorreo(correo, "Recupera tu contraseña",
+          `Para elegir una contraseña nueva, abre este enlace en los próximos ${minutos} minutos:\n${origen}/restablecer?token=${token}\nSi no lo pediste, ignora este mensaje: tu contraseña no cambia.`);
+      });
+    } catch (error) {
+      // Un fallo aquí no se muestra distinto: cambiaría la respuesta solo para correos que existen.
+      console.error("Error al crear el enlace de recuperación:", error);
+    }
+  }
+  redirect("/recuperar?enviado=1"); // fuera del try: redirect() lanza una excepción que Next convierte en redirección
+}
+
+// RN-80, paso 2: el POST del formulario de /restablecer. Abrir el enlace no cambia nada (RN-32); la contraseña nueva
+// llega aquí. Como en RN-78 (decisión del 2026-11-02), se escribe dos veces.
+export async function restablecerContrasena(_estadoAnterior: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const token = texto(datos, "token");
+  const nueva = String(datos.get("contrasena_nueva") ?? "");
+  const confirmacion = String(datos.get("contrasena_confirmacion") ?? "");
+  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return { error: "El enlace no es válido." };
+  if (nueva.length < 12 || nueva.length > 256) return { error: "La contraseña nueva debe tener al menos 12 caracteres." }; // RN-70
+  if (nueva !== confirmacion) return { error: "Las dos contraseñas nuevas no coinciden." };
+
+  // Mirada previa sin candado: con un enlace inválido se responde ya, sin gastar scrypt.
+  const tokenHash = hashDeToken(token);
+  const error = errorDeTokenRecuperacion(await consultarTokenRecuperacion(tokenHash));
+  if (error) return { error };
+  const passwordHash = await hashearContrasena(nueva); // RN-62. ~300 ms: fuera de la transacción
+
+  return operar(
+    {},
+    async (conexion) => {
+      // Otra vez, ahora con candado: entre la mirada previa y aquí pudo usarse el mismo enlace en otra pestaña.
+      const fila = await bloquearTokenRecuperacion(conexion, tokenHash);
+      const errorEnTransaccion = errorDeTokenRecuperacion(fila);
+      if (errorEnTransaccion || !fila) throw new ErrorDeRegla(errorEnTransaccion ?? "El enlace no es válido.");
+      await usarTokenYRestablecer(conexion, fila.id_token, fila.id_cuenta, passwordHash);
+      return "Listo: tu contraseña cambió y cerramos todas las sesiones abiertas de tu cuenta. Ya puedes iniciar sesión.";
+    },
+    [],
+  );
+}
+
+// Los motivos por los que un enlace de recuperación no sirve. Se usa dos veces: sin candado y con candado.
+function errorDeTokenRecuperacion(fila: { vigente: number; usado: number; desactivada: number } | null): string | null {
+  if (!fila || fila.desactivada) return "El enlace no es válido.";
+  if (fila.usado) return "Este enlace ya se usó. Si necesitas otro, pídelo de nuevo.";
+  if (!fila.vigente) return "El enlace venció. Pide uno nuevo.";
+  return null;
 }

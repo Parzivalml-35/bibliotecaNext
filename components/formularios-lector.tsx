@@ -2,16 +2,18 @@
 
 import { useActionState } from "react";
 import { claseBoton, claseCampo, claseEtiqueta, MensajeFormulario } from "@/components/ui-formulario";
-import { registrarLector, verificarCorreo } from "@/lib/actions/cuenta";
+import { actualizarContacto, registrarLector, verificarCorreo } from "@/lib/actions/cuenta";
 import { reservarObra } from "@/lib/actions/reservas";
 import type { EstadoFormulario } from "@/lib/definitions";
 
 const estadoInicial: EstadoFormulario = {};
 
+type Ciudad = { id_ciudad: number; nombre: string; departamento: string };
+
 // Formularios del lado del lector. Client Components solo por useActionState (mensaje y "pendiente").
 
 // D-02, RN-70, RN-74. Los atributos required/minLength/type son comodidad: la acción valida todo de nuevo.
-export function FormularioRegistro({ ciudades }: { ciudades: { id_ciudad: number; nombre: string; departamento: string }[] }) {
+export function FormularioRegistro({ ciudades }: { ciudades: Ciudad[] }) {
   const [estado, accion, pendiente] = useActionState(registrarLector, estadoInicial);
   const v = estado.valores ?? {};
   return (
@@ -49,6 +51,32 @@ export function FormularioRegistro({ ciudades }: { ciudades: { id_ciudad: number
           <p id="ayuda-documento" className="mt-1 text-xs text-muted-foreground">Lo cotejamos con el original la primera vez que vayas a una sede.</p>
         </div>
       </div>
+      <CamposContacto ciudades={ciudades} valores={v} />
+      <div>
+        <label htmlFor="correo" className={claseEtiqueta}>Correo</label>
+        <input id="correo" name="correo" type="email" required autoComplete="email" defaultValue={v.correo} className={claseCampo} />
+      </div>
+      <div>
+        <label htmlFor="contrasena" className={claseEtiqueta}>Contraseña</label>
+        {/* new-password: el gestor de contraseñas ofrece generar una */}
+        <input id="contrasena" name="contrasena" type="password" required minLength={12} autoComplete="new-password"
+               className={claseCampo} aria-describedby="ayuda-contrasena" />
+        <p id="ayuda-contrasena" className="mt-1 text-xs text-muted-foreground">Mínimo 12 caracteres. Una frase larga es más segura que una palabra con símbolos.</p>
+      </div>
+      <MensajeFormulario estado={estado} />
+      <button type="submit" disabled={pendiente} className={`${claseBoton} w-full`}>
+        {pendiente ? "Creando cuenta…" : "Crear cuenta"}
+      </button>
+    </form>
+  );
+}
+
+// RN-74, RN-77: teléfono y dirección, iguales en el registro y en el perfil (la acción también los valida con la
+// misma función, errorDeContacto). `valores`: lo que el formulario debe mostrar al cargarse (lo escrito si hubo
+// error, o los datos guardados en el perfil). Sin hooks: es un trozo de formulario que vive dentro de otro.
+function CamposContacto({ ciudades, valores: v }: { ciudades: Ciudad[]; valores: Record<string, string | undefined> }) {
+  return (
+    <>
       <div>
         <label htmlFor="telefono" className={claseEtiqueta}>Teléfono</label>
         <input id="telefono" name="telefono" type="tel" required maxLength={20} autoComplete="tel" defaultValue={v.telefono} className={claseCampo} />
@@ -72,20 +100,20 @@ export function FormularioRegistro({ ciudades }: { ciudades: { id_ciudad: number
                  defaultValue={v.codigo_postal} className={claseCampo} />
         </div>
       </div>
-      <div>
-        <label htmlFor="correo" className={claseEtiqueta}>Correo</label>
-        <input id="correo" name="correo" type="email" required autoComplete="email" defaultValue={v.correo} className={claseCampo} />
-      </div>
-      <div>
-        <label htmlFor="contrasena" className={claseEtiqueta}>Contraseña</label>
-        {/* new-password: el gestor de contraseñas ofrece generar una */}
-        <input id="contrasena" name="contrasena" type="password" required minLength={12} autoComplete="new-password"
-               className={claseCampo} aria-describedby="ayuda-contrasena" />
-        <p id="ayuda-contrasena" className="mt-1 text-xs text-muted-foreground">Mínimo 12 caracteres. Una frase larga es más segura que una palabra con símbolos.</p>
-      </div>
+    </>
+  );
+}
+
+// RN-77: el lector cambia su contacto. `actuales` son los datos guardados; tras un error se muestran los que
+// escribió (estado.valores). Tras guardar, la acción revalida /cuenta/perfil y llegan los `actuales` nuevos.
+export function FormularioContacto({ ciudades, actuales }: { ciudades: Ciudad[]; actuales: Record<string, string> }) {
+  const [estado, accion, pendiente] = useActionState(actualizarContacto, estadoInicial);
+  return (
+    <form action={accion} className="space-y-4">
+      <CamposContacto ciudades={ciudades} valores={estado.valores ?? actuales} />
       <MensajeFormulario estado={estado} />
-      <button type="submit" disabled={pendiente} className={`${claseBoton} w-full`}>
-        {pendiente ? "Creando cuenta…" : "Crear cuenta"}
+      <button type="submit" disabled={pendiente} className={claseBoton}>
+        {pendiente ? "Guardando…" : "Guardar cambios"}
       </button>
     </form>
   );

@@ -1,5 +1,6 @@
 import { EnlacesSinSesion } from "@/components/enlaces-sin-sesion";
 import { MenuCuenta } from "@/components/menu-cuenta";
+import { urlDeAvatar } from "@/lib/avatar";
 import { inicioDe } from "@/lib/permisos";
 import { obtenerUsuario } from "@/lib/sesion";
 
@@ -20,6 +21,7 @@ export async function MenuUsuario() {
     <MenuCuenta
       nombre={nombre}
       correo={usuario.correo}
+      avatar={urlDeAvatar(usuario.avatar)} // RN-81: la URL se arma aquí, en el servidor (lib/avatar.ts no va al navegador)
       esLector={usuario.lector !== null}
       // A dónde lleva "Panel": el inicio del rol (DI-10), sin pasar por la redirección de /panel. null = no es empleado.
       inicioPanel={usuario.empleado ? inicioDe(usuario.empleado.rol) : null}

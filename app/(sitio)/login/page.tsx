@@ -42,6 +42,9 @@ export default async function PaginaLogin({ searchParams }: PageProps<"/login">)
       ) : (
         <div className="mt-6 space-y-4">
           <FormularioLogin siguiente={destino} />
+          <p className="text-sm">
+            <Link href="/recuperar" className="font-medium underline underline-offset-4">¿Olvidaste tu contraseña?</Link>
+          </p>
           <p className="text-sm text-muted-foreground">
             ¿No tienes cuenta? <Link href="/registro" className="font-medium underline underline-offset-4">Regístrate</Link>
           </p>

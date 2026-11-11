@@ -3,7 +3,7 @@
 import { DashboardSquare01Icon, Logout03Icon, UserIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,24 +15,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { salir } from "@/lib/actions/sesion";
 
-// "Ana María Ruiz" → "AR"; "ana.ruiz@example.com" → "A". DI-12: las iniciales son el respaldo del avatar;
-// la imagen de DiceBear o la foto propia llegan en R7 (AvatarImage), y si no cargan se vuelve a esto.
+// "Ana María Ruiz" → "AR"; "ana.ruiz@example.com" → "A". DI-12: las iniciales son el respaldo del avatar:
+// se ven mientras carga la imagen (DiceBear, RN-81) y si no carga.
 function iniciales(nombre: string): string {
   const partes = nombre.split(/\s+/).filter(Boolean);
   const letras = partes.length > 1 ? partes[0][0] + partes[partes.length - 1][0] : (partes[0]?.[0] ?? "?");
   return letras.toUpperCase();
 }
 
-type Props = { nombre: string; correo: string; esLector: boolean; inicioPanel: string | null };
+type Props = { nombre: string; correo: string; avatar: string; esLector: boolean; inicioPanel: string | null };
 
 // DI-02 y DI-12: el avatar abre el menú de la cuenta. Client Component porque el menú se abre y se cierra
 // (estado); los datos llegan ya resueltos de MenuUsuario, en el servidor.
-export function MenuCuenta({ nombre, correo, esLector, inicioPanel }: Props) {
+export function MenuCuenta({ nombre, correo, avatar, esLector, inicioPanel }: Props) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="ghost" size="icon" className="rounded-full">
           <Avatar>
+            {/* alt="": la imagen es decorativa; el nombre ya lo dice el texto sr-only del botón. */}
+            <AvatarImage src={avatar} alt="" />
             <AvatarFallback className="font-medium">{iniciales(nombre)}</AvatarFallback>
           </Avatar>
           <span className="sr-only">Menú de la cuenta de {nombre}</span>
@@ -51,6 +53,16 @@ export function MenuCuenta({ nombre, correo, esLector, inicioPanel }: Props) {
             <Link href="/cuenta">
               <HugeiconsIcon icon={UserIcon} aria-hidden="true" />
               Mi cuenta
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {/* R7i: el empleado sin perfil de lector cambia su avatar, tema y seguridad en /panel/perfil. Quien tiene los dos
+            perfiles (RN-31) lo hace en "Mi cuenta": un segundo enlace llevaría a las mismas secciones. */}
+        {inicioPanel && !esLector && (
+          <DropdownMenuItem asChild>
+            <Link href="/panel/perfil">
+              <HugeiconsIcon icon={UserIcon} aria-hidden="true" />
+              Mi perfil
             </Link>
           </DropdownMenuItem>
         )}

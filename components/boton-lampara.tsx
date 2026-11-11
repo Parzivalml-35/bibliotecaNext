@@ -2,6 +2,7 @@
 
 import { IconoLampara } from "@/components/marca/iconos";
 import { Button } from "@/components/ui/button";
+import { guardarTema } from "@/lib/actions/tema";
 import { aplicarPreferencia, preferenciaActual } from "@/lib/tema";
 import { cn } from "@/lib/utils";
 
@@ -11,8 +12,12 @@ import { cn } from "@/lib/utils";
 // `className`: dónde y cuándo se muestra (lo decide quien lo usa).
 export function BotonLampara({ flotante = false, className }: { flotante?: boolean; className?: string }) {
   function cambiar() {
+    // La preferencia de las cookies, no la base visible: si la persona sigue al sistema (base null), lo sigue
+    // haciendo después de encender o apagar la lámpara (R7h).
     const actual = preferenciaActual();
-    aplicarPreferencia({ ...actual, lampara: !actual.lampara });
+    const preferencia = { ...actual, lampara: !actual.lampara };
+    aplicarPreferencia(preferencia);
+    void guardarTema(preferencia); // DI-04 (R7h): con sesión, también en la cuenta
   }
 
   return (

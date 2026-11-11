@@ -5,12 +5,10 @@ import { EtiquetaPrestamo } from "@/components/etiqueta-prestamo";
 import { renovarPrestamo } from "@/lib/actions/circulacion";
 import { obtenerPrestamosAbiertos } from "@/lib/data/circulacion";
 import { fechaCorta, plural } from "@/lib/formato";
-import { tienePermiso } from "@/lib/permisos";
+import { NOMBRE_ROL, tienePermiso } from "@/lib/permisos";
 import { exigirEmpleado } from "@/lib/sesion";
 
 export const metadata: Metadata = { title: "Préstamos abiertos" };
-
-const NOMBRE_ROL = { bibliotecario: "Bibliotecario", coordinador: "Coordinador de sede", admin_red: "Administrador de red" };
 
 export default async function PaginaMostrador() {
   // Primero la sesión: si no hay empleado, redirect() corta aquí y no se consulta nada más.
