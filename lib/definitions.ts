@@ -107,6 +107,9 @@ export type UsuarioSesion = {
 export type EmpleadoSesion = NonNullable<UsuarioSesion["empleado"]>;
 export type LectorSesion = NonNullable<UsuarioSesion["lector"]>;
 
+// RN-54: formatos de una edición digital (el ENUM de edicion_digital.formato).
+export type FormatoDigital = "pdf" | "epub";
+
 // Estado que una Server Action devuelve a su formulario a través de useActionState.
 export type EstadoFormulario = {
   error?: string; // mensaje para el usuario

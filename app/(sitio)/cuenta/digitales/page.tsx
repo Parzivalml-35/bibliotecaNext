@@ -35,9 +35,10 @@ export default async function PaginaDigitales() {
                 </div>
               </div>
               <div className="flex items-start gap-2">
-                <Link href={`/leer/${p.isbn}`} className={buttonVariants({ size: "xs" })}>
+                {/* <a> y no <Link> (RN-84): a /leer se entra con navegación completa, para que llegue su CSP. */}
+                <a href={`/leer/${p.isbn}`} className={buttonVariants({ size: "xs" })}>
                   Leer
-                </Link>
+                </a>
                 <BotonAccion accion={devolverDigital} campos={{ id_prestamo_digital: p.id_prestamo_digital, isbn: p.isbn }}
                              etiqueta="Devolver" etiquetaPendiente="Devolviendo…" />
               </div>

@@ -1,6 +1,7 @@
 import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
+import type { FormatoDigital } from "@/lib/definitions";
 
 // SQL del préstamo digital (RN-25 a RN-30, RN-44, RN-54 a RN-56). Las funciones con `conexion` van dentro
 // de una transacción; las reglas que las combinan están en lib/actions/digital.ts.
@@ -408,28 +409,37 @@ export async function obtenerDigitalDelLector(idLector: number) {
 // Lectura (RN-29, RN-30, RN-61)
 // ---------------------------------------------------------------------
 
-export type AccesoDeLectura = { titulo: string; clave_archivo: string; por: "prestamo" | "compra"; fin: string | null };
+// RN-54: una edición por formato. `ediciones` en el orden del ENUM (pdf, epub): quien elija el formato no debe
+// depender de ese orden (lo decide la página, DI-06).
+export type EdicionDeLectura = { formato: FormatoDigital; clave_archivo: string };
+export type AccesoDeLectura = { titulo: string; por: "prestamo" | "compra"; fin: string | null; ediciones: EdicionDeLectura[] };
 
-// ¿Puede este lector leer este título AHORA? Préstamo vigente o compra, y que exista la edición PDF.
+// ¿Puede este lector leer este título AHORA? Préstamo vigente o compra, y que el título tenga alguna edición digital.
 // null = no puede (o el título no existe): la ruta responde igual en los dos casos.
+// Una fila por edición (el JOIN con edicion_digital repite el título por cada formato); las condiciones de acceso son
+// del TÍTULO (RN-25: la licencia sirve para cualquier formato), así que valen igual para todas las filas.
 export async function obtenerAccesoDeLectura(idLector: number, isbn: string): Promise<AccesoDeLectura | null> {
-  const [filas] = await pool.execute<(AccesoDeLectura & RowDataPacket)[]>(
-    `SELECT lb.titulo, e.clave_archivo,
+  type Fila = Omit<AccesoDeLectura, "ediciones"> & EdicionDeLectura & RowDataPacket;
+  const [filas] = await pool.execute<Fila[]>(
+    `SELECT lb.titulo, e.formato, e.clave_archivo,
             IF(ad.id_lector IS NOT NULL, 'compra', 'prestamo') AS por,
             IF(ad.id_lector IS NOT NULL, NULL,
                (SELECT DATE_FORMAT(MAX(p.fecha_fin), '%d/%m/%Y %H:%i') FROM prestamo_digital p
                 JOIN licencia_digital ld ON ld.id_licencia = p.id_licencia
                 WHERE p.id_lector = ? AND ld.id_libro = lb.id_libro AND p.fecha_devolucion IS NULL AND p.fecha_fin > NOW())) AS fin
      FROM libro lb
-     JOIN edicion_digital e ON e.id_libro = lb.id_libro AND e.formato = 'pdf'
+     JOIN edicion_digital e ON e.id_libro = lb.id_libro
      LEFT JOIN acceso_digital ad ON ad.id_libro = lb.id_libro AND ad.id_lector = ?
      WHERE lb.isbn = ?
        AND (ad.id_lector IS NOT NULL OR EXISTS (
              SELECT 1 FROM prestamo_digital p JOIN licencia_digital ld ON ld.id_licencia = p.id_licencia
-             WHERE p.id_lector = ? AND ld.id_libro = lb.id_libro AND p.fecha_devolucion IS NULL AND p.fecha_fin > NOW()))`,
+             WHERE p.id_lector = ? AND ld.id_libro = lb.id_libro AND p.fecha_devolucion IS NULL AND p.fecha_fin > NOW()))
+     ORDER BY e.formato`,
     [idLector, idLector, isbn, idLector],
   );
-  return filas[0] ?? null;
+  if (filas.length === 0) return null;
+  const { titulo, por, fin } = filas[0];
+  return { titulo, por, fin, ediciones: filas.map((f) => ({ formato: f.formato, clave_archivo: f.clave_archivo })) };
 }
 
 // RN-41, RN-61: una compra queda "abierta" (ya no reembolsable) la primera vez que se lee. Solo la primera.

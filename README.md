@@ -54,7 +54,7 @@ volver a correrlo **cada vez que se reconstruye la BD**:
 pnpm db:claves-dev
 ```
 
-Generar los PDF de muestra de los libros digitales (`storage/libros/`, fuera de git). Hace falta una vez por
+Generar los PDF y EPUB de muestra de los libros digitales (`storage/libros/`, fuera de git). Hace falta una vez por
 equipo, o al cambiar las ediciones del seed; sin ellos, el visor de `/leer/[isbn]` responde "No disponible":
 
 ```bash
