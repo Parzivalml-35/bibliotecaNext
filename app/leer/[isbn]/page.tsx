@@ -10,7 +10,7 @@ import { exigirLector } from "@/lib/sesion";
 export const metadata: Metadata = { title: "Leer en línea" };
 
 // RN-29: la página comprueba el acceso para mostrar el visor; el archivo lo vuelve a comprobar su propia ruta
-// (app/leer/[isbn]/archivo/route.ts), porque cualquiera puede pedir esa URL sin pasar por aquí.
+// (app/leer/[isbn]/archivo/[formato]/route.ts), porque cualquiera puede pedir esa URL sin pasar por aquí.
 // R5d, visor inmersivo (DI-10): esta ruta está fuera de app/(sitio), así que no lleva la barra de la app. Su barra
 // mínima (volver, título, tema) la pone la propia página: es la única que tiene el título del libro.
 export default async function PaginaLeer({ params }: PageProps<"/leer/[isbn]">) {
@@ -20,6 +20,8 @@ export default async function PaginaLeer({ params }: PageProps<"/leer/[isbn]">) 
   if (!esIsbnValido(isbn)) notFound();
   const acceso = await obtenerAccesoDeLectura(lector.idLector, isbn);
   if (!acceso) notFound(); // sin préstamo vigente ni compra: igual que si no existiera
+  // R8b: por ahora solo el visor PDF. R8d elegirá el EPUB si existe y dejará el PDF como "Ver en PDF" (DI-06).
+  if (!acceso.ediciones.some((e) => e.formato === "pdf")) notFound();
 
   return (
     <>
@@ -45,7 +47,7 @@ export default async function PaginaLeer({ params }: PageProps<"/leer/[isbn]">) 
       {/* Sin fondo propio: la pared y su luz (DI-14) se ven alrededor de la hoja, como en el resto de la app. */}
       <main className="flex-1">
         <div className="mx-auto w-full max-w-5xl px-2 py-4 sm:px-6">
-          <VisorPdf url={`/leer/${isbn}/archivo`} titulo={acceso.titulo} />
+          <VisorPdf url={`/leer/${isbn}/archivo/pdf`} titulo={acceso.titulo} />
         </div>
       </main>
     </>

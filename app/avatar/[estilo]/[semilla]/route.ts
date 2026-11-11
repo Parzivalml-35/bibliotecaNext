@@ -8,7 +8,7 @@ import thumbs from "@dicebear/styles/thumbs.json";
 import { esEstiloAvatar, type EstiloAvatar, FORMA_SEMILLA } from "@/lib/avatar";
 
 // RN-81: dibuja el avatar generado de una cuenta como SVG, en el servidor y sin servicios externos. Route Handler como
-// /leer/[isbn]/archivo, pero público: estilo + semilla aleatoria no revelan nada de la persona (la foto de RN-82 sí
+// /leer/[isbn]/archivo/[formato], pero público: estilo + semilla aleatoria no revelan nada de la persona (la foto de RN-82 sí
 // exigirá sesión). Por eso la respuesta se cachea "para siempre": la misma URL es siempre el mismo dibujo.
 
 // Un Style por estilo, creado UNA vez al cargar el módulo (valida el JSON de la definición) y reutilizado en cada

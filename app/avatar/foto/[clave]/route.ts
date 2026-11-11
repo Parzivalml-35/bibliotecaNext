@@ -3,7 +3,7 @@ import { FORMA_CLAVE_FOTO, leerFoto } from "@/lib/foto-avatar";
 import { tienePermiso } from "@/lib/permisos";
 import { obtenerUsuario } from "@/lib/sesion";
 
-// RN-82: entrega la foto de avatar de una cuenta. Route Handler como /leer/[isbn]/archivo: el archivo vive fuera de
+// RN-82: entrega la foto de avatar de una cuenta. Route Handler como /leer/[isbn]/archivo/[formato]: el archivo vive fuera de
 // public/ y solo sale tras verificar la sesión. La ven su dueño y los empleados (permiso "lectores": ver la situación
 // de un lector). A diferencia del avatar generado (/avatar/[estilo]/[semilla], público), la foto muestra a la persona.
 // "foto" es un segmento fijo: Next lo prefiere al dinámico [estilo], así que /avatar/foto/… nunca llega a la otra ruta.
