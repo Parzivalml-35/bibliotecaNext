@@ -396,26 +396,6 @@ export async function guardarAvanceFisico(idPrestamo: number, pagina: number | n
   );
 }
 
-// Todas las marcas y notas del lector (de todos sus libros), con id_libro para repartirlas. Las mismas columnas que
-// ve el visor.
-export async function listarAnotacionesDelLector(idLector: number): Promise<(Anotacion & { id_libro: number })[]> {
-  const [filas] = await pool.execute<(Anotacion & { id_libro: number } & RowDataPacket)[]>(
-    `SELECT id_libro, ${COLUMNAS_ANOTACION} FROM anotacion WHERE id_lector = ? ORDER BY id_anotacion`,
-    [idLector],
-  );
-  return filas;
-}
-
-export async function listarNotasLibresDelLector(idLector: number): Promise<(NotaLibre & { id_libro: number })[]> {
-  const [filas] = await pool.execute<(NotaLibre & { id_libro: number } & RowDataPacket)[]>(
-    `SELECT id_libro, id_nota_libre, texto, cfi, capitulo, DATE_FORMAT(fecha_creacion, '%d/%m/%Y %H:%i') AS fecha_creacion,
-            fecha_edicion IS NOT NULL AS editada
-     FROM nota_libre WHERE id_lector = ? ORDER BY id_nota_libre DESC`,
-    [idLector],
-  );
-  return filas;
-}
-
 // El historial (RN-88): una fila por sesión, la más reciente primero. segundos: el tiempo leído (segundos_activos,
 // no ultimo_aviso - inicio, que incluiría los huecos). Los progresos llegan como texto (DECIMAL) y se convierten.
 export type SesionDeLectura = {
@@ -427,13 +407,13 @@ export type SesionDeLectura = {
   progreso_final: number;
 };
 
-export async function listarSesionesDelLector(idLector: number): Promise<SesionDeLectura[]> {
+export async function listarSesiones(idLector: number, idLibro: number): Promise<SesionDeLectura[]> {
   type Fila = Omit<SesionDeLectura, "progreso_inicial" | "progreso_final"> & { progreso_inicial: string; progreso_final: string } & RowDataPacket;
   const [filas] = await pool.execute<Fila[]>(
     `SELECT id_libro, formato, DATE_FORMAT(inicio, '%d/%m/%Y %H:%i') AS inicio,
             segundos_activos AS segundos, progreso_inicial, progreso_final
-     FROM sesion_lectura WHERE id_lector = ? ORDER BY inicio DESC`,
-    [idLector],
+     FROM sesion_lectura WHERE id_lector = ? AND id_libro = ? ORDER BY inicio DESC`,
+    [idLector, idLibro],
   );
   return filas.map((f) => ({ ...f, progreso_inicial: Number(f.progreso_inicial), progreso_final: Number(f.progreso_final) }));
 }

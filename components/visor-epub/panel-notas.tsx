@@ -27,7 +27,7 @@ type Respuesta = Promise<string | null>; // null = salió bien; texto = el error
 
 export function PanelNotas({
   pestana, alCambiarPestana, notas, resaltados, maxNota, capituloActual, pedidoNueva,
-  alCrear, alEditar, alBorrarNota, alBorrarResaltado, alIr, alCerrar, enCajon = false,
+  alCrear, alEditar, alBorrarNota, alBorrarResaltado, alIr, alCerrar, enCajon = false, ayudaNueva,
 }: {
   pestana: PestanaNotas;
   alCambiarPestana: (p: PestanaNotas) => void;
@@ -40,9 +40,12 @@ export function PanelNotas({
   alEditar: (id: number, texto: string) => Respuesta;
   alBorrarNota: (id: number) => Respuesta;
   alBorrarResaltado: (id: number) => Respuesta;
-  alIr: (cfi: string) => void;
-  alCerrar: () => void;
+  // Opcionales (R10-F, "Mis lecturas" reutiliza este panel fuera del visor): sin alIr no hay "Ir…" (sin acceso al
+  // libro, RN-87); sin alCerrar no hay ✕; ayudaNueva reemplaza el "se guarda donde vas leyendo" del visor.
+  alIr?: (cfi: string) => void;
+  alCerrar?: () => void;
   enCajon?: boolean; // dentro del cajón del celular (un diálogo de Radix)
+  ayudaNueva?: string;
 }) {
   const base = useId(); // ids únicos: el panel puede existir dos veces (fijo y en el cajón), como la barra izquierda
 
@@ -64,10 +67,10 @@ export function PanelNotas({
         {enCajon
           ? <SheetTitle className="flex-1 font-heading text-base font-semibold">Mis notas y resaltados</SheetTitle>
           : <h2 className="flex-1 font-heading font-semibold">Mis notas y resaltados</h2>}
-        <Button type="button" variant="ghost" size="icon" onClick={alCerrar}>
+        {alCerrar && <Button type="button" variant="ghost" size="icon" onClick={alCerrar}>
           <HugeiconsIcon icon={Cancel01Icon} aria-hidden="true" />
           <span className="sr-only">Cerrar el panel de notas</span>
-        </Button>
+        </Button>}
       </div>
 
       {/* Aquí las pestañas van ARRIBA (en la barra izquierda van al pie, como en Readest): este panel se abre para
@@ -92,7 +95,7 @@ export function PanelNotas({
           el espacio extra deja desplazar la última tarjeta por encima de él. */}
       <div role="tabpanel" id={`${base}-panel`} aria-labelledby={`${base}-tab-${pestana}`} className="min-h-0 flex-1 overflow-y-auto p-3 pb-20">
         {pestana === "notas" ? (
-          <NotasLibres notas={notas} maxNota={maxNota} capituloActual={capituloActual} pedidoNueva={pedidoNueva}
+          <NotasLibres notas={notas} maxNota={maxNota} capituloActual={capituloActual} pedidoNueva={pedidoNueva} ayudaNueva={ayudaNueva}
                        alCrear={alCrear} alEditar={alEditar} alBorrar={alBorrarNota} alIr={alIr} />
         ) : (
           <Resaltados resaltados={resaltados} alBorrar={alBorrarResaltado} alIr={alIr} />
@@ -106,15 +109,16 @@ export function PanelNotas({
 // Notas libres (RN-86)
 // ---------------------------------------------------------------------
 
-function NotasLibres({ notas, maxNota, capituloActual, pedidoNueva, alCrear, alEditar, alBorrar, alIr }: {
+function NotasLibres({ notas, maxNota, capituloActual, pedidoNueva, ayudaNueva, alCrear, alEditar, alBorrar, alIr }: {
   notas: NotaLibre[];
   maxNota: number;
   capituloActual: string | null;
   pedidoNueva: number;
+  ayudaNueva?: string;
   alCrear: (texto: string) => Respuesta;
   alEditar: (id: number, texto: string) => Respuesta;
   alBorrar: (id: number) => Respuesta;
-  alIr: (cfi: string) => void;
+  alIr?: (cfi: string) => void;
 }) {
   const nueva = useRef<HTMLTextAreaElement>(null);
   // "Nueva nota libre" desde el lápiz: el foco va al editor. pedidoNueva 0 = el panel se abrió por otra vía.
@@ -125,7 +129,7 @@ function NotasLibres({ notas, maxNota, capituloActual, pedidoNueva, alCrear, alE
   return (
     <div className="space-y-4">
       <Editor ref={nueva} id="nota-libre-nueva" etiqueta="Nueva nota libre" maxNota={maxNota} textoBoton="Guardar nota"
-              ayuda={capituloActual ? `Se guarda en «${capituloActual}», donde vas leyendo.` : "Se guarda en la página donde vas leyendo."}
+              ayuda={ayudaNueva ?? (capituloActual ? `Se guarda en «${capituloActual}», donde vas leyendo.` : "Se guarda en la página donde vas leyendo.")}
               alGuardar={alCrear} limpiarAlGuardar />
 
       {notas.length === 0 ? (
@@ -151,7 +155,7 @@ function TarjetaNota({ nota, maxNota, alEditar, alBorrar, alIr }: {
   maxNota: number;
   alEditar: (id: number, texto: string) => Respuesta;
   alBorrar: (id: number) => Respuesta;
-  alIr: (cfi: string) => void;
+  alIr?: (cfi: string) => void;
 }) {
   const [editando, setEditando] = useState(false);
 
@@ -250,7 +254,7 @@ function Editor({ ref, id, etiqueta, ayuda, maxNota, inicial = "", textoBoton, e
 function Resaltados({ resaltados, alBorrar, alIr }: {
   resaltados: Anotacion[];
   alBorrar: (id: number) => Respuesta;
-  alIr: (cfi: string) => void;
+  alIr?: (cfi: string) => void;
 }) {
   // useMemo: ordenar solo cuando cambia la lista, no en cada render del panel.
   const ordenados = useMemo(() => enOrdenDelLibro(resaltados), [resaltados]);
@@ -295,7 +299,7 @@ function Resaltados({ resaltados, alBorrar, alIr }: {
 function Acciones({ cfi, textoIr, alIr, alEditar, queBorra, alBorrar }: {
   cfi: string | null;
   textoIr: string;
-  alIr: (cfi: string) => void;
+  alIr?: (cfi: string) => void;
   alEditar?: () => void;
   queBorra: string;
   alBorrar: () => Respuesta;
@@ -330,7 +334,7 @@ function Acciones({ cfi, textoIr, alIr, alEditar, queBorra, alBorrar }: {
   }
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {cfi && (
+      {cfi && alIr && (
         <button type="button" onClick={() => alIr(cfi)}
                 className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-primary hover:bg-muted">
           <HugeiconsIcon icon={Location01Icon} className="size-4" aria-hidden="true" />
