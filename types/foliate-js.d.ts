@@ -53,6 +53,12 @@ declare module "foliate-js/view.js" {
   }
 }
 
+// epubcfi.js: utilidades de CFI sin DOM. compare: el orden de dos CFI en el libro (-1 antes, 0 igual, 1 después);
+// lanza un error si uno no se puede interpretar.
+declare module "foliate-js/epubcfi.js" {
+  export function compare(a: string, b: string): number;
+}
+
 // overlayer.js: las formas con que se dibuja una anotación (SVG sobre el texto). Reciben los rectángulos del rango y
 // opciones (color; width para las líneas). Se pasan a la función `draw` del evento "draw-annotation".
 declare module "foliate-js/overlayer.js" {

@@ -20,8 +20,16 @@ import { COLOR_ANOTACION, type ColorAnotacion, type EstiloAnotacion } from "@/li
 export type EntradaIndice = { titulo: string; destino: string; pagina: number | null; nivel: number };
 // Dónde va el lector. pagina/total son "ubicaciones" de 1500 bytes (las de foliate-js): no son páginas impresas,
 // pero no cambian con el tamaño de la pantalla, así que sirven para ubicarse. capitulo/destino: la entrada del
-// índice en la que está (null antes del primer capítulo).
-export type Progreso = { capitulo: string | null; destino: string | null; pagina: number; total: number; fraccion: number };
+// índice en la que está (null antes del primer capítulo). cfi: el punto exacto del comienzo de la pantalla (para una
+// nota libre que recuerde dónde se escribió, RN-86; ir(cfi) vuelve ahí).
+export type Progreso = {
+  capitulo: string | null;
+  destino: string | null;
+  cfi: string | null;
+  pagina: number;
+  total: number;
+  fraccion: number;
+};
 // Ajustes de lectura de este navegador: tamaño de letra en % y cuántas columnas como máximo (2 solo si caben).
 export type AjustesLectura = { letra: number; columnas: 1 | 2 };
 // RN-85: lo que el motor dibuja sobre el texto. cfi: dónde (EPUB CFI); color y estilo: cómo.
@@ -226,13 +234,14 @@ export function useLibroEpub(
         contenedor.current.append(v);
         v.addEventListener("relocate", (e) => {
           const d = (e as CustomEvent<{ fraction: number; location?: { current: number; total: number };
-            tocItem?: { label?: string; href?: string } }>).detail;
+            tocItem?: { label?: string; href?: string }; cfi?: string }>).detail;
           avisarSeleccion(null); // al pasar de página, un menú abierto quedaría lejos de su texto
           const pagina = (d.location?.current ?? 0) + 1;
           const total = d.location?.total ?? 0;
           setProgreso({
             capitulo: d.tocItem?.label?.trim() || null,
             destino: d.tocItem?.href ?? null,
+            cfi: d.cfi ?? null, // view.js (#onRelocate) lo calcula con getCFI del rango visible
             pagina,
             total,
             // foliate-js (paginator.js) calcula la fracción como (page - 1) / (pages - 2): en una sección de una sola

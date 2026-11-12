@@ -1,8 +1,8 @@
 "use client";
 
-import { SidebarLeft01Icon } from "@hugeicons/core-free-icons";
+import { SidebarLeft01Icon, SidebarRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import type { FichaLibro } from "@/components/visor";
@@ -10,16 +10,20 @@ import { BarraLateral } from "@/components/visor-epub/barra-lateral";
 import { TAMANOS_LETRA } from "@/components/visor-epub/ajustes-lectura";
 import { Lapiz, MODOS_SELECCION, type ModoSeleccion } from "@/components/visor-epub/lapiz";
 import { MenuResaltado } from "@/components/visor-epub/menu-resaltado";
+import { PanelNotas, type PestanaNotas } from "@/components/visor-epub/panel-notas";
 import { type AjustesLectura, type Rectangulo, type Seleccion, useLibroEpub } from "@/components/visor-epub/motor";
 import { usePreferencia } from "@/components/visor-epub/preferencias";
-import { actualizarResaltado, borrarResaltado, guardarResaltado } from "@/lib/actions/lectura";
+import { actualizarResaltado, borrarNota, borrarResaltado, crearNota, editarNota, guardarResaltado } from "@/lib/actions/lectura";
 import {
   type Anotacion,
   type ColorAnotacion,
   type EstiloAnotacion,
+  esCfi,
   esColorAnotacion,
   esEstiloAnotacion,
+  type NotaLibre,
 } from "@/lib/lectura";
+import { cn } from "@/lib/utils";
 
 // RN-29, RN-84, DI-06: la INTERFAZ del visor EPUB, a casi pantalla completa (idea de Readest; código nuestro).
 // El motor (foliate-js, la comprobación de la CSP, el tema, la rueda) está en components/visor-epub/motor.ts; aquí solo
@@ -27,6 +31,8 @@ import {
 //
 // Escritorio (lg, 1024 px o más): la barra lateral fija a la izquierda, que se oculta y se muestra (se recuerda en este
 // navegador). Celular: la barra es un cajón (Sheet) que se abre encima del libro.
+// R10-D: a la DERECHA, el panel de notas y resaltados ("lo mío"), con la misma idea: fijo en el escritorio (puede
+// estar abierto junto con la barra izquierda) y cajón en el celular. Se abre desde el lápiz.
 
 const esSiNo = (v: string) => (v === "si" || v === "no" ? v : null);
 // Lo guardado en localStorage se valida: un valor viejo o manipulado vuelve al valor por defecto.
@@ -40,15 +46,35 @@ const esEstilo = (v: string) => (esEstiloAnotacion(v) ? v : null);
 // guardada (existente: true; sus datos se buscan por cfi en el estado).
 type MenuAbierto = { rect: Rectangulo; cfi: string; texto: string; existente: boolean; conNota: boolean };
 
-// "11/11/2026 14:05": la fecha de una marca recién creada, con el mismo formato que trae la BD.
-const ahora = () => new Intl.DateTimeFormat("es-CO", { dateStyle: "short", timeStyle: "short" }).format(new Date());
+// "11/11/2026 14:05": la fecha de una marca o nota recién creada, con el MISMO formato que trae la BD
+// (DATE_FORMAT '%d/%m/%Y %H:%i'). Intl con dateStyle "short" daba "11/11/26, 2:05 p. m.": al recargar, la misma nota
+// cambiaba de aspecto. padStart(2, "0"): 9 → "09".
+function ahora() {
+  const f = new Date();
+  const dos = (n: number) => String(n).padStart(2, "0");
+  return `${dos(f.getDate())}/${dos(f.getMonth() + 1)}/${f.getFullYear()} ${dos(f.getHours())}:${dos(f.getMinutes())}`;
+}
 
-export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciales, maxNota }: {
+// El mismo corte que usan las clases lg: de Tailwind (1024 px): en el escritorio el panel derecho es el fijo; en el
+// celular, el cajón. useSyncExternalStore (como usePreferencia): el ancho de la ventana es un dato EXTERNO a React;
+// matchMedia avisa cuando cruza el corte (girar el celular, achicar la ventana) y React vuelve a dibujar.
+const ANCHO_ESCRITORIO = "(min-width: 1024px)";
+function suscribirAncho(avisar: () => void) {
+  const consulta = window.matchMedia(ANCHO_ESCRITORIO);
+  consulta.addEventListener("change", avisar);
+  return () => consulta.removeEventListener("change", avisar);
+}
+const leerAncho = () => window.matchMedia(ANCHO_ESCRITORIO).matches;
+// En el servidor no hay ventana: se supone escritorio. Al hidratar, React lee el valor real y corrige si hace falta.
+const anchoEnServidor = () => true;
+
+export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciales, notas: notasIniciales, maxNota }: {
   url: string;
   ficha: FichaLibro;
   portada: ReactNode;
   detalles: ReactNode;
   anotaciones: Anotacion[]; // RN-85: las marcas del lector en este título, leídas por la página en el servidor
+  notas: NotaLibre[]; // RN-86: sus notas libres, la más reciente primero
   maxNota: number;
 }) {
   const contenedor = useRef<HTMLDivElement>(null);
@@ -72,6 +98,15 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
   const [menu, setMenu] = useState<MenuAbierto | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  // R10-D: el panel derecho. Abierto en el escritorio: se recuerda en este navegador (como la barra izquierda).
+  const [panelAbierto, setPanelAbierto] = usePreferencia("visor-epub:panel-notas", "no", esSiNo);
+  const [cajonNotas, setCajonNotas] = useState(false);
+  const escritorio = useSyncExternalStore(suscribirAncho, leerAncho, anchoEnServidor);
+  // Lo que de verdad se ve: el panel fijo en el escritorio, el cajón en el celular.
+  const panelVisible = escritorio ? panelAbierto === "si" : cajonNotas;
+  const [pestanaNotas, setPestanaNotas] = useState<PestanaNotas>("notas");
+  const [pedidoNueva, setPedidoNueva] = useState(0);
+  const [notas, setNotas] = useState(notasIniciales);
 
   function avisar(texto: string) {
     setAviso(texto);
@@ -160,6 +195,69 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
     setMenu(null);
   }
 
+  // ---- Panel derecho (R10-D) ----
+
+  function abrirPanel(p: PestanaNotas, nueva = false) {
+    setPestanaNotas(p);
+    // pedidoNueva > 0: el editor de la nota nueva toma el foco (al montarse o al cambiar el número). 0: abrir sin
+    // robar el foco (si quedara el número de un pedido anterior, cualquier apertura lo movería al editor).
+    setPedidoNueva((n) => (nueva ? n + 1 : 0));
+    if (escritorio) setPanelAbierto("si");
+    else setCajonNotas(true);
+  }
+
+  // El botón propio del panel (arriba a la derecha): en el escritorio lo muestra u oculta; en el celular abre el cajón
+  // (que se cierra con su X, con Esc o tocando fuera).
+  function alternarPanel() {
+    if (escritorio && panelAbierto === "si") setPanelAbierto("no");
+    else abrirPanel(pestanaNotas);
+  }
+
+  // Cada función devuelve el error para mostrarlo en el panel, o null si salió bien (y entonces actualiza el estado).
+  async function alCrearNota(texto: string) {
+    // Dónde va el lector: el CFI del comienzo de la pantalla y el capítulo (RN-86). Si el CFI no tiene la forma
+    // esperada, se manda null: la nota vale igual, sin "ir a donde la escribí" (el servidor lo comprueba otra vez).
+    const cfi = progreso?.cfi && esCfi(progreso.cfi) ? progreso.cfi : null;
+    const capitulo = progreso?.capitulo ?? null;
+    const r = await crearNota(ficha.isbn, { texto, cfi, capitulo });
+    if (!r.ok) return r.error;
+    const nueva: NotaLibre = { id_nota_libre: r.valor.id, texto: texto.trim(), cfi, capitulo, fecha_creacion: ahora(), editada: 0 };
+    setNotas((lista) => [nueva, ...lista]); // la más reciente primero, como las ordena la BD
+    return null;
+  }
+  async function alEditarNota(id: number, texto: string) {
+    const r = await editarNota(id, texto);
+    if (!r.ok) return r.error;
+    setNotas((lista) => lista.map((n) => (n.id_nota_libre === id ? { ...n, texto: texto.trim(), editada: 1 } : n)));
+    return null;
+  }
+  async function alBorrarNota(id: number) {
+    const r = await borrarNota(id);
+    if (!r.ok) return r.error;
+    setNotas((lista) => lista.filter((n) => n.id_nota_libre !== id));
+    return null;
+  }
+  async function alBorrarDesdePanel(id: number) {
+    const r = await borrarResaltado(id);
+    if (!r.ok) return r.error;
+    setAnotaciones((lista) => lista.filter((a) => a.id_anotacion !== id));
+    setMenu(null); // si el menú estaba abierto sobre esa marca, ya no tiene qué mostrar
+    return null;
+  }
+  // Ir al pasaje o a donde se escribió la nota. En el celular, el cajón se cierra para que se vea el libro.
+  function irDesdePanel(cfi: string) {
+    ir(cfi);
+    setCajonNotas(false);
+  }
+
+  const panel = (enCajon: boolean) => (
+    <PanelNotas pestana={pestanaNotas} alCambiarPestana={(p) => { setPestanaNotas(p); setPedidoNueva(0); }} notas={notas} resaltados={anotaciones}
+                maxNota={maxNota} capituloActual={progreso?.capitulo ?? null} pedidoNueva={pedidoNueva}
+                alCrear={alCrearNota} alEditar={alEditarNota} alBorrarNota={alBorrarNota}
+                alBorrarResaltado={alBorrarDesdePanel} alIr={irDesdePanel}
+                alCerrar={() => (enCajon ? setCajonNotas(false) : setPanelAbierto("no"))} />
+  );
+
   const barra = (enCajon: boolean) => (
     <BarraLateral ficha={ficha} portada={portada} detalles={detalles} indice={indice} progreso={progreso}
                   ajustes={ajustes} alCambiarAjustes={(a) => { setLetra(String(a.letra)); setColumnas(a.columnas === 1 ? "1" : "2"); }}
@@ -207,7 +305,20 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
             {error ? "" : listo ? (progreso?.capitulo ?? "") : "Abriendo el libro…"}
           </p>
           {/* El lápiz, arriba a la derecha (R10). */}
-          {listo && <Lapiz modo={modo} color={color} estilo={estilo} alCambiarModo={setModo} alCambiarColor={setColor} alCambiarEstilo={setEstilo} />}
+          {listo && (
+            <Lapiz modo={modo} color={color} estilo={estilo} alCambiarModo={setModo} alCambiarColor={setColor}
+                   alCambiarEstilo={setEstilo} alNuevaNota={() => abrirPanel("notas", true)} alVerNotas={() => abrirPanel(pestanaNotas)} />
+          )}
+          {/* Mostrar u ocultar el panel de notas, en un clic (pedido del usuario: sin pasar por el menú del lápiz).
+              aria-expanded: el lector de pantalla anuncia si el panel está abierto. Abierto, el botón queda marcado
+              (bg-muted), como un interruptor. */}
+          {!error && (
+            <Button type="button" variant="ghost" size="icon" onClick={alternarPanel} aria-expanded={panelVisible}
+                    className={cn(panelAbierto === "si" && "lg:bg-muted")}>
+              <HugeiconsIcon icon={SidebarRight01Icon} aria-hidden="true" />
+              <span className="sr-only">Mis notas y resaltados</span>
+            </Button>
+          )}
         </div>
         {/* Avisos de las acciones (sin acceso, nota muy larga…). role="status": el lector de pantalla lo lee sin
             interrumpir. fixed + centrado arriba, sobre el libro. */}
@@ -254,6 +365,22 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
           ) : null}
         </p>
       </main>
+
+      {panelAbierto === "si" && (
+        // El panel derecho fijo, solo desde lg (en el celular está el cajón). w-80 = 20 rem; border-l: lo separa del libro.
+        <aside aria-label="Mis notas y resaltados" className="hidden w-80 shrink-0 border-l border-border bg-background lg:flex lg:flex-col">
+          {panel(false)}
+        </aside>
+      )}
+      <Sheet open={cajonNotas} onOpenChange={setCajonNotas}>
+        {/* onOpenAutoFocus: al abrir, Radix pone el foco en lo primero enfocable del cajón (el botón cerrar). Si se pidió
+            una nota nueva, se impide: el foco ya lo tomó el editor. */}
+        <SheetContent side="right" showCloseButton={false} className="w-80 p-0"
+                      onOpenAutoFocus={(e) => { if (pestanaNotas === "notas" && pedidoNueva > 0) e.preventDefault(); }}>
+          <SheetTitle className="sr-only">Mis notas y resaltados</SheetTitle>
+          {panel(true)}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

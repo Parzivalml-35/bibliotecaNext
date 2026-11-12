@@ -34,6 +34,17 @@ export type Anotacion = {
   fecha_creacion: string; // "11/11/2026 14:05", ya formateada para mostrar
 };
 
+// Una nota libre (RN-86) como la usan la página, el visor y "Mis lecturas". cfi y capitulo: dónde estaba el lector al
+// escribirla (null si no se supo). editada: 1 si se cambió después de escribirla (MySQL devuelve el booleano como número).
+export type NotaLibre = {
+  id_nota_libre: number;
+  texto: string;
+  cfi: string | null;
+  capitulo: string | null;
+  fecha_creacion: string; // ya formateada para mostrar
+  editada: number;
+};
+
 // ENUM de formato en sesion_lectura y posicion_lectura (el mismo de edicion_digital).
 export const FORMATOS_LECTURA = ["pdf", "epub"] as const;
 

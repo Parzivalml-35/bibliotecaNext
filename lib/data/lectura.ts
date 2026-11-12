@@ -1,7 +1,7 @@
 import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
-import type { Anotacion, ColorAnotacion, EstiloAnotacion } from "@/lib/lectura";
+import type { Anotacion, ColorAnotacion, EstiloAnotacion, NotaLibre } from "@/lib/lectura";
 import type { FormatoDigital } from "@/lib/definitions";
 
 // SQL de lo que el lector escribe y hace mientras lee (RN-85 a RN-88, bloque 6 del esquema). REGLA DE ESTE ARCHIVO:
@@ -92,15 +92,6 @@ export async function borrarAnotacion(idLector: number, idAnotacion: number): Pr
 // ---------------------------------------------------------------------
 // Notas libres (RN-86)
 // ---------------------------------------------------------------------
-
-export type NotaLibre = {
-  id_nota_libre: number;
-  texto: string;
-  cfi: string | null;
-  capitulo: string | null;
-  fecha_creacion: string;
-  editada: number; // 1 si se editó después de escribirla
-};
 
 export async function listarNotasLibres(idLector: number, idLibro: number): Promise<NotaLibre[]> {
   const [filas] = await pool.execute<(NotaLibre & RowDataPacket)[]>(
