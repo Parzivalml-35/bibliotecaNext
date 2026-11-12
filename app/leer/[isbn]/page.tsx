@@ -10,6 +10,7 @@ import { obtenerLibroPorIsbn } from "@/lib/data/libros";
 import { limitesDeLectura, listarAnotaciones, listarNotasLibres, obtenerPosicion } from "@/lib/data/lectura";
 import type { FormatoDigital, LibroDetalle } from "@/lib/definitions";
 import { esIsbnValido } from "@/lib/isbn";
+import { esCfi } from "@/lib/lectura";
 import { exigirLector } from "@/lib/sesion";
 
 export const metadata: Metadata = { title: "Leer en línea" };
@@ -26,7 +27,9 @@ const NOMBRE_FORMATO: Record<FormatoDigital, string> = { epub: "EPUB", pdf: "PDF
 // lámpara). Con PDF se mantiene la cápsula de arriba.
 export default async function PaginaLeer({ params, searchParams }: PageProps<"/leer/[isbn]">) {
   const { isbn } = await params;
-  const { formato: pedido } = await searchParams;
+  // ?ir=<CFI>: "Ir al pasaje" desde "Mis lecturas" (R10-F). Solo vale en el EPUB y si tiene forma de CFI (esCfi);
+  // si no, se ignora y el visor abre donde quedó.
+  const { formato: pedido, ir } = await searchParams;
   // RN-83: la ruta para volver después del login. encodeURIComponent: el isbn viene de la URL.
   const lector = await exigirLector(`/leer/${encodeURIComponent(isbn)}`);
   if (!esIsbnValido(isbn)) notFound();
@@ -65,11 +68,13 @@ export default async function PaginaLeer({ params, searchParams }: PageProps<"/l
     obtenerPosicion(lector.idLector, acceso.id_libro, formato),
     limitesDeLectura(),
   ]);
+  const irA = esEpub && typeof ir === "string" && esCfi(ir) ? ir : null;
   const lectura = {
     anotaciones,
     notas,
     maxNota: limites.max_caracteres_nota,
-    posicion,
+    // Con ?ir= se abre en ESE punto (la fracción guardada queda de respaldo si el CFI no se pudiera ubicar).
+    posicion: irA ? { cfi: irA, pagina: null, fraccion: posicion?.fraccion ?? 0 } : posicion,
     latido: { segundos: limites.segundos_latido_lectura, minutosInactividad: limites.minutos_inactividad_lectura },
   };
   const visor = <Visor formato={formato} url={`/leer/${isbn}/archivo/${formato}`} ficha={ficha} portada={portada} detalles={detalles} lectura={lectura} />;

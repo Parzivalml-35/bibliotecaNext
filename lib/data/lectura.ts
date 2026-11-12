@@ -198,3 +198,88 @@ export async function registrarLatido(
   );
   return resultado;
 }
+
+// ---------------------------------------------------------------------
+// "Mis lecturas" (R10-F, RN-87): todo lo del lector, agrupado por libro
+// ---------------------------------------------------------------------
+
+// Un libro en el que el lector hizo algo: marcó, escribió, leyó o tiene una posición guardada. avance: el mayor de sus
+// formatos (0 a 1; null si nunca lo abrió, por ejemplo si solo quedan notas). ultima: la actividad más reciente.
+export type LibroLeido = {
+  id_libro: number;
+  isbn: string;
+  titulo: string;
+  autores: string | null;
+  avance: number | null;
+  ultima: string; // "12/11/2026 09:05"
+};
+
+// La subconsulta `x` junta las cuatro tablas con UNION ALL (una fila por cosa hecha, con su fecha) y agrupa por libro:
+// así salen los libros del lector SIN repetirse y con su fecha más reciente, para ordenar por ella. Las otras
+// columnas son subconsultas por libro (autores, avance). id_lector va 5 veces: una por cada tabla consultada.
+export async function listarLibrosLeidos(idLector: number): Promise<LibroLeido[]> {
+  type Fila = Omit<LibroLeido, "avance"> & { avance: string | null } & RowDataPacket;
+  const [filas] = await pool.execute<Fila[]>(
+    `SELECT l.id_libro, l.isbn, l.titulo,
+            (SELECT GROUP_CONCAT(CONCAT(a.nombre, ' ', a.apellido) ORDER BY a.apellido SEPARATOR ', ')
+             FROM autor_libro al JOIN autor a USING (id_autor) WHERE al.id_libro = l.id_libro) AS autores,
+            (SELECT MAX(p.fraccion) FROM posicion_lectura p WHERE p.id_lector = ? AND p.id_libro = l.id_libro) AS avance,
+            DATE_FORMAT(x.ultima, '%d/%m/%Y %H:%i') AS ultima
+     FROM (
+       SELECT id_libro, MAX(fecha) AS ultima FROM (
+         SELECT id_libro, ultimo_aviso AS fecha FROM sesion_lectura WHERE id_lector = ?
+         UNION ALL SELECT id_libro, COALESCE(fecha_edicion, fecha_creacion) FROM anotacion WHERE id_lector = ?
+         UNION ALL SELECT id_libro, COALESCE(fecha_edicion, fecha_creacion) FROM nota_libre WHERE id_lector = ?
+         UNION ALL SELECT id_libro, fecha_actualizacion FROM posicion_lectura WHERE id_lector = ?
+       ) hechos
+       GROUP BY id_libro
+     ) x
+     JOIN libro l ON l.id_libro = x.id_libro
+     ORDER BY x.ultima DESC, l.titulo`,
+    [idLector, idLector, idLector, idLector, idLector],
+  );
+  // DECIMAL llega como texto desde mysql2: se convierte aquí.
+  return filas.map((f) => ({ ...f, avance: f.avance === null ? null : Number(f.avance) }));
+}
+
+// Todas las marcas y notas del lector (de todos sus libros), con id_libro para repartirlas. Las mismas columnas que
+// ve el visor.
+export async function listarAnotacionesDelLector(idLector: number): Promise<(Anotacion & { id_libro: number })[]> {
+  const [filas] = await pool.execute<(Anotacion & { id_libro: number } & RowDataPacket)[]>(
+    `SELECT id_libro, ${COLUMNAS_ANOTACION} FROM anotacion WHERE id_lector = ? ORDER BY id_anotacion`,
+    [idLector],
+  );
+  return filas;
+}
+
+export async function listarNotasLibresDelLector(idLector: number): Promise<(NotaLibre & { id_libro: number })[]> {
+  const [filas] = await pool.execute<(NotaLibre & { id_libro: number } & RowDataPacket)[]>(
+    `SELECT id_libro, id_nota_libre, texto, cfi, capitulo, DATE_FORMAT(fecha_creacion, '%d/%m/%Y %H:%i') AS fecha_creacion,
+            fecha_edicion IS NOT NULL AS editada
+     FROM nota_libre WHERE id_lector = ? ORDER BY id_nota_libre DESC`,
+    [idLector],
+  );
+  return filas;
+}
+
+// El historial (RN-88): una fila por sesión, la más reciente primero. segundos: ultimo_aviso - inicio (lo calcula
+// MySQL con TIMESTAMPDIFF). Los progresos llegan como texto (DECIMAL) y se convierten.
+export type SesionDeLectura = {
+  id_libro: number;
+  formato: FormatoDigital;
+  inicio: string;
+  segundos: number;
+  progreso_inicial: number;
+  progreso_final: number;
+};
+
+export async function listarSesionesDelLector(idLector: number): Promise<SesionDeLectura[]> {
+  type Fila = Omit<SesionDeLectura, "progreso_inicial" | "progreso_final"> & { progreso_inicial: string; progreso_final: string } & RowDataPacket;
+  const [filas] = await pool.execute<Fila[]>(
+    `SELECT id_libro, formato, DATE_FORMAT(inicio, '%d/%m/%Y %H:%i') AS inicio,
+            TIMESTAMPDIFF(SECOND, inicio, ultimo_aviso) AS segundos, progreso_inicial, progreso_final
+     FROM sesion_lectura WHERE id_lector = ? ORDER BY inicio DESC`,
+    [idLector],
+  );
+  return filas.map((f) => ({ ...f, progreso_inicial: Number(f.progreso_inicial), progreso_final: Number(f.progreso_final) }));
+}

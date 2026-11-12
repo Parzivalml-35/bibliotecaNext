@@ -10,6 +10,7 @@ const PESTANAS = [
   { titulo: "Resumen", ruta: "/cuenta" },
   { titulo: "Préstamos y reservas", ruta: "/cuenta/prestamos" },
   { titulo: "Digitales", ruta: "/cuenta/digitales" },
+  { titulo: "Lecturas", ruta: "/cuenta/lecturas" }, // R10-F: notas, resaltados e historial (RN-87, RN-88)
   { titulo: "Multas", ruta: "/cuenta/multas" },
   { titulo: "Perfil", ruta: "/cuenta/perfil" },
   { titulo: "Seguridad", ruta: "/cuenta/seguridad" },

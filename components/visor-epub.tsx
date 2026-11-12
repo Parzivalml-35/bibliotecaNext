@@ -2,7 +2,7 @@
 
 import { SidebarLeft01Icon, SidebarRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { BotonLampara } from "@/components/boton-lampara";
 import { EnlaceLogo } from "@/components/marca/enlace-logo";
 import { type Latido, type PosicionLatido, useLatidoLectura } from "@/components/latido-lectura";
@@ -113,6 +113,16 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
   const [pestanaNotas, setPestanaNotas] = useState<PestanaNotas>("notas");
   const [pedidoNueva, setPedidoNueva] = useState(0);
   const [notas, setNotas] = useState(notasIniciales);
+
+  // ?ir=<CFI> (desde "Mis lecturas") ya cumplió al abrir: se quita de la URL para que recargar siga donde va el lector
+  // y no vuelva a ese pasaje. replaceState se integra con el router de Next (guía linking-and-navigating, "Native
+  // History API") y no recarga nada. El motor compara solo el pathname (documentoCargadoAqui): esto no lo afecta.
+  useEffect(() => {
+    const direccion = new URL(location.href);
+    if (!direccion.searchParams.has("ir")) return;
+    direccion.searchParams.delete("ir");
+    window.history.replaceState(null, "", direccion.pathname + direccion.search);
+  }, []);
 
   function avisar(texto: string) {
     setAviso(texto);

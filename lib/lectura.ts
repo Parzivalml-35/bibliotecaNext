@@ -1,3 +1,5 @@
+import { compare } from "foliate-js/epubcfi.js";
+
 // RN-85 a RN-88: las listas permitidas y las validaciones de forma de lo que el lector escribe mientras lee. Sin
 // "server-only": la interfaz del visor (Client Components) también las usa para dibujar los colores y validar antes
 // de enviar. El servidor las vuelve a aplicar SIEMPRE: lo que llega del navegador no es de fiar.
@@ -44,6 +46,20 @@ export type NotaLibre = {
   fecha_creacion: string; // ya formateada para mostrar
   editada: number;
 };
+
+// Las marcas en el ORDEN DEL LIBRO, no en el que se marcaron: compare de foliate-js (epubcfi.js, sin DOM: sirve en el
+// navegador y en el servidor) ordena dos CFI por su lugar en el texto. Si un CFI no se puede interpretar (solo se
+// validó su forma al guardarlo), compare lanza un error: entonces se usa el orden en que se crearon. La usan el panel
+// del visor y "Mis lecturas". Genérica (<T extends …>): sirve para Anotacion y para Anotacion con id_libro.
+export function enOrdenDelLibro<T extends { cfi: string; id_anotacion: number }>(lista: T[]): T[] {
+  return [...lista].sort((a, b) => {
+    try {
+      return compare(a.cfi, b.cfi);
+    } catch {
+      return a.id_anotacion - b.id_anotacion;
+    }
+  });
+}
 
 // RN-88: dónde quedó el lector en un formato. EPUB: cfi (pagina null); PDF: pagina (cfi null). fraccion: avance de 0 a
 // 1. Lo leen la página (para retomar) y la ruta del latido; aquí y no en lib/data porque el visor también lo usa.

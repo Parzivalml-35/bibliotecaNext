@@ -2,11 +2,10 @@
 
 import { Cancel01Icon, Delete02Icon, HighlighterIcon, Location01Icon, Note01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { compare } from "foliate-js/epubcfi.js";
 import { type KeyboardEvent, type Ref, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SheetTitle } from "@/components/ui/sheet";
-import { type Anotacion, COLOR_ANOTACION, largo, NOMBRE_ESTILO_ANOTACION, type NotaLibre } from "@/lib/lectura";
+import { type Anotacion, COLOR_ANOTACION, enOrdenDelLibro, largo, NOMBRE_ESTILO_ANOTACION, type NotaLibre } from "@/lib/lectura";
 import { cn } from "@/lib/utils";
 
 // R10-D, el panel derecho del visor EPUB ("lo mío", decidido con el usuario el 2026-11-11): lo que el lector escribió
@@ -247,18 +246,6 @@ function Editor({ ref, id, etiqueta, ayuda, maxNota, inicial = "", textoBoton, e
 // ---------------------------------------------------------------------
 // Resaltados (RN-85)
 // ---------------------------------------------------------------------
-
-// En el ORDEN DEL LIBRO, no en el que se marcaron: compare de foliate-js ordena dos CFI por su lugar en el texto. Si un
-// CFI no se puede interpretar (solo se validó su forma al guardarlo), compare lanza un error: esa marca va al final.
-function enOrdenDelLibro(lista: Anotacion[]): Anotacion[] {
-  return [...lista].sort((a, b) => {
-    try {
-      return compare(a.cfi, b.cfi);
-    } catch {
-      return a.id_anotacion - b.id_anotacion;
-    }
-  });
-}
 
 function Resaltados({ resaltados, alBorrar, alIr }: {
   resaltados: Anotacion[];
