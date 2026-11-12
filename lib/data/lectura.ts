@@ -1,5 +1,6 @@
 import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
+import { cache } from "react";
 import { pool } from "@/lib/db";
 import type { Anotacion, ColorAnotacion, EstiloAnotacion, NotaLibre, Posicion } from "@/lib/lectura";
 import type { FormatoDigital } from "@/lib/definitions";
@@ -260,7 +261,9 @@ export type LibroLeido = {
 // notas…) con su fecha, y agrupa por libro: salen los libros SIN repetirse y con su fecha más reciente, para ordenar.
 // Solo entran los que el lector TUVO (TUVO_EL_LIBRO): una nota huérfana de un libro que nunca tuvo no puede existir
 // por las reglas, y una reserva sola no basta. El id del lector va en cada subconsulta: once veces en total.
-export async function listarLibrosLeidos(idLector: number): Promise<LibroLeido[]> {
+// cache() de React: en una misma petición la piden el layout de "Mis lecturas" (la lista) y su página; la consulta
+// corre una sola vez. No es un caché entre peticiones: cada visita lee la BD de nuevo.
+export const listarLibrosLeidos = cache(async (idLector: number): Promise<LibroLeido[]> => {
   type Fila = Omit<LibroLeido, "avance_digital"> & { avance_digital: string | null } & RowDataPacket;
   const [filas] = await pool.execute<Fila[]>(
     `SELECT l.id_libro, l.isbn, l.titulo, l.paginas,
@@ -295,7 +298,7 @@ export async function listarLibrosLeidos(idLector: number): Promise<LibroLeido[]
   );
   // DECIMAL llega como texto desde mysql2: se convierte aquí.
   return filas.map((f) => ({ ...f, avance_digital: f.avance_digital === null ? null : Number(f.avance_digital) }));
-}
+});
 
 // ---- La historia del lector con UN libro (RN-89) ----
 
