@@ -115,6 +115,18 @@
 | RN-89 | **"Mis lecturas"**: por cada libro que el lector tuvo (los casos de RN-86) se muestra la ficha, **su historia** con ese libro (reservas, préstamos físicos y digitales, compras y primera lectura, con fechas y sede), el avance, el tiempo leído, las notas libres, los resaltados y las sesiones de lectura. Solo lo ve el lector (RN-87). Decidido con el usuario el 2026-11-12. |
 | RN-90 | **Página alcanzada en un libro físico**: en cada préstamo físico, **solo el lector** informa hasta qué página llegó: desde "Mis lecturas" (puede cambiarla cuando quiera) o desde la encuesta posterior a la devolución (paso 3). El bibliotecario registra la devolución sin preguntarla ni verla (RN-87). Si el libro tiene su número de páginas (`libro.paginas`, del catálogo), se muestra el porcentaje y la página no puede superarlo. Decidido con el usuario el 2026-11-12. |
 
+## Comunidad: notificaciones, apodo y reseñas
+
+Decidido con el usuario el 2026-11-12. El foro de discusión por libro va después, como un paso propio, sobre estas mismas bases (cuenta verificada, apodo, reportes y notificaciones).
+
+| # | Regla |
+|---|---|
+| RN-91 | **Notificaciones**: avisos para la cuenta dentro del sistema, en una **campana** de la barra superior (no aparece en `/leer`, para no distraer la lectura). Cada aviso tiene tipo, texto, enlace interno, fecha de creación, fecha en que se leyó y **vencimiento** (`dias_vencimiento_notificacion` días desde su creación; vencido, ya no se muestra). Los ve **solo su dueño** (RN-35). Abrir el aviso lo marca como leído; también se pueden marcar todos. El correo simulado (consola) sigue saliendo donde ya salía. Es genérico: lo usarán las funciones futuras (vencimientos, reservas asignadas, respuestas del foro). |
+| RN-92 | **Apodo**: el nombre **público** de la cuenta. Único en la red sin distinguir mayúsculas ni tildes, de 3 a 30 caracteres: letras, números, `_`, `-` y `.`. El registro muestra uno **generado** (`lector-` y 6 dígitos al azar) que la persona puede cambiar ahí mismo; si no lo cambia, se queda con el generado. Después se cambia desde el perfil. Las cuentas que ya existen reciben uno generado. **Todo lo público muestra el apodo, nunca el nombre real**; el nombre real lo ven solo el personal (mostrador, auditorías) y la propia persona. |
+| RN-93 | **Encuesta al terminar un libro**: el sistema la envía como notificación (RN-91, tipo `encuesta`) al **devolver** un préstamo físico (en el mostrador) o digital (devolución anticipada o vencimiento, RN-27; como el vencimiento no es un evento, ese aviso se **calcula** al mostrar las notificaciones y se guarda recién cuando el lector lo abre, igual que el turno de la cola), y cuando el lector marca **"Terminé de leer"** en "Mis lecturas" o en el visor (se guarda la fecha; se puede desmarcar). Lleva a escribir la reseña (RN-94); en un libro físico pregunta también la página alcanzada (RN-90). No se envía si el lector ya reseñó ese libro ni si ya tiene una encuesta sin vencer de ese libro. |
+| RN-94 | **Reseña**: la escribe un lector con la cuenta **verificada** (RN-32); no hace falta haber tenido el libro aquí. **Una por libro y lector**, editable (se marca "editada" con la fecha) y la puede borrar su autor. Tiene **estrellas de 1 a 5** (obligatorias), **"¿Lo recomendarías?"** (sí o no, obligatorio) y un **texto opcional** de hasta `max_caracteres_resena` caracteres, que se muestra como texto, nunca como HTML. Es **pública** en la ficha del libro: el apodo (RN-92), la fecha, el promedio de estrellas y el porcentaje que lo recomienda. Si el autor **tuvo el libro** aquí (los casos de RN-86), la reseña lleva la insignia **"Lo leyó en la biblioteca"**; la calcula el servidor, nadie la elige. |
+| RN-95 | **Reportes y moderación**: se publica al instante. Cualquier lector verificado puede **reportar** una reseña ajena, una sola vez, con un motivo (`ofensiva`, `spam`, `revela_el_final` u `otro`, con detalle opcional). El personal con el permiso `lectores` (RN-33) ve los reportes pendientes y **oculta** la reseña o **descarta** el reporte; ocultar resuelve todos sus reportes pendientes. Una reseña oculta no se muestra ni cuenta en el promedio; su autor la ve marcada "Oculta por moderación" y no puede volver a publicarla editándola. El personal puede volver a mostrarla. |
+
 ## Compras
 
 | # | Regla |
@@ -159,6 +171,8 @@ Cargados en el seed; se cambian en datos sin tocar código (C-04).
 | Días antes del vencimiento para avisar "por vencer" (RN-76) | 3 |
 | Minutos para usar el enlace de recuperación de contraseña (RN-80) | 60 |
 | Tamaño máximo de la foto de avatar (RN-82) | 2048 KB (2 MB) |
+| Días que se muestra una notificación (RN-91) | 30 |
+| Caracteres de una reseña (RN-94) | 2000 |
 
 ## Reglas transversales
 

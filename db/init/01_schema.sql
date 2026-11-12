@@ -208,6 +208,8 @@ CREATE TABLE configuracion (
     segundos_latido_lectura          SMALLINT UNSIGNED NOT NULL,  -- RN-88
     minutos_pausa_lectura            SMALLINT UNSIGNED NOT NULL,  -- RN-88
     minutos_inactividad_lectura      SMALLINT UNSIGNED NOT NULL,  -- RN-88: sin tocar el visor, deja de avisar
+    dias_vencimiento_notificacion    SMALLINT UNSIGNED NOT NULL,  -- RN-91
+    max_caracteres_resena            SMALLINT UNSIGNED NOT NULL,  -- RN-94
     CONSTRAINT ck_configuracion_unica CHECK (id = 1),
     CONSTRAINT ck_configuracion_multa CHECK (multa_por_dia > 0 AND multa_tope >= multa_por_dia),
     CONSTRAINT ck_configuracion_plazos CHECK (dias_atraso_perdido > 0 AND horas_confirmar_reserva_digital > 0
@@ -218,6 +220,7 @@ CREATE TABLE configuracion (
     CONSTRAINT ck_configuracion_lectura CHECK (max_caracteres_nota > 0 AND max_caracteres_cita BETWEEN 1 AND 1000
                                                AND segundos_latido_lectura > 0 AND minutos_pausa_lectura > 0
                                                AND minutos_inactividad_lectura > 0),
+    CONSTRAINT ck_configuracion_comunidad CHECK (dias_vencimiento_notificacion > 0 AND max_caracteres_resena > 0),
     CONSTRAINT ck_configuracion_intentos CHECK (max_fallos_por_correo > 0 AND max_fallos_por_ip > 0
                                                 AND max_registros_por_ip > 0 AND minutos_ventana_intentos > 0),
     CONSTRAINT fk_configuracion_tipo_lector FOREIGN KEY (id_tipo_lector_registro) REFERENCES tipo_lector (id_tipo_lector)
@@ -245,7 +248,13 @@ CREATE TABLE cuenta (
     -- no nula = "seguir al sistema" (R7h, sin ENUM nuevo para no reconstruir la BD).
     tema_base            ENUM('claro', 'oscuro') NULL,
     lampara              BOOLEAN NULL,
+    -- RN-92: nombre público. Por defecto, uno generado (la aplicación propone otro en el registro y la persona lo puede
+    -- cambiar). El UNIQUE usa la intercalación de la BD (utf8mb4_0900_ai_ci): "José" y "jose" son el mismo apodo.
+    -- [[:alnum:]] de MySQL 8 (ICU) acepta letras con tilde y ñ. Una colisión del generado la rechaza el UNIQUE.
+    apodo                VARCHAR(30) NOT NULL DEFAULT (CONCAT('lector-', LPAD(FLOOR(RAND() * 1000000), 6, '0'))),
     CONSTRAINT uq_cuenta_correo UNIQUE (correo),
+    CONSTRAINT uq_cuenta_apodo UNIQUE (apodo),
+    CONSTRAINT ck_cuenta_apodo CHECK (REGEXP_LIKE(apodo, '^[[:alnum:]_.-]{3,30}$')),
     CONSTRAINT uq_cuenta_avatar_clave UNIQUE (avatar_clave),
     CONSTRAINT ck_cuenta_fechas CHECK (fecha_verificacion IS NULL OR fecha_verificacion >= fecha_registro)
 );
@@ -876,4 +885,85 @@ CREATE TABLE avance_fisico (
     fecha_actualizacion  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_avance_fisico_pagina CHECK (pagina > 0),
     CONSTRAINT fk_avance_fisico_prestamo FOREIGN KEY (id_prestamo) REFERENCES prestamo_fisico (id_prestamo)
+);
+
+-- =====================================================================
+-- Bloque 7 — Comunidad: notificaciones, lecturas terminadas, reseñas y reportes (RN-91 a RN-95)
+-- =====================================================================
+
+-- RN-91: avisos de una cuenta (genérico: hoy solo la encuesta). Los ve solo su dueño. Vencido = no se muestra.
+-- id_libro: el libro del aviso (la encuesta lo necesita para no repetirse, RN-93).
+CREATE TABLE notificacion (
+    id_notificacion      INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_cuenta            INT UNSIGNED NOT NULL,
+    tipo                 ENUM('encuesta') NOT NULL,
+    texto                VARCHAR(300) NOT NULL,
+    enlace               VARCHAR(300) NOT NULL,
+    id_libro             INT UNSIGNED NULL,
+    fecha_creacion       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_lectura        DATETIME NULL,
+    fecha_vencimiento    DATETIME NOT NULL,
+    -- Solo enlaces internos (RN-83: una ruta que empieza por / pero no por // ni por /\).
+    CONSTRAINT ck_notificacion_enlace CHECK (enlace LIKE '/%' AND enlace NOT LIKE '//%' AND enlace NOT LIKE '/\\\\%'),
+    CONSTRAINT ck_notificacion_fechas CHECK (fecha_vencimiento > fecha_creacion
+                                             AND (fecha_lectura IS NULL OR fecha_lectura >= fecha_creacion)),
+    CONSTRAINT ck_notificacion_encuesta CHECK (tipo <> 'encuesta' OR id_libro IS NOT NULL),
+    CONSTRAINT fk_notificacion_cuenta FOREIGN KEY (id_cuenta) REFERENCES cuenta (id_cuenta),
+    CONSTRAINT fk_notificacion_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro),
+    INDEX idx_notificacion_cuenta (id_cuenta, fecha_vencimiento)
+);
+
+-- RN-93: el lector marcó "Terminé de leer" (desmarcar = borrar la fila). Dispara la encuesta.
+CREATE TABLE lectura_terminada (
+    id_lector            INT UNSIGNED NOT NULL,
+    id_libro             INT UNSIGNED NOT NULL,
+    fecha                DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_lector, id_libro),
+    CONSTRAINT fk_lectura_terminada_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_lectura_terminada_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro)
+);
+
+-- RN-94: una reseña por libro y lector, pública con el apodo. La insignia "Lo leyó en la biblioteca" se calcula
+-- (RN-86), no se guarda. RN-95: oculta = fecha_ocultada + empleado (los dos o ninguno).
+CREATE TABLE resena (
+    id_resena            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_lector            INT UNSIGNED NOT NULL,
+    id_libro             INT UNSIGNED NOT NULL,
+    estrellas            TINYINT UNSIGNED NOT NULL,
+    recomienda           BOOLEAN NOT NULL,
+    texto                TEXT NULL,                     -- NULL = sin texto; el largo sale de configuracion (C-04)
+    fecha_creacion       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_edicion        DATETIME NULL,
+    fecha_ocultada       DATETIME NULL,
+    id_empleado_oculta   INT UNSIGNED NULL,
+    CONSTRAINT uq_resena_lector_libro UNIQUE (id_lector, id_libro),
+    CONSTRAINT ck_resena_estrellas CHECK (estrellas BETWEEN 1 AND 5),
+    CONSTRAINT ck_resena_texto CHECK (texto IS NULL OR CHAR_LENGTH(TRIM(texto)) > 0),
+    CONSTRAINT ck_resena_oculta CHECK ((fecha_ocultada IS NULL) = (id_empleado_oculta IS NULL)),
+    CONSTRAINT fk_resena_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_resena_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro),
+    CONSTRAINT fk_resena_empleado FOREIGN KEY (id_empleado_oculta) REFERENCES empleado (id_empleado),
+    INDEX idx_resena_libro (id_libro, fecha_creacion)
+);
+
+-- RN-95: un reporte por reseña y lector. Pendiente = sin empleado ni fecha de resolución.
+-- ON DELETE CASCADE: si el autor borra su reseña, sus reportes se van con ella (id_resena no está en ningún CHECK,
+-- así no choca con ERROR 3823).
+CREATE TABLE reporte_resena (
+    id_reporte           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_resena            INT UNSIGNED NOT NULL,
+    id_lector            INT UNSIGNED NOT NULL,
+    motivo               ENUM('ofensiva', 'spam', 'revela_el_final', 'otro') NOT NULL,
+    detalle              VARCHAR(500) NULL,
+    fecha                DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    estado               ENUM('pendiente', 'ocultada', 'descartada') NOT NULL DEFAULT 'pendiente',
+    id_empleado          INT UNSIGNED NULL,
+    fecha_resolucion     DATETIME NULL,
+    CONSTRAINT uq_reporte_resena_lector UNIQUE (id_resena, id_lector),
+    CONSTRAINT ck_reporte_resolucion CHECK ((estado = 'pendiente') = (id_empleado IS NULL)
+                                            AND (id_empleado IS NULL) = (fecha_resolucion IS NULL)),
+    CONSTRAINT fk_reporte_resena FOREIGN KEY (id_resena) REFERENCES resena (id_resena) ON DELETE CASCADE,
+    CONSTRAINT fk_reporte_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
+    CONSTRAINT fk_reporte_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado),
+    INDEX idx_reporte_estado (estado, fecha)
 );
