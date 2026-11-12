@@ -7,9 +7,13 @@ import {
   crearNotaLibre,
   editarNotaLibre,
   guardarAnotacion,
+  guardarAvanceFisico,
   libroDeAnotacion,
   libroDeNotaLibre,
+  libroQueTuvo,
+  lectorTuvoLibro,
   limitesDeLectura,
+  prestamoFisicoDelLector,
 } from "@/lib/data/lectura";
 import { obtenerAccesoDeLectura } from "@/lib/data/digital";
 import { esIsbnValido } from "@/lib/isbn";
@@ -22,7 +26,9 @@ import { obtenerUsuario } from "@/lib/sesion";
 // - Reciben `unknown`: una Server Action es un endpoint público; el tipo de TypeScript no viaja en la petición, así que
 //   la forma se valida a mano (como guardarTema).
 // - El lector sale SIEMPRE de la sesión (RN-87, RN-35); un id de anotación o nota ajeno se trata como inexistente.
-// - Crear y editar exigen acceso vigente al título (RN-29); borrar no (RN-87: sin acceso se puede ver y borrar).
+// - Resaltados: crear y editar exigen acceso vigente al título (RN-29); borrar no (RN-87: sin acceso se puede ver y
+//   borrar). Notas libres (RN-86, ampliada el 2026-11-12): basta con haber TENIDO el libro (préstamo físico o digital,
+//   compra), así también se escriben sobre un libro de papel o uno cuyo préstamo terminó.
 // - Sin revalidatePath: ninguna página del servidor muestra estos datos mientras se lee (el visor los tiene en estado).
 //   "Mis lecturas" (R10-F) se dibuja en cada petición, así que siempre lee lo último.
 
@@ -30,6 +36,7 @@ export type Resultado<T> = { ok: true; valor: T } | { ok: false; error: string }
 
 const SIN_SESION = "Tu sesión terminó. Vuelve a iniciar sesión para guardar.";
 const SIN_ACCESO = "Ya no tienes este libro: puedes ver y borrar lo que escribiste, pero no crear ni editar.";
+const NO_LO_TUVO = "Solo puedes escribir notas de libros que tuviste (prestados o comprados).";
 const NO_ENCONTRADA = "No se encontró. Puede que ya la hayas borrado.";
 
 function objeto(v: unknown): Record<string, unknown> | null {
@@ -139,9 +146,12 @@ export async function borrarResaltado(id: unknown): Promise<Resultado<null>> {
 // la nota vale igual, solo que sin "ir a donde la escribí").
 export async function crearNota(isbn: unknown, datos: unknown): Promise<Resultado<{ id: number }>> {
   return intentar(async () => {
-    const { idLector, idLibro } = await lectorYAcceso(isbn);
-    if (!idLector) return { ok: false, error: SIN_SESION };
-    if (!idLibro) return { ok: false, error: SIN_ACCESO };
+    const usuario = await obtenerUsuario();
+    if (!usuario?.lector) return { ok: false, error: SIN_SESION };
+    const idLector = usuario.lector.idLector;
+    // RN-86: un libro que el lector tuvo (no hace falta acceso vigente).
+    const idLibro = typeof isbn === "string" && esIsbnValido(isbn) ? await libroQueTuvo(idLector, isbn) : null;
+    if (!idLibro) return { ok: false, error: NO_LO_TUVO };
     const d = objeto(datos);
     if (!d) return { ok: false, error: "Datos no válidos." };
 
@@ -164,7 +174,7 @@ export async function editarNota(id: unknown, texto: unknown): Promise<Resultado
     if (!idValido(id)) return { ok: false, error: "Datos no válidos." };
     const libro = await libroDeNotaLibre(idLector, id);
     if (!libro) return { ok: false, error: NO_ENCONTRADA };
-    if (!(await obtenerAccesoDeLectura(idLector, libro.isbn))) return { ok: false, error: SIN_ACCESO };
+    if (!(await lectorTuvoLibro(idLector, libro.id_libro))) return { ok: false, error: NO_LO_TUVO }; // RN-86
 
     const n = notaDe(texto, (await limitesDeLectura()).max_caracteres_nota);
     if ("error" in n) return { ok: false, error: n.error };
@@ -181,5 +191,34 @@ export async function borrarNota(id: unknown): Promise<Resultado<null>> {
     if (!idValido(id)) return { ok: false, error: "Datos no válidos." };
     const ok = await borrarNotaLibre(usuario.lector.idLector, id);
     return ok ? { ok: true, valor: null } : { ok: false, error: NO_ENCONTRADA };
+  });
+}
+
+// ---------------------------------------------------------------------
+// Página alcanzada en un préstamo físico (RN-90)
+// ---------------------------------------------------------------------
+
+// La informa SOLO el lector, en uno de SUS préstamos físicos (en curso o devuelto). null (o vacío) la borra. Entero de
+// 1 en adelante y, si el libro tiene su número de páginas, no mayor que ese número.
+export async function guardarPaginaFisica(idPrestamo: unknown, pagina: unknown): Promise<Resultado<null>> {
+  return intentar(async () => {
+    const usuario = await obtenerUsuario();
+    if (!usuario?.lector) return { ok: false, error: SIN_SESION };
+    if (!idValido(idPrestamo)) return { ok: false, error: "Datos no válidos." };
+    const prestamo = await prestamoFisicoDelLector(usuario.lector.idLector, idPrestamo);
+    if (!prestamo) return { ok: false, error: "No se encontró ese préstamo." };
+
+    if (pagina === null) {
+      await guardarAvanceFisico(idPrestamo, null);
+      return { ok: true, valor: null };
+    }
+    if (typeof pagina !== "number" || !Number.isInteger(pagina) || pagina < 1 || pagina > 65535) {
+      return { ok: false, error: "Escribe un número de página (1 o más)." };
+    }
+    if (prestamo.paginas !== null && pagina > prestamo.paginas) {
+      return { ok: false, error: `Este libro tiene ${prestamo.paginas} páginas.` };
+    }
+    await guardarAvanceFisico(idPrestamo, pagina);
+    return { ok: true, valor: null };
   });
 }

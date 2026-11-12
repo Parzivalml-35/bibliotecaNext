@@ -116,6 +116,17 @@ JOIN autor a ON a.apellido = v.apellido
 JOIN libro l ON l.isbn = v.isbn;
 
 -- RN-19: géneros secundarios (nunca el principal).
+-- RN-90: número de páginas (aproximado, de ediciones comunes; datos de muestra). Ficciones queda sin dato (NULL) a
+-- propósito: así se prueba el avance de un libro físico sin porcentaje.
+UPDATE libro l
+JOIN (VALUES
+  ROW('9788420471839', 471), ROW('9789580431770', 490), ROW('9789871138012', 137), ROW('9788439701095', 334),
+  ROW('9788420405940', 736), ROW('9788408045755', 132), ROW('9788447306619', 497), ROW('9789681903978', 464),
+  ROW('9789580469117', 96), ROW('9789507310294', 158), ROW('9789580415329', 389), ROW('9789505119363', 344),
+  ROW('9788418797453', 96), ROW('9788408053040', 366), ROW('9789682325571', 486)
+) AS p (isbn, paginas) ON p.isbn = l.isbn
+SET l.paginas = p.paginas;
+
 INSERT INTO libro_genero (id_libro, id_genero)
 SELECT l.id_libro, g.id_genero
 FROM (VALUES ROW('9788420471839', 'Realismo mágico'), ROW('9788447306619', 'Realismo mágico'),

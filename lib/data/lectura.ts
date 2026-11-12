@@ -211,43 +211,186 @@ export async function registrarLatido(
 // "Mis lecturas" (R10-F, RN-87): todo lo del lector, agrupado por libro
 // ---------------------------------------------------------------------
 
-// Un libro en el que el lector hizo algo: marcó, escribió, leyó o tiene una posición guardada. avance: el mayor de sus
-// formatos (0 a 1; null si nunca lo abrió, por ejemplo si solo quedan notas). ultima: la actividad más reciente.
+// RN-86, RN-89: "el lector TUVO este libro": un préstamo físico (en curso o devuelto), un préstamo digital (vigente o
+// terminado), una compra digital (acceso_digital) o una compra física entregada. Una reserva sola NO cuenta.
+// Fragmento SQL reutilizable: espera el libro como `l.id_libro` y lleva CUATRO `?`, todos el id del lector.
+const TUVO_EL_LIBRO = `(
+  EXISTS (SELECT 1 FROM prestamo_fisico pf JOIN ejemplar ej ON ej.id_ejemplar = pf.id_ejemplar
+          WHERE pf.id_lector = ? AND ej.id_libro = l.id_libro)
+  OR EXISTS (SELECT 1 FROM prestamo_digital pd JOIN licencia_digital ld ON ld.id_licencia = pd.id_licencia
+             WHERE pd.id_lector = ? AND ld.id_libro = l.id_libro)
+  OR EXISTS (SELECT 1 FROM acceso_digital ad WHERE ad.id_lector = ? AND ad.id_libro = l.id_libro)
+  OR EXISTS (SELECT 1 FROM pedido pe JOIN pedido_detalle dt ON dt.id_pedido = pe.id_pedido
+             JOIN producto pr ON pr.id_producto = dt.id_producto
+             WHERE pe.id_lector = ? AND pe.estado = 'entregado' AND pr.tipo = 'fisico' AND pr.id_libro = l.id_libro)
+)`;
+const lectorCuatroVeces = (idLector: number) => [idLector, idLector, idLector, idLector];
+
+// El id del libro (por ISBN) si el lector lo tuvo; null si no (o si no existe: la respuesta es la misma).
+export async function libroQueTuvo(idLector: number, isbn: string): Promise<number | null> {
+  const [filas] = await pool.execute<({ id_libro: number } & RowDataPacket)[]>(
+    `SELECT l.id_libro FROM libro l WHERE l.isbn = ? AND ${TUVO_EL_LIBRO}`,
+    [isbn, ...lectorCuatroVeces(idLector)],
+  );
+  return filas[0]?.id_libro ?? null;
+}
+export async function lectorTuvoLibro(idLector: number, idLibro: number): Promise<boolean> {
+  const [filas] = await pool.execute<RowDataPacket[]>(
+    `SELECT 1 FROM libro l WHERE l.id_libro = ? AND ${TUVO_EL_LIBRO}`,
+    [idLibro, ...lectorCuatroVeces(idLector)],
+  );
+  return filas.length > 0;
+}
+
+// Un libro de "Mis lecturas" (RN-89). avance_digital: la mayor fracción de sus formatos digitales (null si nunca lo
+// abrió en línea). pagina_fisica: la mayor página informada en sus préstamos físicos (RN-90; null si no informó).
+// paginas: del catálogo (null = sin dato: la página se muestra sin porcentaje). ultima: la actividad más reciente.
 export type LibroLeido = {
   id_libro: number;
   isbn: string;
   titulo: string;
   autores: string | null;
-  avance: number | null;
+  paginas: number | null;
+  avance_digital: number | null;
+  pagina_fisica: number | null;
   ultima: string; // "12/11/2026 09:05"
 };
 
-// La subconsulta `x` junta las cuatro tablas con UNION ALL (una fila por cosa hecha, con su fecha) y agrupa por libro:
-// así salen los libros del lector SIN repetirse y con su fecha más reciente, para ordenar por ella. Las otras
-// columnas son subconsultas por libro (autores, avance). id_lector va 5 veces: una por cada tabla consultada.
+// La subconsulta `x` junta con UNION ALL una fila por cada cosa hecha con un libro (préstamos, compras, lecturas,
+// notas…) con su fecha, y agrupa por libro: salen los libros SIN repetirse y con su fecha más reciente, para ordenar.
+// Solo entran los que el lector TUVO (TUVO_EL_LIBRO): una nota huérfana de un libro que nunca tuvo no puede existir
+// por las reglas, y una reserva sola no basta. El id del lector va en cada subconsulta: once veces en total.
 export async function listarLibrosLeidos(idLector: number): Promise<LibroLeido[]> {
-  type Fila = Omit<LibroLeido, "avance"> & { avance: string | null } & RowDataPacket;
+  type Fila = Omit<LibroLeido, "avance_digital"> & { avance_digital: string | null } & RowDataPacket;
   const [filas] = await pool.execute<Fila[]>(
-    `SELECT l.id_libro, l.isbn, l.titulo,
+    `SELECT l.id_libro, l.isbn, l.titulo, l.paginas,
             (SELECT GROUP_CONCAT(CONCAT(a.nombre, ' ', a.apellido) ORDER BY a.apellido SEPARATOR ', ')
              FROM autor_libro al JOIN autor a USING (id_autor) WHERE al.id_libro = l.id_libro) AS autores,
-            (SELECT MAX(p.fraccion) FROM posicion_lectura p WHERE p.id_lector = ? AND p.id_libro = l.id_libro) AS avance,
+            (SELECT MAX(p.fraccion) FROM posicion_lectura p WHERE p.id_lector = ? AND p.id_libro = l.id_libro) AS avance_digital,
+            (SELECT MAX(af.pagina) FROM avance_fisico af JOIN prestamo_fisico pf ON pf.id_prestamo = af.id_prestamo
+             JOIN ejemplar ej ON ej.id_ejemplar = pf.id_ejemplar
+             WHERE pf.id_lector = ? AND ej.id_libro = l.id_libro) AS pagina_fisica,
             DATE_FORMAT(x.ultima, '%d/%m/%Y %H:%i') AS ultima
      FROM (
        SELECT id_libro, MAX(fecha) AS ultima FROM (
-         SELECT id_libro, ultimo_aviso AS fecha FROM sesion_lectura WHERE id_lector = ?
+         SELECT ej.id_libro, COALESCE(pf.fecha_devolucion, pf.fecha_prestamo) AS fecha
+           FROM prestamo_fisico pf JOIN ejemplar ej ON ej.id_ejemplar = pf.id_ejemplar WHERE pf.id_lector = ?
+         UNION ALL SELECT ld.id_libro, pd.fecha_inicio
+           FROM prestamo_digital pd JOIN licencia_digital ld ON ld.id_licencia = pd.id_licencia WHERE pd.id_lector = ?
+         UNION ALL SELECT id_libro, fecha_otorgado FROM acceso_digital WHERE id_lector = ?
+         UNION ALL SELECT pr.id_libro, pe.fecha_entrega
+           FROM pedido pe JOIN pedido_detalle dt ON dt.id_pedido = pe.id_pedido
+           JOIN producto pr ON pr.id_producto = dt.id_producto
+           WHERE pe.id_lector = ? AND pe.estado = 'entregado' AND pr.tipo = 'fisico'
+         UNION ALL SELECT id_libro, ultimo_aviso FROM sesion_lectura WHERE id_lector = ?
          UNION ALL SELECT id_libro, COALESCE(fecha_edicion, fecha_creacion) FROM anotacion WHERE id_lector = ?
          UNION ALL SELECT id_libro, COALESCE(fecha_edicion, fecha_creacion) FROM nota_libre WHERE id_lector = ?
-         UNION ALL SELECT id_libro, fecha_actualizacion FROM posicion_lectura WHERE id_lector = ?
        ) hechos
        GROUP BY id_libro
      ) x
      JOIN libro l ON l.id_libro = x.id_libro
+     WHERE ${TUVO_EL_LIBRO}
      ORDER BY x.ultima DESC, l.titulo`,
-    [idLector, idLector, idLector, idLector, idLector],
+    [idLector, idLector, idLector, idLector, idLector, idLector, idLector, idLector, idLector, ...lectorCuatroVeces(idLector)],
   );
   // DECIMAL llega como texto desde mysql2: se convierte aquí.
-  return filas.map((f) => ({ ...f, avance: f.avance === null ? null : Number(f.avance) }));
+  return filas.map((f) => ({ ...f, avance_digital: f.avance_digital === null ? null : Number(f.avance_digital) }));
+}
+
+// ---- La historia del lector con UN libro (RN-89) ----
+
+// Cada hecho, con sus fechas ya formateadas para mostrar y `orden` (la fecha sin formato, "2026-11-12 09:05:00") para
+// ordenarlos juntos. Una unión discriminada por `tipo`: TypeScript sabe qué campos tiene cada uno.
+export type HechoDelLibro = { orden: string; fecha: string } & (
+  | { tipo: "reserva_fisica"; estado: string; sede: string; cierre: string | null }
+  | { tipo: "prestamo_fisico"; id_prestamo: number; sede: string; vence: string; renovaciones: number;
+      devuelto: string | null; sede_devolucion: string | null; pagina: number | null }
+  | { tipo: "reserva_digital"; estado: string; cierre: string | null }
+  | { tipo: "prestamo_digital"; fin: string; devuelto: string | null }
+  | { tipo: "compra_digital"; primera_lectura: string | null }
+  | { tipo: "compra_fisica"; modalidad: string }
+);
+
+const FECHA = "'%d/%m/%Y %H:%i'";
+
+// Seis consultas pequeñas (una por tipo de hecho) en paralelo, y se ordenan juntas en JavaScript. Una sola consulta
+// con UNION obligaría a que todas tuvieran las mismas columnas.
+export async function historiaDelLibro(idLector: number, idLibro: number): Promise<HechoDelLibro[]> {
+  type F = RowDataPacket & Record<string, unknown>;
+  const [[rf], [pf], [rd], [pd], [cd], [cf]] = await Promise.all([
+    pool.execute<F[]>(
+      `SELECT r.fecha_solicitud AS orden, DATE_FORMAT(r.fecha_solicitud, ${FECHA}) AS fecha, r.estado, s.nombre AS sede,
+              DATE_FORMAT(r.fecha_cierre, ${FECHA}) AS cierre
+       FROM reserva_fisica r JOIN sede s ON s.id_sede = r.id_sede WHERE r.id_lector = ? AND r.id_libro = ?`,
+      [idLector, idLibro]),
+    pool.execute<F[]>(
+      `SELECT p.fecha_prestamo AS orden, DATE_FORMAT(p.fecha_prestamo, ${FECHA}) AS fecha, p.id_prestamo,
+              s.nombre AS sede, DATE_FORMAT(p.fecha_vencimiento, '%d/%m/%Y') AS vence, p.renovaciones,
+              DATE_FORMAT(p.fecha_devolucion, ${FECHA}) AS devuelto, sd.nombre AS sede_devolucion, af.pagina
+       FROM prestamo_fisico p
+       JOIN ejemplar ej ON ej.id_ejemplar = p.id_ejemplar
+       JOIN sede s ON s.id_sede = p.id_sede_prestamo
+       LEFT JOIN sede sd ON sd.id_sede = p.id_sede_devolucion
+       LEFT JOIN avance_fisico af ON af.id_prestamo = p.id_prestamo
+       WHERE p.id_lector = ? AND ej.id_libro = ?`,
+      [idLector, idLibro]),
+    pool.execute<F[]>(
+      `SELECT fecha_solicitud AS orden, DATE_FORMAT(fecha_solicitud, ${FECHA}) AS fecha, estado,
+              DATE_FORMAT(fecha_cierre, ${FECHA}) AS cierre
+       FROM reserva_digital WHERE id_lector = ? AND id_libro = ?`,
+      [idLector, idLibro]),
+    pool.execute<F[]>(
+      `SELECT p.fecha_inicio AS orden, DATE_FORMAT(p.fecha_inicio, ${FECHA}) AS fecha, DATE_FORMAT(p.fecha_fin, ${FECHA}) AS fin,
+              DATE_FORMAT(p.fecha_devolucion, ${FECHA}) AS devuelto
+       FROM prestamo_digital p JOIN licencia_digital ld ON ld.id_licencia = p.id_licencia
+       WHERE p.id_lector = ? AND ld.id_libro = ?`,
+      [idLector, idLibro]),
+    pool.execute<F[]>(
+      `SELECT fecha_otorgado AS orden, DATE_FORMAT(fecha_otorgado, ${FECHA}) AS fecha,
+              DATE_FORMAT(fecha_primera_lectura, ${FECHA}) AS primera_lectura
+       FROM acceso_digital WHERE id_lector = ? AND id_libro = ?`,
+      [idLector, idLibro]),
+    pool.execute<F[]>(
+      `SELECT pe.fecha_entrega AS orden, DATE_FORMAT(pe.fecha_entrega, ${FECHA}) AS fecha, pe.modalidad
+       FROM pedido pe JOIN pedido_detalle dt ON dt.id_pedido = pe.id_pedido JOIN producto pr ON pr.id_producto = dt.id_producto
+       WHERE pe.id_lector = ? AND pr.id_libro = ? AND pe.estado = 'entregado' AND pr.tipo = 'fisico'`,
+      [idLector, idLibro]),
+  ]);
+  // `as HechoDelLibro`: las columnas de cada consulta son las de su tipo (escritas arriba, a mano); mysql2 no lo sabe.
+  const con = (filas: F[], tipo: HechoDelLibro["tipo"]) =>
+    filas.map((f) => ({ ...f, orden: String(f.orden instanceof Date ? f.orden.toISOString() : f.orden), tipo }) as unknown as HechoDelLibro);
+  return [...con(rf, "reserva_fisica"), ...con(pf, "prestamo_fisico"), ...con(rd, "reserva_digital"),
+          ...con(pd, "prestamo_digital"), ...con(cd, "compra_digital"), ...con(cf, "compra_fisica")]
+    .sort((a, b) => b.orden.localeCompare(a.orden)); // lo más reciente primero
+}
+
+// ---- Página alcanzada en un préstamo físico (RN-90) ----
+
+// El préstamo, solo si es DEL lector (si no, null: igual que si no existiera), con las páginas de su libro.
+export async function prestamoFisicoDelLector(
+  idLector: number,
+  idPrestamo: number,
+): Promise<{ id_libro: number; paginas: number | null } | null> {
+  const [filas] = await pool.execute<({ id_libro: number; paginas: number | null } & RowDataPacket)[]>(
+    `SELECT l.id_libro, l.paginas FROM prestamo_fisico p
+     JOIN ejemplar ej ON ej.id_ejemplar = p.id_ejemplar JOIN libro l ON l.id_libro = ej.id_libro
+     WHERE p.id_prestamo = ? AND p.id_lector = ?`,
+    [idPrestamo, idLector],
+  );
+  return filas[0] ?? null;
+}
+
+// Guardar (o cambiar) la página; null la borra. Quien llama ya comprobó que el préstamo es del lector.
+export async function guardarAvanceFisico(idPrestamo: number, pagina: number | null): Promise<void> {
+  if (pagina === null) {
+    await pool.execute("DELETE FROM avance_fisico WHERE id_prestamo = ?", [idPrestamo]);
+    return;
+  }
+  await pool.execute(
+    `INSERT INTO avance_fisico (id_prestamo, pagina) VALUES (?, ?) AS nueva
+     ON DUPLICATE KEY UPDATE pagina = nueva.pagina, fecha_actualizacion = NOW()`,
+    [idPrestamo, pagina],
+  );
 }
 
 // Todas las marcas y notas del lector (de todos sus libros), con id_libro para repartirlas. Las mismas columnas que

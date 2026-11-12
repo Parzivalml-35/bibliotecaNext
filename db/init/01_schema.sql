@@ -82,9 +82,11 @@ CREATE TABLE libro (
     id_editorial         INT UNSIGNED NOT NULL,
     id_clasificacion     INT UNSIGNED NOT NULL,
     id_genero_principal  INT UNSIGNED NOT NULL,
+    paginas              SMALLINT UNSIGNED NULL,  -- RN-90: para el avance de un libro físico en %; NULL = sin dato
     CONSTRAINT uq_libro_isbn UNIQUE (isbn),
     CONSTRAINT ck_libro_isbn CHECK (isbn REGEXP '^([0-9]{9}[0-9X]|[0-9]{13})$'),
     CONSTRAINT ck_libro_anio CHECK (anio_publicacion BETWEEN 1000 AND 2100),
+    CONSTRAINT ck_libro_paginas CHECK (paginas > 0),
     CONSTRAINT fk_libro_editorial FOREIGN KEY (id_editorial) REFERENCES editorial (id_editorial),
     CONSTRAINT fk_libro_clasificacion FOREIGN KEY (id_clasificacion) REFERENCES clasificacion_edad (id_clasificacion),
     CONSTRAINT fk_libro_genero_principal FOREIGN KEY (id_genero_principal) REFERENCES genero (id_genero)
@@ -863,4 +865,15 @@ CREATE TABLE posicion_lectura (
     CONSTRAINT ck_posicion_fraccion CHECK (fraccion BETWEEN 0 AND 1),
     CONSTRAINT fk_posicion_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),
     CONSTRAINT fk_posicion_libro FOREIGN KEY (id_libro) REFERENCES libro (id_libro)
+);
+
+-- RN-90: hasta qué página llegó el lector en un préstamo físico (lo informa SOLO él: "Mis lecturas" o la encuesta).
+-- Tabla aparte de prestamo_fisico: dato privado del lector (RN-87), fuera de la tabla que usan las pantallas del
+-- mostrador. Que no supere libro.paginas lo valida la capa de lógica.
+CREATE TABLE avance_fisico (
+    id_prestamo          INT UNSIGNED PRIMARY KEY,
+    pagina               SMALLINT UNSIGNED NOT NULL,
+    fecha_actualizacion  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_avance_fisico_pagina CHECK (pagina > 0),
+    CONSTRAINT fk_avance_fisico_prestamo FOREIGN KEY (id_prestamo) REFERENCES prestamo_fisico (id_prestamo)
 );

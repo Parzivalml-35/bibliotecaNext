@@ -62,6 +62,7 @@ erDiagram
         varchar isbn UK
         varchar titulo
         smallint anio_publicacion
+        smallint paginas "NULL: sin dato"
         text sinopsis "NULL"
         int id_editorial FK
         int id_clasificacion FK
@@ -116,7 +117,7 @@ erDiagram
 | `clasificacion_edad` | RN-46 | `edad_minima` es lo que permite **calcular** si un lector puede acceder a un título. |
 | `seccion` | RN-18 | De toda la red; el color es de la sección. `color_hex` con `CHECK` de formato `#RRGGBB`. |
 | `genero` | RN-19 | `id_seccion NOT NULL`: cada género pertenece a una sola sección; así se sabe dónde va un libro. |
-| `libro` | RN-19, RN-46 | `id_genero_principal` decide sección y color. `isbn` único. En rigor es una **edición** (ISBN y editorial son de una edición concreta, no de la obra); `anio_publicacion` es el año de esa edición. Suficiente para este proyecto: una edición por título. |
+| `libro` | RN-19, RN-46 | `id_genero_principal` decide sección y color. `isbn` único. En rigor es una **edición** (ISBN y editorial son de una edición concreta, no de la obra); `anio_publicacion` es el año de esa edición. Suficiente para este proyecto: una edición por título. `paginas` (RN-90, NULL = sin dato): para mostrar el avance de un libro físico en porcentaje. |
 | `libro_genero` | RN-19 | Solo géneros **secundarios**. Que no repita el principal no se puede expresar con un `CHECK` (involucra otra tabla): se valida en la capa de lógica. |
 | `sede` | D-01 | Antes `Biblioteca` en BD2 (C-05). |
 | `ubicacion` | RN-17, RN-18 | Una fila = un nivel de un estante. `UNIQUE(id_sede, pasillo, estante, nivel)`. `UNIQUE(id_ubicacion, id_sede)` para la FK compuesta de `ejemplar`. |
@@ -687,6 +688,7 @@ erDiagram
     libro ||--o{ sesion_lectura : ""
     lector ||--o{ posicion_lectura : "va en"
     libro ||--o{ posicion_lectura : ""
+    prestamo_fisico ||--o| avance_fisico : "llegó a"
 
     anotacion {
         int id_anotacion PK
@@ -730,6 +732,11 @@ erDiagram
         decimal fraccion
         datetime fecha_actualizacion
     }
+    avance_fisico {
+        int id_prestamo PK, FK
+        smallint pagina
+        datetime fecha_actualizacion
+    }
 ```
 
 ### De dónde sale cada tabla
@@ -740,6 +747,7 @@ erDiagram
 | `nota_libre` | RN-86, RN-87 | Tabla propia y no una `anotacion` sin cita: no tiene fragmento, color ni estilo, y su texto es obligatorio. `cfi` y `capitulo` recuerdan dónde estaba el lector al escribirla. |
 | `sesion_lectura` | RN-88 | Una fila por sesión. El visor avisa cada `segundos_latido_lectura`; el aviso **extiende** la última sesión del lector en ese título si su `ultimo_aviso` es más reciente que `minutos_pausa_lectura`, o **crea** otra. Tiempo leído = `segundos_activos` (cada aviso suma lo pasado desde el anterior, con tope de 1,5 latidos; `ultimo_aviso - inicio` incluiría los huecos). Tras `minutos_inactividad_lectura` sin interacción, el visor deja de avisar y, al volver, su primer aviso pide una sesión **nueva** (la duración no crece con una pestaña olvidada). |
 | `posicion_lectura` | RN-88 | PK `(id_lector, id_libro, formato)`: una posición por formato. `CHECK`: EPUB ⇒ `cfi` y no `pagina`; PDF ⇒ `pagina` y no `cfi`. Se escribe con `INSERT … ON DUPLICATE KEY UPDATE`. |
+| `avance_fisico` | RN-90, RN-87 | Hasta qué página llegó el lector en un préstamo físico; una fila por préstamo (PK = FK a `prestamo_fisico`). Tabla aparte y no columna de `prestamo_fisico`: es un dato privado del lector, y esa tabla la consultan las pantallas del mostrador. El dueño sale del préstamo (`prestamo_fisico.id_lector`): toda consulta une y filtra por el lector de la sesión. Que no supere `libro.paginas` lo valida la capa de lógica (un `CHECK` no puede mirar otra tabla). |
 
 ### Lo que valida la capa de lógica
 

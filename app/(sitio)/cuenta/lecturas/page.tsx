@@ -79,7 +79,7 @@ function TarjetaLibro({ libro, conAcceso, notas, resaltados, sesiones }: {
   resaltados: Anotacion[];
   sesiones: SesionDeLectura[];
 }) {
-  const avance = libro.avance === null ? null : Math.round(libro.avance * 100);
+  const avance = libro.avance_digital === null ? null : Math.round(libro.avance_digital * 100); // provisional: el rediseño la reemplaza
   const total = sesiones.reduce((suma, s) => suma + s.segundos, 0);
   // El enlace al pasaje (RN-87: solo con acceso). <a> y no <Link> (RN-84): a /leer se entra con navegación completa.
   // encodeURIComponent: un CFI lleva "/", "!", "," y ":"; en la URL va codificado y la página lo valida (esCfi).
