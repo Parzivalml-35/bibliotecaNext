@@ -2,6 +2,7 @@ import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { cache } from "react";
 import { pool } from "@/lib/db";
+import { encuestasCalculadas } from "@/lib/data/encuestas";
 
 // SQL de las notificaciones (RN-91, bloque 7). REGLA DE ESTE ARCHIVO: toda consulta lleva `id_cuenta = ?` con la cuenta
 // de la SESIÓN (RN-35): una notificación ajena no existe para nadie más. Son de la cuenta y no del lector (RN-31), así
@@ -11,8 +12,11 @@ import { pool } from "@/lib/db";
 
 export type TipoNotificacion = "encuesta";
 
+// Una notificación guardada (id_notificacion) o una encuesta CALCULADA de un préstamo digital que venció solo
+// (id_prestamo_digital, RN-93): se abre con otra acción, que la guarda. Siempre uno de los dos y el otro null.
 export type Notificacion = {
-  id_notificacion: number;
+  id_notificacion: number | null;
+  id_prestamo_digital: number | null;
   tipo: TipoNotificacion;
   texto: string;
   enlace: string;
@@ -27,9 +31,9 @@ const MAXIMO_EN_LA_CAMPANA = 20;
 // cache(): si dos componentes de la misma petición la piden, la consulta corre una sola vez.
 export const notificacionesDeCuenta = cache(async (idCuenta: number) => {
   const [[filas], [[conteo]]] = await Promise.all([
-    pool.execute<(Omit<Notificacion, "leida"> & { leida: 0 | 1 } & RowDataPacket)[]>(
+    pool.execute<(Omit<Notificacion, "leida" | "id_prestamo_digital"> & { leida: 0 | 1; marca: number } & RowDataPacket)[]>(
       `SELECT id_notificacion, tipo, texto, enlace, DATE_FORMAT(fecha_creacion, '%d/%m/%Y %H:%i') AS fecha,
-              fecha_lectura IS NOT NULL AS leida
+              fecha_lectura IS NOT NULL AS leida, UNIX_TIMESTAMP(fecha_creacion) AS marca
        FROM notificacion
        WHERE id_cuenta = ? AND fecha_vencimiento > NOW()
        ORDER BY fecha_creacion DESC, id_notificacion DESC
@@ -42,11 +46,24 @@ export const notificacionesDeCuenta = cache(async (idCuenta: number) => {
       [idCuenta],
     ),
   ]);
+  const calculadas = await encuestasCalculadas(idCuenta);
   // MySQL devuelve la comparación como 0/1: se pasa a boolean aquí para que el componente no lo tenga que saber.
-  return {
-    lista: filas.map((f): Notificacion => ({ ...f, leida: f.leida === 1 })),
-    noLeidas: Number(conteo.no_leidas),
-  };
+  // Las calculadas cuentan como no leídas (nadie las abrió todavía). Se ordenan juntas por fecha, más nuevas primero.
+  const lista = [
+    ...filas.map((f) => ({ marca: Number(f.marca), n: { ...f, id_prestamo_digital: null, leida: f.leida === 1 } })),
+    ...calculadas.map((c) => ({
+      marca: c.marca,
+      n: { id_notificacion: null, id_prestamo_digital: c.id_prestamo_digital, tipo: "encuesta" as const, texto: c.texto,
+           enlace: c.enlace, fecha: c.fecha, leida: false },
+    })),
+  ]
+    .sort((a, b) => b.marca - a.marca)
+    .slice(0, MAXIMO_EN_LA_CAMPANA)
+    .map(({ n }): Notificacion => {
+      const { id_notificacion, id_prestamo_digital, tipo, texto, enlace, fecha, leida } = n; // sin `marca` ni campos de mysql2
+      return { id_notificacion, id_prestamo_digital, tipo, texto, enlace, fecha, leida };
+    });
+  return { lista, noLeidas: Number(conteo.no_leidas) + calculadas.length };
 });
 
 // Abrir una notificación: se marca leída (si no lo estaba) y se devuelve su enlace. null = no existe, es de otra cuenta

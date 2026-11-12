@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { abrirNotificacion, marcarTodasLeidas } from "@/lib/actions/notificaciones";
+import { abrirEncuestaDigital, abrirNotificacion, marcarTodasLeidas } from "@/lib/actions/notificaciones";
 import type { Notificacion } from "@/lib/data/notificaciones";
 import { cn } from "@/lib/utils";
 
@@ -32,10 +32,11 @@ export function MenuNotificaciones({ notificaciones, noLeidas }: Props) {
 
   // Abrir: la acción marca leída y devuelve la ruta (validada en el servidor); el navegador va ahí. El número baja
   // solo, porque la acción llama a refresh() y el layout vuelve a dibujar la campana con los datos nuevos.
-  function abrir(id: number) {
+  // Una guardada se abre por su id; una encuesta calculada (RN-93), por el préstamo digital que venció.
+  function abrir(n: Notificacion) {
     setError(null);
     iniciar(async () => {
-      const r = await abrirNotificacion(id);
+      const r = n.id_notificacion !== null ? await abrirNotificacion(n.id_notificacion) : await abrirEncuestaDigital(n.id_prestamo_digital);
       if (!r.ok) return setError(r.error);
       setAbierto(false);
       router.push(r.valor);
@@ -102,11 +103,11 @@ export function MenuNotificaciones({ notificaciones, noLeidas }: Props) {
             // onSelect: Radix lo llama con Enter, espacio o clic. preventDefault: el menú queda abierto mientras corre
             // la acción (si se cerrara, un error no se vería); se cierra al navegar.
             <DropdownMenuItem
-              key={n.id_notificacion}
+              key={n.id_notificacion ?? `p${n.id_prestamo_digital}`}
               disabled={pendiente}
               onSelect={(e) => {
                 e.preventDefault();
-                abrir(n.id_notificacion);
+                abrir(n);
               }}
               className="items-start"
             >

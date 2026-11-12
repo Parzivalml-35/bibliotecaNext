@@ -1,6 +1,8 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { enTransaccion } from "@/lib/db";
+import { guardarEncuestaCalculada } from "@/lib/data/encuestas";
 import { abrirNotificacionDeCuenta, marcarTodasLeidasDeCuenta } from "@/lib/data/notificaciones";
 import { obtenerUsuario, rutaInterna } from "@/lib/sesion";
 
@@ -27,6 +29,21 @@ export async function abrirNotificacion(id: unknown): Promise<Resultado<string>>
   // Defensa en profundidad: el CHECK de la BD ya exige una ruta interna, pero quien navega con este valor es el
   // navegador (router.push); se valida otra vez con la misma regla del login (RN-83).
   const ruta = rutaInterna(enlace);
+  if (ruta === null) return { ok: false, error: "Ese aviso ya no está disponible." };
+  refresh();
+  return { ok: true, valor: ruta };
+}
+
+// RN-93: una encuesta CALCULADA (préstamo digital que venció solo). Abrirla la guarda, ya leída, con las mismas
+// condiciones con que se calculó (del lector de esta cuenta, vencido, sin encuesta ni reseña): un id de otra cuenta o
+// una que ya se abrió devuelve el mismo "no disponible", y abrirla dos veces no la duplica (FOR UPDATE del préstamo).
+export async function abrirEncuestaDigital(idPrestamo: unknown): Promise<Resultado<string>> {
+  const usuario = await obtenerUsuario();
+  if (!usuario) return { ok: false, error: SIN_SESION };
+  if (!Number.isInteger(idPrestamo) || (idPrestamo as number) < 1) return { ok: false, error: "Datos no válidos." };
+
+  const enlace = await enTransaccion((conexion) => guardarEncuestaCalculada(conexion, usuario.idCuenta, idPrestamo as number));
+  const ruta = enlace === null ? null : rutaInterna(enlace);
   if (ruta === null) return { ok: false, error: "Ese aviso ya no está disponible." };
   refresh();
   return { ok: true, valor: ruta };
