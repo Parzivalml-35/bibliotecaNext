@@ -159,7 +159,8 @@ export async function obtenerPosicion(idLector: number, idLibro: number, formato
 // anterior ya terminó, aunque no haya pasado la pausa: se salta el paso 1 y se crea otra. En una transacción:
 //  1. Busca la última sesión de este lector y título cuyo último aviso sea más reciente que la pausa, y la BLOQUEA
 //     (FOR UPDATE): dos latidos simultáneos (dos pestañas) no extienden y crean a la vez.
-//  2. Si existe, la extiende (último aviso = ahora, avance final = el de este aviso); si no, crea una nueva.
+//  2. Si existe, la extiende (último aviso = ahora, avance final = el de este aviso) y le SUMA el tiempo desde el aviso
+//     anterior, con tope `topeSegundos` (un hueco largo cuenta como mucho eso); si no, crea una nueva (0 s).
 //  3. Guarda la posición del formato (INSERT … ON DUPLICATE KEY UPDATE sobre la PK lector-libro-formato).
 // NOW() - INTERVAL ? MINUTE lo calcula MySQL: el reloj de la BD manda, no el del navegador.
 export async function registrarLatido(
@@ -169,6 +170,7 @@ export async function registrarLatido(
   formato: FormatoDigital,
   posicion: Posicion,
   minutosPausa: number,
+  topeSegundos: number,
   nueva: boolean,
 ): Promise<"extendida" | "nueva"> {
   const [abiertas] = nueva ? [[]] : await conexion.execute<({ id_sesion_lectura: number } & RowDataPacket)[]>(
@@ -180,8 +182,14 @@ export async function registrarLatido(
   let resultado: "extendida" | "nueva";
   if (abiertas[0]) {
     await conexion.execute(
-      "UPDATE sesion_lectura SET ultimo_aviso = NOW(), progreso_final = ? WHERE id_sesion_lectura = ?",
-      [posicion.fraccion, abiertas[0].id_sesion_lectura],
+      // El ORDEN del SET importa: MySQL asigna de izquierda a derecha en un UPDATE de una tabla (manual de UPDATE), así
+      // que segundos_activos se calcula con el ultimo_aviso ANTERIOR y recién después ultimo_aviso pasa a NOW().
+      // LEAST: el menor de los dos (el hueco real o el tope).
+      `UPDATE sesion_lectura
+       SET segundos_activos = segundos_activos + LEAST(TIMESTAMPDIFF(SECOND, ultimo_aviso, NOW()), ?),
+           ultimo_aviso = NOW(), progreso_final = ?
+       WHERE id_sesion_lectura = ?`,
+      [topeSegundos, posicion.fraccion, abiertas[0].id_sesion_lectura],
     );
     resultado = "extendida";
   } else {
@@ -262,8 +270,8 @@ export async function listarNotasLibresDelLector(idLector: number): Promise<(Not
   return filas;
 }
 
-// El historial (RN-88): una fila por sesión, la más reciente primero. segundos: ultimo_aviso - inicio (lo calcula
-// MySQL con TIMESTAMPDIFF). Los progresos llegan como texto (DECIMAL) y se convierten.
+// El historial (RN-88): una fila por sesión, la más reciente primero. segundos: el tiempo leído (segundos_activos,
+// no ultimo_aviso - inicio, que incluiría los huecos). Los progresos llegan como texto (DECIMAL) y se convierten.
 export type SesionDeLectura = {
   id_libro: number;
   formato: FormatoDigital;
@@ -277,7 +285,7 @@ export async function listarSesionesDelLector(idLector: number): Promise<SesionD
   type Fila = Omit<SesionDeLectura, "progreso_inicial" | "progreso_final"> & { progreso_inicial: string; progreso_final: string } & RowDataPacket;
   const [filas] = await pool.execute<Fila[]>(
     `SELECT id_libro, formato, DATE_FORMAT(inicio, '%d/%m/%Y %H:%i') AS inicio,
-            TIMESTAMPDIFF(SECOND, inicio, ultimo_aviso) AS segundos, progreso_inicial, progreso_final
+            segundos_activos AS segundos, progreso_inicial, progreso_final
      FROM sesion_lectura WHERE id_lector = ? ORDER BY inicio DESC`,
     [idLector],
   );

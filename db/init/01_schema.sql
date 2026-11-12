@@ -827,6 +827,9 @@ CREATE TABLE nota_libre (
 
 -- RN-88: una sesión de lectura = avisos seguidos del visor sin una pausa mayor a minutos_pausa_lectura.
 -- progreso_*: fracción del libro (0 a 1) al empezar y en el último aviso.
+-- segundos_activos: el tiempo leído. Cada aviso suma lo que pasó desde el anterior, con un tope de 1,5 latidos: un
+-- hueco (libro cerrado, pestaña oculta) menor que la pausa NO se cuenta entero. ultimo_aviso - inicio no sirve para
+-- medir: incluiría esos huecos (encontrado con el usuario el 2026-11-12).
 CREATE TABLE sesion_lectura (
     id_sesion_lectura  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     id_lector          INT UNSIGNED NOT NULL,
@@ -836,6 +839,7 @@ CREATE TABLE sesion_lectura (
     ultimo_aviso       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     progreso_inicial   DECIMAL(5,4) NOT NULL,
     progreso_final     DECIMAL(5,4) NOT NULL,
+    segundos_activos   INT UNSIGNED NOT NULL DEFAULT 0,
     CONSTRAINT ck_sesion_lectura_fechas CHECK (ultimo_aviso >= inicio),
     CONSTRAINT ck_sesion_lectura_progreso CHECK (progreso_inicial BETWEEN 0 AND 1 AND progreso_final BETWEEN 0 AND 1),
     CONSTRAINT fk_sesion_lectura_lector FOREIGN KEY (id_lector) REFERENCES lector (id_lector),

@@ -54,10 +54,13 @@ export async function POST(request: Request, ctx: RouteContext<"/leer/[isbn]/lat
   const acceso = await obtenerAccesoDeLectura(usuario.lector.idLector, isbn);
   if (!acceso || !acceso.ediciones.some((e) => e.formato === formato)) return sinContenido(404);
 
-  const { minutos_pausa_lectura } = await limitesDeLectura();
+  const { minutos_pausa_lectura, segundos_latido_lectura } = await limitesDeLectura();
+  // Tope de lo que suma un aviso (RN-88): 1,5 latidos. Un aviso puntual llega cada latido, con algo de demora (red,
+  // pestaña que vuelve); más que eso es un hueco y no se cuenta entero.
+  const tope = Math.round(segundos_latido_lectura * 1.5);
   try {
     await enTransaccion((conexion) =>
-      registrarLatido(conexion, usuario.lector!.idLector, acceso.id_libro, formato as FormatoDigital, posicion, minutos_pausa_lectura, nueva === true));
+      registrarLatido(conexion, usuario.lector!.idLector, acceso.id_libro, formato as FormatoDigital, posicion, minutos_pausa_lectura, tope, nueva === true));
   } catch (error) {
     console.error("No se pudo registrar el latido de lectura:", error);
     return sinContenido(500);
