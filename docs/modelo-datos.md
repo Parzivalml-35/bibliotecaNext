@@ -62,6 +62,7 @@ erDiagram
         varchar isbn UK
         varchar titulo
         smallint anio_publicacion
+        smallint paginas "NULL: sin dato"
         text sinopsis "NULL"
         int id_editorial FK
         int id_clasificacion FK
@@ -116,7 +117,7 @@ erDiagram
 | `clasificacion_edad` | RN-46 | `edad_minima` es lo que permite **calcular** si un lector puede acceder a un título. |
 | `seccion` | RN-18 | De toda la red; el color es de la sección. `color_hex` con `CHECK` de formato `#RRGGBB`. |
 | `genero` | RN-19 | `id_seccion NOT NULL`: cada género pertenece a una sola sección; así se sabe dónde va un libro. |
-| `libro` | RN-19, RN-46 | `id_genero_principal` decide sección y color. `isbn` único. En rigor es una **edición** (ISBN y editorial son de una edición concreta, no de la obra); `anio_publicacion` es el año de esa edición. Suficiente para este proyecto: una edición por título. |
+| `libro` | RN-19, RN-46 | `id_genero_principal` decide sección y color. `isbn` único. En rigor es una **edición** (ISBN y editorial son de una edición concreta, no de la obra); `anio_publicacion` es el año de esa edición. Suficiente para este proyecto: una edición por título. `paginas` (RN-90, NULL = sin dato): para mostrar el avance de un libro físico en porcentaje. |
 | `libro_genero` | RN-19 | Solo géneros **secundarios**. Que no repita el principal no se puede expresar con un `CHECK` (involucra otra tabla): se valida en la capa de lógica. |
 | `sede` | D-01 | Antes `Biblioteca` en BD2 (C-05). |
 | `ubicacion` | RN-17, RN-18 | Una fila = un nivel de un estante. `UNIQUE(id_sede, pasillo, estante, nivel)`. `UNIQUE(id_ubicacion, id_sede)` para la FK compuesta de `ejemplar`. |
@@ -187,6 +188,11 @@ erDiagram
         tinyint dias_aviso_vencimiento
         smallint minutos_recuperacion_contrasena
         smallint max_kb_avatar
+        smallint max_caracteres_nota
+        smallint max_caracteres_cita
+        smallint segundos_latido_lectura
+        smallint minutos_pausa_lectura
+        smallint minutos_inactividad_lectura
     }
     tipo_lector {
         int id_tipo_lector PK
@@ -666,3 +672,86 @@ erDiagram
 - **Subtotal y total del pedido**: `SUM(cantidad * precio_unitario)` del detalle + `costo_envio` (ambos congelados).
 - **Pedido vencido por falta de pago**: se detecta con `fecha_limite_pago < NOW()` y se procesa con vencimiento perezoso
   (RN-48), que pasa el estado a `vencido` y devuelve el stock.
+
+## Bloque 6 — Lectura: anotaciones, notas libres, historial y posición
+
+Agregado el 2026-11-11 (anotaciones del visor EPUB, RN-85 a RN-88). Todo es **del lector y de un título**: no depende de
+la edición ni del préstamo, así sobrevive al fin del préstamo (RN-87) y vale para un préstamo o una compra posteriores.
+
+```mermaid
+erDiagram
+    lector ||--o{ anotacion : "marca"
+    libro ||--o{ anotacion : ""
+    lector ||--o{ nota_libre : "escribe"
+    libro ||--o{ nota_libre : ""
+    lector ||--o{ sesion_lectura : "lee"
+    libro ||--o{ sesion_lectura : ""
+    lector ||--o{ posicion_lectura : "va en"
+    libro ||--o{ posicion_lectura : ""
+    prestamo_fisico ||--o| avance_fisico : "llegó a"
+
+    anotacion {
+        int id_anotacion PK
+        int id_lector FK
+        int id_libro FK
+        varchar cfi
+        varchar texto_citado
+        enum color
+        enum estilo
+        text nota "NULL = sin nota"
+        datetime fecha_creacion
+        datetime fecha_edicion
+    }
+    nota_libre {
+        int id_nota_libre PK
+        int id_lector FK
+        int id_libro FK
+        text texto
+        varchar cfi "NULL"
+        varchar capitulo "NULL"
+        datetime fecha_creacion
+        datetime fecha_edicion
+    }
+    sesion_lectura {
+        int id_sesion_lectura PK
+        int id_lector FK
+        int id_libro FK
+        enum formato
+        datetime inicio
+        datetime ultimo_aviso
+        decimal progreso_inicial
+        decimal progreso_final
+        int segundos_activos
+    }
+    posicion_lectura {
+        int id_lector PK
+        int id_libro PK
+        enum formato PK
+        varchar cfi "EPUB"
+        smallint pagina "PDF"
+        decimal fraccion
+        datetime fecha_actualizacion
+    }
+    avance_fisico {
+        int id_prestamo PK, FK
+        smallint pagina
+        datetime fecha_actualizacion
+    }
+```
+
+### De dónde sale cada tabla
+
+| Tabla | Reglas | Notas de diseño |
+|---|---|---|
+| `anotacion` | RN-85, RN-87 | `cfi` (EPUB CFI) es la ubicación estándar del fragmento: no depende de foliate-js (DI-06, límite 3). `UNIQUE (id_lector, id_libro, cfi)`: un fragmento se marca una vez; volver a marcarlo actualiza (`INSERT … ON DUPLICATE KEY UPDATE`). `color` y `estilo` como ENUM (C-02: cada valor se dibuja distinto en el código). `nota` NULL = sin nota; `CHECK` contra la nota vacía. El largo de la nota y de la cita sale de `configuracion` (C-04); `texto_citado` es `VARCHAR(1000)` y un `CHECK` impide configurar una cita mayor. |
+| `nota_libre` | RN-86, RN-87 | Tabla propia y no una `anotacion` sin cita: no tiene fragmento, color ni estilo, y su texto es obligatorio. `cfi` y `capitulo` recuerdan dónde estaba el lector al escribirla. |
+| `sesion_lectura` | RN-88 | Una fila por sesión. El visor avisa cada `segundos_latido_lectura`; el aviso **extiende** la última sesión del lector en ese título si su `ultimo_aviso` es más reciente que `minutos_pausa_lectura`, o **crea** otra. Tiempo leído = `segundos_activos` (cada aviso suma lo pasado desde el anterior, con tope de 1,5 latidos; `ultimo_aviso - inicio` incluiría los huecos). Tras `minutos_inactividad_lectura` sin interacción, el visor deja de avisar y, al volver, su primer aviso pide una sesión **nueva** (la duración no crece con una pestaña olvidada). |
+| `posicion_lectura` | RN-88 | PK `(id_lector, id_libro, formato)`: una posición por formato. `CHECK`: EPUB ⇒ `cfi` y no `pagina`; PDF ⇒ `pagina` y no `cfi`. Se escribe con `INSERT … ON DUPLICATE KEY UPDATE`. |
+| `avance_fisico` | RN-90, RN-87 | Hasta qué página llegó el lector en un préstamo físico; una fila por préstamo (PK = FK a `prestamo_fisico`). Tabla aparte y no columna de `prestamo_fisico`: es un dato privado del lector, y esa tabla la consultan las pantallas del mostrador. El dueño sale del préstamo (`prestamo_fisico.id_lector`): toda consulta une y filtra por el lector de la sesión. Que no supere `libro.paginas` lo valida la capa de lógica (un `CHECK` no puede mirar otra tabla). |
+
+### Lo que valida la capa de lógica
+
+- **Acceso vigente** (RN-29) para crear y editar anotaciones y notas, y para registrar avisos y la posición; **no** para
+  ver ni borrar las propias (RN-87).
+- El lector sale **siempre de la sesión**; una anotación o nota ajena se trata como inexistente (RN-87, RN-35).
+- Forma del `cfi` (empieza por `epubcfi(` y cabe en 500), largo de la nota y recorte de la cita según `configuracion`.

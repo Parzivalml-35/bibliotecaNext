@@ -412,7 +412,8 @@ export async function obtenerDigitalDelLector(idLector: number) {
 // RN-54: una edición por formato. `ediciones` en el orden del ENUM (pdf, epub): quien elija el formato no debe
 // depender de ese orden (lo decide la página, DI-06).
 export type EdicionDeLectura = { formato: FormatoDigital; clave_archivo: string };
-export type AccesoDeLectura = { titulo: string; por: "prestamo" | "compra"; fin: string | null; ediciones: EdicionDeLectura[] };
+// id_libro: lo usan las anotaciones y el historial (R10), que son del título.
+export type AccesoDeLectura = { id_libro: number; titulo: string; por: "prestamo" | "compra"; fin: string | null; ediciones: EdicionDeLectura[] };
 
 // ¿Puede este lector leer este título AHORA? Préstamo vigente o compra, y que el título tenga alguna edición digital.
 // null = no puede (o el título no existe): la ruta responde igual en los dos casos.
@@ -421,7 +422,7 @@ export type AccesoDeLectura = { titulo: string; por: "prestamo" | "compra"; fin:
 export async function obtenerAccesoDeLectura(idLector: number, isbn: string): Promise<AccesoDeLectura | null> {
   type Fila = Omit<AccesoDeLectura, "ediciones"> & EdicionDeLectura & RowDataPacket;
   const [filas] = await pool.execute<Fila[]>(
-    `SELECT lb.titulo, e.formato, e.clave_archivo,
+    `SELECT lb.id_libro, lb.titulo, e.formato, e.clave_archivo,
             IF(ad.id_lector IS NOT NULL, 'compra', 'prestamo') AS por,
             IF(ad.id_lector IS NOT NULL, NULL,
                (SELECT DATE_FORMAT(MAX(p.fecha_fin), '%d/%m/%Y %H:%i') FROM prestamo_digital p
@@ -438,8 +439,8 @@ export async function obtenerAccesoDeLectura(idLector: number, isbn: string): Pr
     [idLector, idLector, isbn, idLector],
   );
   if (filas.length === 0) return null;
-  const { titulo, por, fin } = filas[0];
-  return { titulo, por, fin, ediciones: filas.map((f) => ({ formato: f.formato, clave_archivo: f.clave_archivo })) };
+  const { id_libro, titulo, por, fin } = filas[0];
+  return { id_libro, titulo, por, fin, ediciones: filas.map((f) => ({ formato: f.formato, clave_archivo: f.clave_archivo })) };
 }
 
 // RN-41, RN-61: una compra queda "abierta" (ya no reembolsable) la primera vez que se lee. Solo la primera.

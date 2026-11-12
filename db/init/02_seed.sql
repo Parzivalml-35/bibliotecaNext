@@ -30,8 +30,10 @@ INSERT INTO configuracion (id, max_renovaciones, multa_por_dia, multa_tope, dias
                            horas_confirmar_reserva_digital, minutos_pago_pedido, dias_devolucion_compra,
                            minimo_sobrante_traslado, horas_sesion, horas_verificacion_correo, id_tipo_lector_registro,
                            max_fallos_por_correo, max_fallos_por_ip, max_registros_por_ip, minutos_ventana_intentos,
-                           dias_aviso_vencimiento, minutos_recuperacion_contrasena, max_kb_avatar)
-SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector, 5, 20, 5, 15, 3, 60, 2048
+                           dias_aviso_vencimiento, minutos_recuperacion_contrasena, max_kb_avatar,
+                           max_caracteres_nota, max_caracteres_cita, segundos_latido_lectura, minutos_pausa_lectura,
+                           minutos_inactividad_lectura)
+SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector, 5, 20, 5, 15, 3, 60, 2048, 2000, 1000, 60, 15, 5
 FROM tipo_lector WHERE nombre = 'Estándar';
 
 INSERT INTO pais (nombre) VALUES
@@ -114,6 +116,17 @@ JOIN autor a ON a.apellido = v.apellido
 JOIN libro l ON l.isbn = v.isbn;
 
 -- RN-19: géneros secundarios (nunca el principal).
+-- RN-90: número de páginas (aproximado, de ediciones comunes; datos de muestra). Ficciones queda sin dato (NULL) a
+-- propósito: así se prueba el avance de un libro físico sin porcentaje.
+UPDATE libro l
+JOIN (VALUES
+  ROW('9788420471839', 471), ROW('9789580431770', 490), ROW('9789871138012', 137), ROW('9788439701095', 334),
+  ROW('9788420405940', 736), ROW('9788408045755', 132), ROW('9788447306619', 497), ROW('9789681903978', 464),
+  ROW('9789580469117', 96), ROW('9789507310294', 158), ROW('9789580415329', 389), ROW('9789505119363', 344),
+  ROW('9788418797453', 96), ROW('9788408053040', 366), ROW('9789682325571', 486)
+) AS p (isbn, paginas) ON p.isbn = l.isbn
+SET l.paginas = p.paginas;
+
 INSERT INTO libro_genero (id_libro, id_genero)
 SELECT l.id_libro, g.id_genero
 FROM (VALUES ROW('9788420471839', 'Realismo mágico'), ROW('9788447306619', 'Realismo mágico'),

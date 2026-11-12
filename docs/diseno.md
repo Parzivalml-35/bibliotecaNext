@@ -29,9 +29,10 @@ Inspiración, no copia: no se usan imágenes, logos ni textos de las referencias
 | DI-10 | Tres **zonas** (pública, "Mi cuenta" y panel) con el mapa de rutas de abajo. El panel se divide en **secciones por tipo de trabajo**, y cada persona ve **solo las secciones y páginas que su rol puede usar** | Auditoría UX del 2026-10-27 (`docs/auditoria-ux.md`): hoy todos los roles ven los mismos 8 enlaces |
 | DI-11 | **Una sola fuente de permisos**: `lib/permisos.ts` define **permisos con nombre** (`mostrador`, `coleccion`, `lectores`, `anularMultas`, `reportes`, `red`), cada uno con sus roles y la regla que lo justifica, y las secciones del panel con el permiso de cada página. Páginas y acciones piden un permiso (`exigirEmpleado("mostrador")`) y el menú muestra las páginas cuyo permiso tiene el rol. Ninguna lista ni comparación de roles se escribe fuera de ese archivo; el alcance por sede se decide con la sede (RN-34), no con el nombre del rol. Decidido el 2026-10-27: permisos con nombre en vez de un mapa de rutas, para que las acciones también lo usen | El problema de la auditoría nace de tener dos listas que se escribieron por separado: los enlaces del layout y los roles de cada página |
 | DI-12 | **Avatar** en el menú de usuario: generado con DiceBear por defecto o foto propia (RN-81, RN-82). Si no carga, se muestran las iniciales | Da identidad a la cuenta y sirve de entrada al menú de usuario, como en las referencias |
-| DI-13 | **Emblema** del proyecto a la izquierda de la barra: más alto que la cápsula, **cuelga** de ella (sobresale arriba y abajo), como un sello o un marcapáginas. El logo definitivo se está diseñando: hasta entonces hay uno provisional, y el arte vive en un solo archivo (ver "Logo e íconos de marca") | Identidad propia; el usuario lo pidió "en la barra pero no al frente y más grande" (Fase A) |
+| DI-13 | **Emblema** del proyecto a la izquierda de la barra: más alto que la cápsula, **cuelga** de ella (sobresale arriba y abajo), como un sello o un marcapáginas. El logo definitivo se está diseñando: hasta entonces hay uno provisional, y el arte vive en un solo archivo (ver "Logo e íconos de marca"). **Se ve en todas las vistas**, también en el visor `/leer`: ahí, en pequeño y sin colgar (`components/marca/enlace-logo.tsx`), como enlace al catálogo | Identidad propia; el usuario lo pidió "en la barra pero no al frente y más grande" (Fase A) y "siempre visible, también leyendo" (2026-11-12) |
 | DI-14 | **Luz sobre una pared** en el fondo, distinta por tema: haces de **sol** en el claro, de **luna** en el oscuro y el foco cálido de una **lámpara de pared** en la lámpara. CSS (degradados) sobre una textura de pared ligera; las tarjetas siguen opacas | Da ambiente sin restar legibilidad: la luz solo se ve donde hay fondo. Referencias: aplique de pared y haces sobre concreto (Fase A) |
 | DI-15 | La luz se **anima solo al cambiar de tema** (la lámpara "calienta" al encenderse); después queda quieta. Con `prefers-reduced-motion` el cambio es inmediato | Movimiento continuo distrae al leer; la animación de entrada da la sensación de encender |
+| DI-16 | **"Mis lecturas" en dos columnas** (R10, 2026-11-12): un **layout anidado** (`app/(sitio)/cuenta/lecturas/layout.tsx`) deja la lista de libros fija a la izquierda en el escritorio y el detalle a la derecha; al cambiar de libro la lista no se vuelve a montar. En el celular, la lista y el detalle son pantallas distintas (la lista se oculta al elegir un libro). La zona de cuenta se ensancha solo en esta sección (`has-[[data-ancho=amplio]]:max-w-6xl`). El panel de notas es **el mismo del visor**, con props opcionales (sin "Ir al pasaje" si no hay acceso) | Combina las dos propuestas que vio el usuario: la lista como índice siempre visible y la vista completa del libro; reutilizar el panel evita dos versiones de las mismas notas |
 
 ## Arquitectura de información (DI-10)
 
@@ -57,6 +58,8 @@ Una barra de pestañas propia, debajo de la barra superior.
 | `/cuenta` | Resumen | Situación (bloqueos y motivos), lo que vence pronto (RN-76), avisos | Existe; se reparte |
 | `/cuenta/prestamos` | Préstamos y reservas | Préstamos físicos (con renovaciones) y reservas físicas | **Nueva**: sale de `/cuenta` |
 | `/cuenta/digitales` | Digitales | Préstamos y reservas digitales, botón "Leer" | **Nueva**: sale de `/cuenta` |
+| `/cuenta/lecturas` | Lecturas | Cada libro que el lector tuvo (prestado o comprado, físico o digital) con su avance y su última actividad (RN-89); la lista vive en el layout (DI-16) | **Nueva** (R10) |
+| `/cuenta/lecturas/[isbn]` | Lecturas (activa en las subrutas) | Detalle de un libro: ficha, "Seguir leyendo" si hay acceso, avance (digital y página en papel, RN-90), tiempo leído y sesiones, historia (reservas, préstamos, compras) y el panel de notas libres y resaltados del visor (RN-86, RN-87) | **Nueva** (R10) |
 | `/cuenta/multas` | Multas | Multas y pago en línea | **Nueva**: sale de `/cuenta` |
 | `/cuenta/pago/[id]` | (sin pestaña) | Pasarela simulada | Existe; se conserva |
 | `/cuenta/perfil` | Perfil | Datos editables (RN-77), avatar (RN-81, RN-82), tema | **Nueva** (R7) |
@@ -100,7 +103,7 @@ cada página y en cada acción (RN-35), porque un layout no se vuelve a ejecutar
 
 | Pieza | Contenido | Dónde |
 |---|---|---|
-| Barra superior flotante (todas las páginas, salvo el visor) | Emblema (DI-13) · pestañas en píldora: **Catálogo**, **Mi cuenta** (si es lector), **Panel** (si es empleado) · lámpara (DI-03) · menú de usuario | `app/(sitio)/layout.tsx` (R5d: route group) |
+| Barra superior flotante (todas las páginas, salvo el visor, que lleva el emblema en sus propias barras) | Emblema (DI-13) · pestañas en píldora: **Catálogo**, **Mi cuenta** (si es lector), **Panel** (si es empleado) · lámpara (DI-03) · menú de usuario | `app/(sitio)/layout.tsx` (R5d: route group) |
 | Menú de usuario (sin sesión) | "Iniciar sesión" y "Crear cuenta" | Barra superior |
 | Menú de usuario (con sesión) | Avatar (DI-12) que abre un menú: nombre y correo, Mi cuenta / Panel, Perfil, Seguridad, Salir | Barra superior (`DropdownMenu`) |
 | Sub-navegación | Pestañas de "Mi cuenta" o secciones del panel del rol | Layout de la zona |
@@ -293,13 +296,37 @@ con el tema. Revisarla con `grep -nE "zinc-|red-|emerald-|amber-|blue-|dark:" ar
 - **Seguridad (RN-84):** un EPUB es HTML y puede traer JavaScript. foliate-js **no** lo bloquea: su `iframe` necesita
   `allow-scripts` por un bug de WebKit y los capítulos se cargan como `blob:` del mismo origen (lo advierte su README).
   Lo bloquea la CSP de `/leer` (`proxy.ts`, con *nonce*), y por eso a `/leer` se entra con navegación completa.
-- Tema: el contenido del libro toma `background` y `foreground` del tema activo. En PDF, la lámpara se aproxima con un
-  filtro (`sepia`) sobre el canvas.
+- Tema: el contenido del libro toma el `foreground` del tema activo, con fondo transparente y el mismo `color-scheme`
+  que la página (si no coinciden, el navegador pinta el iframe opaco). En PDF, la lámpara se aproxima con un filtro
+  (`sepia`) sobre el canvas.
+- **Lector inmersivo del EPUB** (2026-11-11). La referencia es Readest (AGPL-3.0: se tomaron ideas, no código).
+  - **Pantalla completa:** sin la cápsula, con el visor en `h-dvh`.
+  - **Barra lateral izquierda, "el libro":**
+    - arriba: el emblema (DI-13) y volver a la izquierda, y el botón para ocultar la barra a la derecha;
+    - "Ver en PDF";
+    - la ficha: portada ampliable y (i) "Detalles del libro";
+    - el índice con la página de cada capítulo y la fila "Posición actual";
+    - el avance;
+    - pestañas al pie: Índice y Ajustes (tamaño de letra y columnas).
+    Se oculta y se recuerda en el navegador. En el celular es un cajón.
+  - **Fila de lectura** (2026-11-12). A la izquierda van el emblema y el botón de la barra izquierda, solo si la barra
+    está oculta o en el celular; después el capítulo, con el lápiz ✎ pegado a él. A la derecha, la lámpara (DI-03) y el
+    botón del panel derecho.
+  - **Área de lectura:** el capítulo arriba, el contador de ubicaciones de foliate-js (bloques de 1500 bytes: no
+    cambian con la pantalla) abajo a la derecha, y zonas laterales, flechas y rueda para pasar página. La rueda pasa una página por gesto: suma los eventos del gesto (touchpad, rueda de alta resolución) y descarta su inercia.
+  - **Panel derecho, "lo mío"** (R10). Tiene dos pestañas: Notas libres (con el editor de una nota nueva arriba) y
+    Resaltados (en el orden del libro).
+    - Se muestra u oculta con su botón en la fila de lectura y se recuerda en el navegador.
+    - En el escritorio convive con la barra izquierda; en el celular es un cajón.
+    - El lápiz ✎ también lo abre: "Nueva nota libre" lleva el foco al editor.
+    - Lo escrito por el lector va a la derecha; el libro, a la izquierda.
+  - **Visor PDF:** conserva la cápsula de arriba, ahora con el emblema en pequeño a la izquierda.
 
 **Para poder cambiar a Readium después**, tres límites:
 
 1. **El motor queda detrás de un componente.** Las páginas usan `<Visor formato="epub" | "pdf" …>` y no saben qué
-   librería hay dentro. Cambiar el motor toca un solo archivo.
+   librería hay dentro. En el EPUB, el motor está en `components/visor-epub/motor.ts` y entrega a la interfaz datos
+   neutros (índice, progreso, acciones), sin objetos de foliate-js: cambiar de motor es reescribir ese archivo.
 2. **El archivo guardado no cambia.** En `storage/` sigue el `.epub` original y la ruta que verifica el acceso (RN-29)
    sigue siendo la misma. Readium necesitaría además un paso en el servidor que abra el EPUB y publique su *manifest*:
    sería una ruta nueva, sin tocar los datos.
