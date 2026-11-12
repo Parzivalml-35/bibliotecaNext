@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { BotonLampara, LamparaDeEsquina } from "@/components/boton-lampara";
+import { CampanaNotificaciones } from "@/components/campana-notificaciones";
 import { Logo } from "@/components/marca/iconos";
 import { MenuUsuario } from "@/components/menu-usuario";
 import { NavegacionPrincipal } from "@/components/navegacion-principal";
@@ -42,6 +43,10 @@ export default function LayoutSitio({ children }: { children: ReactNode }) {
           <div className="col-start-3 flex items-center gap-1 justify-self-end">
             {/* Por debajo de xl la esquina de la página queda encima de la barra: ahí la lámpara vive en la barra. */}
             <BotonLampara className="xl:hidden" />
+            {/* RN-91: la campana, solo con sesión. Va en este layout y no en el raíz: /leer no la muestra. */}
+            <Suspense fallback={null}>
+              <CampanaNotificaciones />
+            </Suspense>
             {/* Sin fallback visible: mientras se lee la sesión, el espacio queda vacío un instante. */}
             <Suspense fallback={null}>
               <MenuUsuario />

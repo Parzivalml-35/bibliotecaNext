@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-11-12 (portátil) — R9 y R10 en `main`; R11 (notificaciones, apodo, encuesta y reseñas) en curso en `feat/resenas`: parte A (reglas y esquema) hecha
+**Última actualización:** 2026-11-12 (portátil) — R9 y R10 en `main`; R11 (notificaciones, apodo, encuesta y reseñas) en curso en `feat/resenas`: partes A (reglas y esquema) y B (notificaciones) hechas
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -155,7 +155,7 @@ Decisiones del usuario (2026-11-12): encuesta al devolver (físico o digital) o 
 | Parte | Qué | Estado |
 |---|---|---|
 | A | Reglas RN-91 a RN-95, bloque 7 del modelo, esquema (`cuenta.apodo`, `notificacion`, `lectura_terminada`, `resena`, `reporte_resena`, 2 columnas de `configuracion`) y seed (apodos fijos, 4 reseñas, 1 reporte) | Hecho (BD reconstruida el 2026-11-12, 51 tablas). Verificado con una transacción revertida: 22 casos (apodo repetido sin distinguir mayúsculas ni tildes, con espacio, corto o con HTML; apodo con ñ y tilde aceptado; apodo generado; reseña repetida, estrellas 0 y 6, texto en blanco, oculta sin empleado; reporte repetido o resuelto a medias; borrar la reseña borra sus reportes; enlaces externos, `//` y `/\`; vencimiento anterior; encuesta sin libro; configuración en 0) |
-| B | Notificaciones: datos, acciones y la campana en la barra (no en `/leer`) | Pendiente |
+| B | Notificaciones: datos, acciones y la campana en la barra (no en `/leer`) | Hecho. `lib/data/notificaciones.ts` (todo con `id_cuenta` de la sesión; `crearNotificacion` recibe la conexión para ir dentro de la transacción que la dispara, con el vencimiento tomado de `configuracion` en el mismo `INSERT … SELECT`); `lib/actions/notificaciones.ts` (`abrirNotificacion` marca leída con `COALESCE` y devuelve la ruta validada otra vez con `rutaInterna`; `marcarTodasLeidas`; las dos llaman a `refresh()` de `next/cache` para que el número de la campana baje); `CampanaNotificaciones` (servidor, en el layout `(sitio)` dentro de `<Suspense>`) y `MenuNotificaciones` (cliente: menú **controlado**, porque el layout no se vuelve a montar al navegar y el menú seguía abierto en la página nueva; `collisionPadding` 16 para no pegarse al borde en el celular). Probado en Chrome sin ventana: número y nombre accesible ("Notificaciones, 2 sin leer"), abrir navega y baja el número, marcar todas, Esc devuelve el foco, sin campana en `/leer`, celular sin desborde; llamadas directas: aviso de otra cuenta, vencido, id texto/negativo/decimal/objeto, sin sesión y token inventado rechazados; los avisos ajenos y vencidos quedan sin tocar en la BD |
 | C | Apodo en el registro y en el perfil | Pendiente |
 | D | "Terminé de leer" y la encuesta (devolución física, digital, vencimiento calculado) | Pendiente |
 | E | Reseñas en la ficha del libro (promedio, insignia, escribir, editar, borrar, reportar) | Pendiente |
@@ -164,7 +164,7 @@ Decisiones del usuario (2026-11-12): encuesta al devolver (físico o digital) o 
 
 ## Próximo paso
 
-0. **R11 Comunidad** (en curso, sigue la parte B: notificaciones). Después, el **foro** de discusión por libro (reglas por decidir: hilos, respuestas, borrar, reportar; sobre las bases de R11).
+0. **R11 Comunidad** (en curso, sigue la parte C: apodo en el registro y el perfil). Después, el **foro** de discusión por libro (reglas por decidir: hilos, respuestas, borrar, reportar; sobre las bases de R11).
 1. **`/documentar`**: la fase "Mi cuenta y lector EPUB" (R7, R8), la Fase R y la Fase A, y lo pendiente de la Fase 4
    (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque de numeración RN-74 entre los dos equipos.
 2. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
