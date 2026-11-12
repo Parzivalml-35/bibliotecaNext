@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotonLampara, LamparaDeEsquina } from "@/components/boton-lampara";
+import { EnlaceLogo } from "@/components/marca/enlace-logo";
 import { Portada } from "@/components/portada";
 import { type FichaLibro, Visor } from "@/components/visor";
 import { obtenerAccesoDeLectura } from "@/lib/data/digital";
@@ -70,10 +71,12 @@ export default async function PaginaLeer({ params, searchParams }: PageProps<"/l
 
   return (
     <>
-      {/* La misma cápsula flotante que la barra del sitio (DI-02), sin el emblema: aquí manda el libro.
+      {/* La misma cápsula flotante que la barra del sitio (DI-02), con el emblema en pequeño (DI-13: siempre visible;
+          aquí no cuelga de la cápsula, porque manda el libro).
           sticky top-3: queda arriba al desplazarse por una página larga. z-40: por encima del canvas. */}
       <header className="sticky top-3 z-40 my-3 px-2 sm:px-6">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3 rounded-full border border-border bg-card/85 py-1.5 pr-2 pl-4 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-3 rounded-full border border-border bg-card/85 py-1.5 pr-2 pl-3 backdrop-blur">
+          <EnlaceLogo />
           <Link href={`/libros/${isbn}`} className="shrink-0 text-sm font-medium text-muted-foreground hover:text-foreground">
             ← Volver
           </Link>

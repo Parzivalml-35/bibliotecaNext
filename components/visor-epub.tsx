@@ -3,6 +3,8 @@
 import { SidebarLeft01Icon, SidebarRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { BotonLampara } from "@/components/boton-lampara";
+import { EnlaceLogo } from "@/components/marca/enlace-logo";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import type { FichaLibro } from "@/components/visor";
@@ -288,7 +290,12 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
 
       {/* min-w-0: sin él, un hijo flex no se encoge por debajo del ancho de su contenido (el libro desbordaría). */}
       <main className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-11 items-center gap-2 px-3">
+        {/* Fila de lectura (pedido del usuario, 2026-11-12). Izquierda: el emblema y el botón de la barra izquierda
+            (siempre en el celular; en el escritorio solo con la barra oculta, porque si no ya están en ella), el
+            capítulo y el lápiz pegado a él. Derecha: la lámpara y el botón del panel de notas. */}
+        <div className="flex h-11 items-center gap-1 px-3">
+          {/* lg:hidden con la barra visible: en el escritorio el emblema ya está arriba en la barra; nunca se ve dos veces. */}
+          <EnlaceLogo className={cn("mr-1", barraOculta === "no" && "lg:hidden")} />
           {/* Abrir la barra: en el celular abre el cajón; en el escritorio, solo si está oculta. */}
           <Button type="button" variant="ghost" size="icon" className="lg:hidden" onClick={() => setCajonAbierto(true)}>
             <HugeiconsIcon icon={SidebarLeft01Icon} aria-hidden="true" />
@@ -300,15 +307,21 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
               <span className="sr-only">Mostrar el panel del libro</span>
             </Button>
           )}
-          {/* El capítulo en curso, como el encabezado de página de un libro impreso. */}
-          <p className="min-w-0 flex-1 truncate text-xs tracking-wide text-muted-foreground uppercase">
+          {/* El capítulo en curso, como el encabezado de página de un libro impreso. min-w-0 + truncate: si no cabe, se
+              corta con "…" (sin min-w-0 un hijo flex no se encoge por debajo de su texto). ml-1: aire tras los botones. */}
+          <p className="ml-1 min-w-0 truncate text-xs tracking-wide text-muted-foreground uppercase">
             {error ? "" : listo ? (progreso?.capitulo ?? "") : "Abriendo el libro…"}
           </p>
-          {/* El lápiz, arriba a la derecha (R10). */}
+          {/* El lápiz, junto al capítulo (R10): las opciones de marcar están donde se lee. */}
           {listo && (
             <Lapiz modo={modo} color={color} estilo={estilo} alCambiarModo={setModo} alCambiarColor={setColor}
                    alCambiarEstilo={setEstilo} alNuevaNota={() => abrirPanel("notas", true)} alVerNotas={() => abrirPanel(pestanaNotas)} />
           )}
+          {/* El espacio que sobra: empuja la lámpara y el panel a la derecha. */}
+          <div className="flex-1" />
+          {/* DI-03: la lámpara, arriba a la derecha (antes estaba en la barra izquierda; en el celular solo se alcanzaba
+              abriendo el cajón). */}
+          <BotonLampara />
           {/* Mostrar u ocultar el panel de notas, en un clic (pedido del usuario: sin pasar por el menú del lápiz).
               aria-expanded: el lector de pantalla anuncia si el panel está abierto. Abierto, el botón queda marcado
               (bg-muted), como un interruptor. */}

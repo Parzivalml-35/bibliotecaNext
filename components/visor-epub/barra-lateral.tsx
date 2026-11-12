@@ -4,7 +4,7 @@ import { LeftToRightListBulletIcon, SidebarLeft01Icon, TextFontIcon } from "@hug
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { type KeyboardEvent, type ReactNode, useId, useState } from "react";
-import { BotonLampara } from "@/components/boton-lampara";
+import { EnlaceLogo } from "@/components/marca/enlace-logo";
 import { Button } from "@/components/ui/button";
 import type { FichaLibro } from "@/components/visor";
 import { AjustesDeLectura } from "@/components/visor-epub/ajustes-lectura";
@@ -55,19 +55,22 @@ export function BarraLateral({ ficha, portada, detalles, indice, progreso, ajust
     // h-full + flex-col: la ficha y el pie miden lo suyo y el índice (flex-1 min-h-0 overflow-y-auto) toma el resto
     // con su propio scroll. min-h-0: sin él, un hijo flex no se encoge por debajo de su contenido y no habría scroll.
     <div className="flex h-full flex-col">
+      {/* Fila superior (pedido del usuario, 2026-11-12): el emblema y Volver a la izquierda; a la derecha, el botón para
+          ocultar la barra (en el cajón del celular no hace falta: se cierra tocando fuera). La lámpara pasó a la fila de
+          lectura, arriba a la derecha. */}
       <div className="flex items-center gap-1 px-2 pt-2">
+        <EnlaceLogo className="ml-1" />
+        {/* Salir del visor sí puede ser <Link>: la CSP de RN-84 importa al ENTRAR a /leer, no al salir. */}
+        <Link href={`/libros/${ficha.isbn}`} className="rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+          ← Volver
+        </Link>
+        <div className="flex-1" />
         {alOcultar && (
           <Button type="button" variant="ghost" size="icon" onClick={alOcultar}>
             <HugeiconsIcon icon={SidebarLeft01Icon} aria-hidden="true" />
             <span className="sr-only">Ocultar el panel del libro</span>
           </Button>
         )}
-        {/* Salir del visor sí puede ser <Link>: la CSP de RN-84 importa al ENTRAR a /leer, no al salir. */}
-        <Link href={`/libros/${ficha.isbn}`} className="rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
-          ← Volver
-        </Link>
-        <div className="flex-1" />
-        <BotonLampara />
       </div>
 
       <div className="flex gap-3 border-b border-border px-4 pt-2 pb-4">
