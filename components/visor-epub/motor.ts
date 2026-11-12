@@ -47,10 +47,15 @@ export type OpcionesDeMarcas = {
 
 // foliate-js (view.js: new SectionProgress(book.sections, 1500, 1600)) cuenta una "ubicación" cada 1500 bytes de texto.
 const BYTES_POR_UBICACION = 1500;
-// Rueda y touchpad: un gesto del touchpad dispara decenas de eventos seguidos. Se ignoran los movimientos mínimos y,
-// después de pasar una página, los eventos de los siguientes PAUSA_RUEDA ms (si no, un gesto saltaría varias).
-const MINIMO_RUEDA = 4;
-const PAUSA_RUEDA = 450;
+// Rueda y touchpad: UN GESTO = UNA PÁGINA. Un gesto del touchpad (o una muesca de una rueda de alta resolución, en
+// Wayland) llega como decenas de eventos pequeños, de 1 a 15 px, seguidos de la inercia. Decidir evento por evento
+// fallaba de dos formas (encontrado con el usuario, 2026-11-12): un gesto suave, todo en eventos de menos de 4 px, no
+// pasaba nada (había que repetirlo más fuerte), y la inercia pasaba varias páginas. Ahora se SUMA el gesto: al juntar
+// UMBRAL_RUEDA px en un sentido se pasa una página, y el resto del gesto se ignora hasta que la rueda quede quieta
+// FIN_GESTO ms.
+const UMBRAL_RUEDA = 20; // px; una muesca de un mouse común (50 a 120 px) lo supera sola
+const FIN_GESTO = 250; // ms sin eventos = el gesto terminó (la inercia manda eventos cada ~16 ms)
+const PX_POR_LINEA = 16; // deltaMode 1: hay ratones y navegadores que informan en líneas, no en píxeles
 // Zonas para pasar página con el mouse o el dedo: un clic (sin arrastrar) en el 20 % izquierdo o derecho del área de
 // lectura. Se detectan DENTRO del capítulo y no con elementos encima del texto: un elemento encima tapaba el comienzo
 // de las líneas e impedía seleccionar desde ahí (encontrado probando R10-C).
@@ -117,6 +122,10 @@ function indiceDe(libro: Libro): EntradaIndice[] {
   return salida;
 }
 
+// RN-88: dónde abrir el libro (lo guardado por el latido). cfi: el punto exacto; fraccion: el respaldo si el CFI ya no
+// sirve (otro archivo del mismo título, por ejemplo).
+export type InicioLectura = { cfi: string | null; fraccion: number };
+
 // contenedor: donde se monta el libro. superficie: lo que lo envuelve junto con los controles que van encima (las zonas
 // laterales); ahí se escucha la rueda, para que funcione también con el puntero sobre esos controles.
 export function useLibroEpub(
@@ -125,6 +134,7 @@ export function useLibroEpub(
   superficie: RefObject<HTMLElement | null>,
   ajustes: AjustesLectura,
   opciones: OpcionesDeMarcas,
+  inicio: InicioLectura | null,
 ) {
   const vista = useRef<View | null>(null);
   // Las marcas vigentes (para dibujar cuando foliate lo pida) y las ya dibujadas (para saber qué cambió).
@@ -140,6 +150,8 @@ export function useLibroEpub(
   // Los ajustes vigentes, para quien los lee "después" (al abrir el libro, al cambiar el tema). Una ref y no una
   // dependencia del efecto principal: cambiar la letra NO debe cerrar y volver a abrir el libro.
   const ajustesVigentes = useRef(ajustes);
+  // Solo se usa al abrir: una ref para no ser dependencia del efecto principal (cambiaría con cada latido si lo fuera).
+  const inicioAlAbrir = useRef(inicio);
   const [listo, setListo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [indice, setIndice] = useState<EntradaIndice[]>([]);
@@ -178,7 +190,10 @@ export function useLibroEpub(
     }
     let cancelado = false;
     let abierta: View | null = null;
-    let ultimoGiro = 0;
+    // El gesto de rueda en curso: cuánto se lleva sumado, cuándo llegó el último evento y si ya pasó su página.
+    let sumaRueda = 0;
+    let ultimoEventoRueda = 0;
+    let gestoUsado = false;
     let ultimoToqueMarca = 0; // el clic sobre una marca abre su menú: no debe pasar de página
     // El tema puede cambiar mientras se lee (botón flotante, lámpara): un MutationObserver sobre <html> vuelve a
     // escribir los colores en el libro.
@@ -204,13 +219,24 @@ export function useLibroEpub(
     // Rueda: hacia abajo (o hacia la derecha en el touchpad) avanza. next/prev siguen el orden de lectura.
     // preventDefault: que la rueda no desplace también la página. Por eso se registra con { passive: false }.
     function alGirar(e: WheelEvent) {
-      const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-      if (Math.abs(delta) < MINIMO_RUEDA) return;
-      e.preventDefault();
+      e.preventDefault(); // la rueda nunca desplaza la página: aquí solo pasa páginas
+      const crudo = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      // A píxeles: deltaMode 0 = píxeles, 1 = líneas, 2 = páginas (WheelEvent, estándar del DOM).
+      const delta = e.deltaMode === 1 ? crudo * PX_POR_LINEA : e.deltaMode === 2 ? crudo * window.innerHeight : crudo;
       const ahora = performance.now();
-      if (ahora - ultimoGiro < PAUSA_RUEDA) return;
-      ultimoGiro = ahora;
-      void (delta > 0 ? abierta?.next() : abierta?.prev());
+      // Un hueco de FIN_GESTO ms sin eventos: empieza un gesto nuevo.
+      if (ahora - ultimoEventoRueda > FIN_GESTO) {
+        sumaRueda = 0;
+        gestoUsado = false;
+      }
+      ultimoEventoRueda = ahora;
+      if (gestoUsado) return; // el resto del gesto (la inercia) ya no pasa más páginas
+      // Si el gesto cambia de sentido, la suma empieza de nuevo (Math.sign: -1, 0 o 1).
+      if (Math.sign(delta) !== Math.sign(sumaRueda)) sumaRueda = 0;
+      sumaRueda += delta;
+      if (Math.abs(sumaRueda) < UMBRAL_RUEDA) return;
+      gestoUsado = true;
+      void (sumaRueda > 0 ? abierta?.next() : abierta?.prev());
     }
 
     (async () => {
@@ -326,7 +352,20 @@ export function useLibroEpub(
         v.renderer.setStyles(estiloDelLibro(ajustesVigentes.current));
         observador.observe(document.documentElement, { attributes: true, attributeFilter: ["data-tema", "data-tema-base"] });
         setIndice(indiceDe(v.book));
-        await v.renderer.next(); // muestra la primera página
+        // RN-88: seguir donde iba. Primero el CFI exacto; si foliate no lo puede ubicar (goTo devuelve undefined), la
+        // fracción; si tampoco hay, la primera página.
+        const desde = inicioAlAbrir.current;
+        let ubicado = false;
+        if (desde?.cfi) ubicado = (await v.goTo(desde.cfi)) !== undefined;
+        if (!ubicado && desde && desde.fraccion > 0) {
+          try {
+            await v.goToFraction(desde.fraccion);
+            ubicado = true;
+          } catch {
+            // un libro sin secciones lineales: se queda en la primera página
+          }
+        }
+        if (!ubicado) await v.renderer.next(); // muestra la primera página
         marcasDibujadas.current = new Map(marcasVigentes.current); // las dibuja create-overlay al cargar cada capítulo
         setListo(true);
       } catch (e) {

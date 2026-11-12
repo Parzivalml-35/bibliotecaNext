@@ -5,6 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { BotonLampara } from "@/components/boton-lampara";
 import { EnlaceLogo } from "@/components/marca/enlace-logo";
+import { type PosicionLatido, useLatidoLectura } from "@/components/latido-lectura";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import type { FichaLibro } from "@/components/visor";
@@ -24,6 +25,7 @@ import {
   esColorAnotacion,
   esEstiloAnotacion,
   type NotaLibre,
+  type Posicion,
 } from "@/lib/lectura";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +72,7 @@ const leerAncho = () => window.matchMedia(ANCHO_ESCRITORIO).matches;
 // En el servidor no hay ventana: se supone escritorio. Al hidratar, React lee el valor real y corrige si hace falta.
 const anchoEnServidor = () => true;
 
-export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciales, notas: notasIniciales, maxNota }: {
+export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciales, notas: notasIniciales, maxNota, posicion, segundosLatido }: {
   url: string;
   ficha: FichaLibro;
   portada: ReactNode;
@@ -78,6 +80,8 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
   anotaciones: Anotacion[]; // RN-85: las marcas del lector en este título, leídas por la página en el servidor
   notas: NotaLibre[]; // RN-86: sus notas libres, la más reciente primero
   maxNota: number;
+  posicion: Posicion | null; // RN-88: dónde quedó en el EPUB (null: nunca lo abrió)
+  segundosLatido: number;
 }) {
   const contenedor = useRef<HTMLDivElement>(null);
   const superficie = useRef<HTMLDivElement>(null);
@@ -146,7 +150,23 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
   }
 
   const { listo, error, indice, progreso, ir, izquierda, derecha, limpiarSeleccion } =
-    useLibroEpub(url, contenedor, superficie, ajustes, { marcas, alSeleccionar, alTocarMarca });
+    useLibroEpub(url, contenedor, superficie, ajustes, { marcas, alSeleccionar, alTocarMarca },
+                 posicion ? { cfi: posicion.cfi, fraccion: posicion.fraccion } : null);
+
+  // RN-88: el latido con la posición actual. useMemo: el mismo objeto mientras no cambie la ubicación (el hook lo
+  // convierte a texto para compararlo; un objeto nuevo en cada render solo gastaría trabajo). Sin CFI (antes de abrir),
+  // no hay nada que avisar.
+  // Los dos valores simples se sacan ANTES: el React Compiler exige que las dependencias sean exactamente lo que lee la
+  // función (si leyera `progreso` entero, cambiaría con cada pasada de página aunque el CFI fuera el mismo).
+  const cfiActual = progreso?.cfi ?? null;
+  const fraccionActual = progreso?.fraccion ?? 0;
+  const posicionLatido = useMemo<PosicionLatido | null>(
+    () => (cfiActual && esCfi(cfiActual)
+      ? { formato: "epub", cfi: cfiActual, fraccion: Math.min(1, Math.max(0, fraccionActual)) }
+      : null),
+    [cfiActual, fraccionActual],
+  );
+  useLatidoLectura(ficha.isbn, segundosLatido, posicionLatido);
 
   // useCallback: el menú usa alCerrar en un efecto (Esc); una función nueva en cada render lo re-ejecutaría.
   const alCerrar = useCallback(() => {

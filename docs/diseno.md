@@ -310,7 +310,7 @@ con el tema. Revisarla con `grep -nE "zinc-|red-|emerald-|amber-|blue-|dark:" ar
     está oculta o en el celular; después el capítulo, con el lápiz ✎ pegado a él. A la derecha, la lámpara (DI-03) y el
     botón del panel derecho.
   - **Área de lectura:** el capítulo arriba, el contador de ubicaciones de foliate-js (bloques de 1500 bytes: no
-    cambian con la pantalla) abajo a la derecha, y zonas laterales, flechas y rueda (con pausa) para pasar página.
+    cambian con la pantalla) abajo a la derecha, y zonas laterales, flechas y rueda para pasar página. La rueda pasa una página por gesto: suma los eventos del gesto (touchpad, rueda de alta resolución) y descarta su inercia.
   - **Panel derecho, "lo mío"** (R10). Tiene dos pestañas: Notas libres (con el editor de una nota nueva arriba) y
     Resaltados (en el orden del libro).
     - Se muestra u oculta con su botón en la fila de lectura y se recuerda en el navegador.

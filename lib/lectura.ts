@@ -45,6 +45,10 @@ export type NotaLibre = {
   editada: number;
 };
 
+// RN-88: dónde quedó el lector en un formato. EPUB: cfi (pagina null); PDF: pagina (cfi null). fraccion: avance de 0 a
+// 1. Lo leen la página (para retomar) y la ruta del latido; aquí y no en lib/data porque el visor también lo usa.
+export type Posicion = { cfi: string | null; pagina: number | null; fraccion: number };
+
 // ENUM de formato en sesion_lectura y posicion_lectura (el mismo de edicion_digital).
 export const FORMATOS_LECTURA = ["pdf", "epub"] as const;
 

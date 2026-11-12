@@ -1,17 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
+import { type PosicionLatido, useLatidoLectura } from "@/components/latido-lectura";
 import { buttonVariants } from "@/components/ui/button";
+import type { Posicion } from "@/lib/lectura";
 
 // RN-29: visor propio. pdf.js dibuja cada página en un <canvas>: no hay barra del visor del navegador con
 // "Descargar" o "Imprimir", ni un enlace al archivo. Client Component porque usa el navegador (canvas, fetch,
 // Web Worker) y estado (página actual).
-export function VisorPdf({ url, titulo }: { url: string; titulo: string }) {
+// RN-88: abre en la página guardada (posicion) y avisa su página con el latido, como el EPUB.
+export function VisorPdf({ url, isbn, titulo, posicion, segundosLatido }: {
+  url: string;
+  isbn: string;
+  titulo: string;
+  posicion: Posicion | null;
+  segundosLatido: number;
+}) {
   const lienzo = useRef<HTMLCanvasElement>(null);
   const contenedor = useRef<HTMLDivElement>(null);
   const [documento, setDocumento] = useState<PDFDocumentProxy | null>(null);
-  const [pagina, setPagina] = useState(1);
+  // Empieza en la página guardada. Si el archivo cambió y tiene menos páginas, se corrige al cargarlo (más abajo).
+  const [pagina, setPagina] = useState(posicion?.pagina ?? 1);
   const [error, setError] = useState<string | null>(null);
 
   // 1) Cargar pdf.js y el archivo. import() dinámico: pdf.js solo existe en el navegador, así que no entra en
@@ -32,7 +42,11 @@ export function VisorPdf({ url, titulo }: { url: string; titulo: string }) {
         const datos = new Uint8Array(await respuesta.arrayBuffer());
         cargado = await pdfjs.getDocument({ data: datos }).promise;
         if (cancelado) await cargado.loadingTask.destroy();
-        else setDocumento(cargado);
+        else {
+          const paginas = cargado.numPages;
+          setPagina((p) => Math.min(Math.max(p, 1), paginas)); // nunca fuera del documento
+          setDocumento(cargado);
+        }
       } catch (e) {
         if (!cancelado) setError(e instanceof Error && e.message ? e.message : "No se pudo abrir el libro.");
       }
@@ -67,6 +81,17 @@ export function VisorPdf({ url, titulo }: { url: string; titulo: string }) {
       tarea?.cancel();
     };
   }, [documento, pagina]);
+
+  // RN-88: el latido. fraccion: (página - 1) / (total - 1) da 0 en la primera y 1 en la última (un PDF de una sola
+  // página cuenta como leído). Antes de cargar el documento no hay nada que avisar.
+  const totalPaginas = documento?.numPages ?? 0;
+  const posicionLatido = useMemo<PosicionLatido | null>(
+    () => (totalPaginas > 0
+      ? { formato: "pdf", pagina, fraccion: totalPaginas > 1 ? (pagina - 1) / (totalPaginas - 1) : 1 }
+      : null),
+    [pagina, totalPaginas],
+  );
+  useLatidoLectura(isbn, segundosLatido, posicionLatido);
 
   // Flechas del teclado para pasar página.
   useEffect(() => {

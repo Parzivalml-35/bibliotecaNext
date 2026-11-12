@@ -35,7 +35,11 @@ declare module "foliate-js/view.js" {
     renderer: Paginador;
     open(libro: File): Promise<void>;
     close(): void;
-    goTo(destino: string): Promise<void>;
+    // goTo: un href del índice o un CFI. Devuelve el destino resuelto, o undefined si no pudo ir (no lanza error: lo
+    // escribe en la consola).
+    goTo(destino: string): Promise<unknown>;
+    // goToFraction: a la parte del libro que corresponde a esa fracción (0 a 1).
+    goToFraction(fraccion: number): Promise<void>;
     // goLeft/goRight: según el sentido del libro (en uno de derecha a izquierda, "izquierda" es avanzar).
     goLeft(): Promise<void>;
     goRight(): Promise<void>;

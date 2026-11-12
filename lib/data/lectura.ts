@@ -1,7 +1,7 @@
 import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
-import type { Anotacion, ColorAnotacion, EstiloAnotacion, NotaLibre } from "@/lib/lectura";
+import type { Anotacion, ColorAnotacion, EstiloAnotacion, NotaLibre, Posicion } from "@/lib/lectura";
 import type { FormatoDigital } from "@/lib/definitions";
 
 // SQL de lo que el lector escribe y hace mientras lee (RN-85 a RN-88, bloque 6 del esquema). REGLA DE ESTE ARCHIVO:
@@ -143,8 +143,6 @@ export async function borrarNotaLibre(idLector: number, idNota: number): Promise
 // ---------------------------------------------------------------------
 // Historial y posición (RN-88)
 // ---------------------------------------------------------------------
-
-export type Posicion = { cfi: string | null; pagina: number | null; fraccion: number };
 
 export async function obtenerPosicion(idLector: number, idLibro: number, formato: FormatoDigital): Promise<Posicion | null> {
   const [filas] = await pool.execute<(Posicion & RowDataPacket)[]>(

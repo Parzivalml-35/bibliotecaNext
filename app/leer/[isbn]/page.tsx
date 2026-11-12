@@ -7,7 +7,7 @@ import { Portada } from "@/components/portada";
 import { type FichaLibro, Visor } from "@/components/visor";
 import { obtenerAccesoDeLectura } from "@/lib/data/digital";
 import { obtenerLibroPorIsbn } from "@/lib/data/libros";
-import { limitesDeLectura, listarAnotaciones, listarNotasLibres } from "@/lib/data/lectura";
+import { limitesDeLectura, listarAnotaciones, listarNotasLibres, obtenerPosicion } from "@/lib/data/lectura";
 import type { FormatoDigital, LibroDetalle } from "@/lib/definitions";
 import { esIsbnValido } from "@/lib/isbn";
 import { exigirLector } from "@/lib/sesion";
@@ -55,19 +55,26 @@ export default async function PaginaLeer({ params, searchParams }: PageProps<"/l
   const detalles = libro && (
     <DetallesDelLibro libro={libro} formatos={formatos.map((f) => NOMBRE_FORMATO[f]).join(" y ")} />
   );
-  // RN-85 a RN-87: las marcas y las notas libres del lector en este título (solo las suyas: id_lector de la sesión) y
-  // el largo de la nota. Solo hacen falta en el EPUB; las tres consultas no dependen una de otra (Promise.all).
-  const [anotaciones, notas, limites] = formato === "epub"
-    ? await Promise.all([
-        listarAnotaciones(lector.idLector, acceso.id_libro),
-        listarNotasLibres(lector.idLector, acceso.id_libro),
-        limitesDeLectura(),
-      ])
-    : [[], [], null];
-  const lectura = { anotaciones, notas, maxNota: limites?.max_caracteres_nota ?? 0 };
+  // RN-85 a RN-88, todo del lector de la SESIÓN (id_lector): las marcas y las notas libres (solo en el EPUB), dónde
+  // quedó en ESTE formato (para seguir ahí) y los límites (largo de la nota, cada cuánto avisa el latido). Las cuatro
+  // consultas no dependen una de otra: Promise.all las lanza a la vez.
+  const esEpub = formato === "epub";
+  const [anotaciones, notas, posicion, limites] = await Promise.all([
+    esEpub ? listarAnotaciones(lector.idLector, acceso.id_libro) : [],
+    esEpub ? listarNotasLibres(lector.idLector, acceso.id_libro) : [],
+    obtenerPosicion(lector.idLector, acceso.id_libro, formato),
+    limitesDeLectura(),
+  ]);
+  const lectura = {
+    anotaciones,
+    notas,
+    maxNota: limites.max_caracteres_nota,
+    posicion,
+    segundosLatido: limites.segundos_latido_lectura,
+  };
   const visor = <Visor formato={formato} url={`/leer/${isbn}/archivo/${formato}`} ficha={ficha} portada={portada} detalles={detalles} lectura={lectura} />;
 
-  if (formato === "epub") return visor;
+  if (esEpub) return visor;
 
   return (
     <>

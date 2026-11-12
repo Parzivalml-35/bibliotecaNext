@@ -1,9 +1,9 @@
 import { obtenerAccesoDeLectura } from "@/lib/data/digital";
-import { limitesDeLectura, type Posicion, registrarLatido } from "@/lib/data/lectura";
+import { limitesDeLectura, registrarLatido } from "@/lib/data/lectura";
 import { enTransaccion } from "@/lib/db";
 import type { FormatoDigital } from "@/lib/definitions";
 import { esIsbnValido } from "@/lib/isbn";
-import { esCfi } from "@/lib/lectura";
+import { esCfi, type Posicion } from "@/lib/lectura";
 import { obtenerUsuario } from "@/lib/sesion";
 
 // RN-88: el "latido" del visor. Mientras el libro está abierto y visible, el visor envía aquí cada
