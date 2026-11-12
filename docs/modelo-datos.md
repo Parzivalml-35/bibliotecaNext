@@ -191,6 +191,7 @@ erDiagram
         smallint max_caracteres_cita
         smallint segundos_latido_lectura
         smallint minutos_pausa_lectura
+        smallint minutos_inactividad_lectura
     }
     tipo_lector {
         int id_tipo_lector PK
@@ -736,7 +737,7 @@ erDiagram
 |---|---|---|
 | `anotacion` | RN-85, RN-87 | `cfi` (EPUB CFI) es la ubicación estándar del fragmento: no depende de foliate-js (DI-06, límite 3). `UNIQUE (id_lector, id_libro, cfi)`: un fragmento se marca una vez; volver a marcarlo actualiza (`INSERT … ON DUPLICATE KEY UPDATE`). `color` y `estilo` como ENUM (C-02: cada valor se dibuja distinto en el código). `nota` NULL = sin nota; `CHECK` contra la nota vacía. El largo de la nota y de la cita sale de `configuracion` (C-04); `texto_citado` es `VARCHAR(1000)` y un `CHECK` impide configurar una cita mayor. |
 | `nota_libre` | RN-86, RN-87 | Tabla propia y no una `anotacion` sin cita: no tiene fragmento, color ni estilo, y su texto es obligatorio. `cfi` y `capitulo` recuerdan dónde estaba el lector al escribirla. |
-| `sesion_lectura` | RN-88 | Una fila por sesión. El visor avisa cada `segundos_latido_lectura`; el aviso **extiende** la última sesión del lector en ese título si su `ultimo_aviso` es más reciente que `minutos_pausa_lectura`, o **crea** otra. Duración = `ultimo_aviso - inicio`. |
+| `sesion_lectura` | RN-88 | Una fila por sesión. El visor avisa cada `segundos_latido_lectura`; el aviso **extiende** la última sesión del lector en ese título si su `ultimo_aviso` es más reciente que `minutos_pausa_lectura`, o **crea** otra. Duración = `ultimo_aviso - inicio`. Tras `minutos_inactividad_lectura` sin interacción, el visor deja de avisar y, al volver, su primer aviso pide una sesión **nueva** (la duración no crece con una pestaña olvidada). |
 | `posicion_lectura` | RN-88 | PK `(id_lector, id_libro, formato)`: una posición por formato. `CHECK`: EPUB ⇒ `cfi` y no `pagina`; PDF ⇒ `pagina` y no `cfi`. Se escribe con `INSERT … ON DUPLICATE KEY UPDATE`. |
 
 ### Lo que valida la capa de lógica

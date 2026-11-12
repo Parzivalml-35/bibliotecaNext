@@ -13,12 +13,14 @@ export type LimitesDeLectura = {
   max_caracteres_cita: number;
   segundos_latido_lectura: number;
   minutos_pausa_lectura: number;
+  minutos_inactividad_lectura: number;
 };
 
 // C-04: los límites viven en configuracion (una sola fila).
 export async function limitesDeLectura(): Promise<LimitesDeLectura> {
   const [filas] = await pool.execute<(LimitesDeLectura & RowDataPacket)[]>(
-    `SELECT max_caracteres_nota, max_caracteres_cita, segundos_latido_lectura, minutos_pausa_lectura FROM configuracion`,
+    `SELECT max_caracteres_nota, max_caracteres_cita, segundos_latido_lectura, minutos_pausa_lectura,
+            minutos_inactividad_lectura FROM configuracion`,
   );
   return filas[0];
 }
@@ -153,7 +155,8 @@ export async function obtenerPosicion(idLector: number, idLibro: number, formato
   return filas[0] ? { ...filas[0], fraccion: Number(filas[0].fraccion) } : null;
 }
 
-// RN-88: un latido del visor. En una transacción:
+// RN-88: un latido del visor. `nueva`: el visor vuelve de una inactividad (minutos_inactividad_lectura) y la sesión
+// anterior ya terminó, aunque no haya pasado la pausa: se salta el paso 1 y se crea otra. En una transacción:
 //  1. Busca la última sesión de este lector y título cuyo último aviso sea más reciente que la pausa, y la BLOQUEA
 //     (FOR UPDATE): dos latidos simultáneos (dos pestañas) no extienden y crean a la vez.
 //  2. Si existe, la extiende (último aviso = ahora, avance final = el de este aviso); si no, crea una nueva.
@@ -166,8 +169,9 @@ export async function registrarLatido(
   formato: FormatoDigital,
   posicion: Posicion,
   minutosPausa: number,
+  nueva: boolean,
 ): Promise<"extendida" | "nueva"> {
-  const [abiertas] = await conexion.execute<({ id_sesion_lectura: number } & RowDataPacket)[]>(
+  const [abiertas] = nueva ? [[]] : await conexion.execute<({ id_sesion_lectura: number } & RowDataPacket)[]>(
     `SELECT id_sesion_lectura FROM sesion_lectura
      WHERE id_lector = ? AND id_libro = ? AND formato = ? AND ultimo_aviso > NOW() - INTERVAL ? MINUTE
      ORDER BY ultimo_aviso DESC LIMIT 1 FOR UPDATE`,

@@ -43,6 +43,7 @@ export type OpcionesDeMarcas = {
   marcas: Marca[];
   alSeleccionar: (seleccion: Seleccion | null) => void; // null: se deshizo la selección (o se pasó de página)
   alTocarMarca: (cfi: string, rect: Rectangulo) => void;
+  alInteractuar: () => void; // RN-88: cualquier toque, tecla o movimiento dentro de un capítulo
 };
 
 // foliate-js (view.js: new SectionProgress(book.sections, 1500, 1600)) cuenta una "ubicación" cada 1500 bytes de texto.
@@ -147,6 +148,7 @@ export function useLibroEpub(
   // y volvería a abrir el libro.
   const avisarSeleccion = useEffectEvent((s: Seleccion | null) => opciones.alSeleccionar(s));
   const avisarMarca = useEffectEvent((cfi: string, rect: Rectangulo) => opciones.alTocarMarca(cfi, rect));
+  const avisarActividad = useEffectEvent(() => opciones.alInteractuar());
   // Los ajustes vigentes, para quien los lee "después" (al abrir el libro, al cambiar el tema). Una ref y no una
   // dependencia del efecto principal: cambiar la letra NO debe cerrar y volver a abrir el libro.
   const ajustesVigentes = useRef(ajustes);
@@ -279,6 +281,10 @@ export function useLibroEpub(
         v.addEventListener("load", (e) => {
           const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
           doc.addEventListener("keydown", alPresionar);
+          // RN-88: actividad dentro del capítulo (el latido no la ve: es otro documento). passive: solo se anota.
+          for (const tipo of ["pointerdown", "pointermove", "keydown", "wheel", "touchstart"]) {
+            doc.addEventListener(tipo, () => avisarActividad(), { passive: true });
+          }
           doc.addEventListener("wheel", alGirar, { passive: false });
           // RN-85: selección de texto. Al empezar a tocar, se cierra cualquier menú; al soltar, si quedó texto
           // seleccionado, se avisa con su CFI. setTimeout: la selección termina de actualizarse DESPUÉS de pointerup.

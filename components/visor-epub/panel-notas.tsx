@@ -5,6 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { compare } from "foliate-js/epubcfi.js";
 import { type KeyboardEvent, type Ref, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SheetTitle } from "@/components/ui/sheet";
 import { type Anotacion, COLOR_ANOTACION, largo, NOMBRE_ESTILO_ANOTACION, type NotaLibre } from "@/lib/lectura";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +28,7 @@ type Respuesta = Promise<string | null>; // null = salió bien; texto = el error
 
 export function PanelNotas({
   pestana, alCambiarPestana, notas, resaltados, maxNota, capituloActual, pedidoNueva,
-  alCrear, alEditar, alBorrarNota, alBorrarResaltado, alIr, alCerrar,
+  alCrear, alEditar, alBorrarNota, alBorrarResaltado, alIr, alCerrar, enCajon = false,
 }: {
   pestana: PestanaNotas;
   alCambiarPestana: (p: PestanaNotas) => void;
@@ -42,6 +43,7 @@ export function PanelNotas({
   alBorrarResaltado: (id: number) => Respuesta;
   alIr: (cfi: string) => void;
   alCerrar: () => void;
+  enCajon?: boolean; // dentro del cajón del celular (un diálogo de Radix)
 }) {
   const base = useId(); // ids únicos: el panel puede existir dos veces (fijo y en el cajón), como la barra izquierda
 
@@ -57,7 +59,12 @@ export function PanelNotas({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 px-4 pt-3 pb-2">
-        <h2 className="flex-1 font-heading font-semibold">Mis notas y resaltados</h2>
+        {/* En el cajón, el título visible ES el título del diálogo (SheetTitle, también un <h2>): Radix lo usa para
+            nombrar el diálogo. Antes había un SheetTitle oculto ADEMÁS de este <h2>, y el lector de pantalla anunciaba
+            el nombre dos veces. Fuera del cajón no hay diálogo: un <h2> común. */}
+        {enCajon
+          ? <SheetTitle className="flex-1 font-heading text-base font-semibold">Mis notas y resaltados</SheetTitle>
+          : <h2 className="flex-1 font-heading font-semibold">Mis notas y resaltados</h2>}
         <Button type="button" variant="ghost" size="icon" onClick={alCerrar}>
           <HugeiconsIcon icon={Cancel01Icon} aria-hidden="true" />
           <span className="sr-only">Cerrar el panel de notas</span>

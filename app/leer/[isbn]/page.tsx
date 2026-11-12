@@ -70,7 +70,7 @@ export default async function PaginaLeer({ params, searchParams }: PageProps<"/l
     notas,
     maxNota: limites.max_caracteres_nota,
     posicion,
-    segundosLatido: limites.segundos_latido_lectura,
+    latido: { segundos: limites.segundos_latido_lectura, minutosInactividad: limites.minutos_inactividad_lectura },
   };
   const visor = <Visor formato={formato} url={`/leer/${isbn}/archivo/${formato}`} ficha={ficha} portada={portada} detalles={detalles} lectura={lectura} />;
 

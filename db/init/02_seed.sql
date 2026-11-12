@@ -31,8 +31,9 @@ INSERT INTO configuracion (id, max_renovaciones, multa_por_dia, multa_tope, dias
                            minimo_sobrante_traslado, horas_sesion, horas_verificacion_correo, id_tipo_lector_registro,
                            max_fallos_por_correo, max_fallos_por_ip, max_registros_por_ip, minutos_ventana_intentos,
                            dias_aviso_vencimiento, minutos_recuperacion_contrasena, max_kb_avatar,
-                           max_caracteres_nota, max_caracteres_cita, segundos_latido_lectura, minutos_pausa_lectura)
-SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector, 5, 20, 5, 15, 3, 60, 2048, 2000, 1000, 60, 15
+                           max_caracteres_nota, max_caracteres_cita, segundos_latido_lectura, minutos_pausa_lectura,
+                           minutos_inactividad_lectura)
+SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector, 5, 20, 5, 15, 3, 60, 2048, 2000, 1000, 60, 15, 5
 FROM tipo_lector WHERE nombre = 'Estándar';
 
 INSERT INTO pais (nombre) VALUES

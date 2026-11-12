@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
-import { type PosicionLatido, useLatidoLectura } from "@/components/latido-lectura";
+import { type Latido, type PosicionLatido, useLatidoLectura } from "@/components/latido-lectura";
 import { buttonVariants } from "@/components/ui/button";
 import type { Posicion } from "@/lib/lectura";
 
@@ -10,12 +10,12 @@ import type { Posicion } from "@/lib/lectura";
 // "Descargar" o "Imprimir", ni un enlace al archivo. Client Component porque usa el navegador (canvas, fetch,
 // Web Worker) y estado (página actual).
 // RN-88: abre en la página guardada (posicion) y avisa su página con el latido, como el EPUB.
-export function VisorPdf({ url, isbn, titulo, posicion, segundosLatido }: {
+export function VisorPdf({ url, isbn, titulo, posicion, latido }: {
   url: string;
   isbn: string;
   titulo: string;
   posicion: Posicion | null;
-  segundosLatido: number;
+  latido: Latido;
 }) {
   const lienzo = useRef<HTMLCanvasElement>(null);
   const contenedor = useRef<HTMLDivElement>(null);
@@ -91,7 +91,8 @@ export function VisorPdf({ url, isbn, titulo, posicion, segundosLatido }: {
       : null),
     [pagina, totalPaginas],
   );
-  useLatidoLectura(isbn, segundosLatido, posicionLatido);
+  // El PDF se dibuja en un <canvas> de ESTA página: el mouse y el teclado sobre él ya los ve el hook.
+  useLatidoLectura(isbn, latido, posicionLatido);
 
   // Flechas del teclado para pasar página.
   useEffect(() => {

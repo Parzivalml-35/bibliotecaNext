@@ -12,7 +12,8 @@ import { obtenerUsuario } from "@/lib/sesion";
 // navigator.sendBeacon (el navegador lo entrega aunque la página se esté cerrando), y sendBeacon hace un POST simple a
 // una URL: no sabe llamar a una Server Action.
 //
-// Cuerpo (JSON): { formato: "epub", cfi: "epubcfi(…)", fraccion: 0.42 } o { formato: "pdf", pagina: 7, fraccion: 0.3 }.
+// Cuerpo (JSON): { formato: "epub", cfi: "epubcfi(…)", fraccion: 0.42 } o { formato: "pdf", pagina: 7, fraccion: 0.3 },
+// más `nueva: true` opcional (el visor vuelve de una inactividad: empieza otra sesión, RN-88).
 // Respuesta: 204 sin cuerpo si quedó guardado; 4xx si no (el visor no muestra nada: el latido es silencioso).
 
 const MAX_CUERPO = 2000; // bytes: un CFI cabe en 500; nada legítimo se acerca a esto
@@ -38,7 +39,8 @@ export async function POST(request: Request, ctx: RouteContext<"/leer/[isbn]/lat
     return sinContenido(400);
   }
   if (typeof datos !== "object" || datos === null) return sinContenido(400);
-  const { formato, cfi, pagina, fraccion } = datos as Record<string, unknown>;
+  const { formato, cfi, pagina, fraccion, nueva } = datos as Record<string, unknown>;
+  if (nueva !== undefined && typeof nueva !== "boolean") return sinContenido(400);
 
   // Forma de la posición según el formato (el CHECK ck_posicion_formato de la BD exige lo mismo).
   if (typeof fraccion !== "number" || !Number.isFinite(fraccion) || fraccion < 0 || fraccion > 1) return sinContenido(400);
@@ -55,7 +57,7 @@ export async function POST(request: Request, ctx: RouteContext<"/leer/[isbn]/lat
   const { minutos_pausa_lectura } = await limitesDeLectura();
   try {
     await enTransaccion((conexion) =>
-      registrarLatido(conexion, usuario.lector!.idLector, acceso.id_libro, formato as FormatoDigital, posicion, minutos_pausa_lectura));
+      registrarLatido(conexion, usuario.lector!.idLector, acceso.id_libro, formato as FormatoDigital, posicion, minutos_pausa_lectura, nueva === true));
   } catch (error) {
     console.error("No se pudo registrar el latido de lectura:", error);
     return sinContenido(500);

@@ -205,6 +205,7 @@ CREATE TABLE configuracion (
     max_caracteres_cita              SMALLINT UNSIGNED NOT NULL,  -- RN-85: texto citado (la columna admite 1000)
     segundos_latido_lectura          SMALLINT UNSIGNED NOT NULL,  -- RN-88
     minutos_pausa_lectura            SMALLINT UNSIGNED NOT NULL,  -- RN-88
+    minutos_inactividad_lectura      SMALLINT UNSIGNED NOT NULL,  -- RN-88: sin tocar el visor, deja de avisar
     CONSTRAINT ck_configuracion_unica CHECK (id = 1),
     CONSTRAINT ck_configuracion_multa CHECK (multa_por_dia > 0 AND multa_tope >= multa_por_dia),
     CONSTRAINT ck_configuracion_plazos CHECK (dias_atraso_perdido > 0 AND horas_confirmar_reserva_digital > 0
@@ -213,7 +214,8 @@ CREATE TABLE configuracion (
     CONSTRAINT ck_configuracion_avatar CHECK (max_kb_avatar > 0),
     -- La cita no puede superar el tamaño de la columna anotacion.texto_citado (VARCHAR(1000)).
     CONSTRAINT ck_configuracion_lectura CHECK (max_caracteres_nota > 0 AND max_caracteres_cita BETWEEN 1 AND 1000
-                                               AND segundos_latido_lectura > 0 AND minutos_pausa_lectura > 0),
+                                               AND segundos_latido_lectura > 0 AND minutos_pausa_lectura > 0
+                                               AND minutos_inactividad_lectura > 0),
     CONSTRAINT ck_configuracion_intentos CHECK (max_fallos_por_correo > 0 AND max_fallos_por_ip > 0
                                                 AND max_registros_por_ip > 0 AND minutos_ventana_intentos > 0),
     CONSTRAINT fk_configuracion_tipo_lector FOREIGN KEY (id_tipo_lector_registro) REFERENCES tipo_lector (id_tipo_lector)

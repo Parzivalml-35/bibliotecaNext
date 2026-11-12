@@ -5,7 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { BotonLampara } from "@/components/boton-lampara";
 import { EnlaceLogo } from "@/components/marca/enlace-logo";
-import { type PosicionLatido, useLatidoLectura } from "@/components/latido-lectura";
+import { type Latido, type PosicionLatido, useLatidoLectura } from "@/components/latido-lectura";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import type { FichaLibro } from "@/components/visor";
@@ -72,7 +72,7 @@ const leerAncho = () => window.matchMedia(ANCHO_ESCRITORIO).matches;
 // En el servidor no hay ventana: se supone escritorio. Al hidratar, React lee el valor real y corrige si hace falta.
 const anchoEnServidor = () => true;
 
-export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciales, notas: notasIniciales, maxNota, posicion, segundosLatido }: {
+export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciales, notas: notasIniciales, maxNota, posicion, latido }: {
   url: string;
   ficha: FichaLibro;
   portada: ReactNode;
@@ -81,7 +81,7 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
   notas: NotaLibre[]; // RN-86: sus notas libres, la más reciente primero
   maxNota: number;
   posicion: Posicion | null; // RN-88: dónde quedó en el EPUB (null: nunca lo abrió)
-  segundosLatido: number;
+  latido: Latido;
 }) {
   const contenedor = useRef<HTMLDivElement>(null);
   const superficie = useRef<HTMLDivElement>(null);
@@ -150,7 +150,10 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
   }
 
   const { listo, error, indice, progreso, ir, izquierda, derecha, limpiarSeleccion } =
-    useLibroEpub(url, contenedor, superficie, ajustes, { marcas, alSeleccionar, alTocarMarca },
+    // alInteractuar: lo que pasa DENTRO de un capítulo (otro documento, en un iframe) no llega a esta página; el motor
+    // lo reporta para que el latido sepa que el lector sigue ahí. Es una función que llama a marcarActividad (definida
+    // más abajo, con el latido): se ejecuta después del render, cuando ya existe.
+    useLibroEpub(url, contenedor, superficie, ajustes, { marcas, alSeleccionar, alTocarMarca, alInteractuar: () => marcarActividad() },
                  posicion ? { cfi: posicion.cfi, fraccion: posicion.fraccion } : null);
 
   // RN-88: el latido con la posición actual. useMemo: el mismo objeto mientras no cambie la ubicación (el hook lo
@@ -166,7 +169,7 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
       : null),
     [cfiActual, fraccionActual],
   );
-  useLatidoLectura(ficha.isbn, segundosLatido, posicionLatido);
+  const marcarActividad = useLatidoLectura(ficha.isbn, latido, posicionLatido);
 
   // useCallback: el menú usa alCerrar en un efecto (Esc); una función nueva en cada render lo re-ejecutaría.
   const alCerrar = useCallback(() => {
@@ -277,7 +280,7 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
                 maxNota={maxNota} capituloActual={progreso?.capitulo ?? null} pedidoNueva={pedidoNueva}
                 alCrear={alCrearNota} alEditar={alEditarNota} alBorrarNota={alBorrarNota}
                 alBorrarResaltado={alBorrarDesdePanel} alIr={irDesdePanel}
-                alCerrar={() => (enCajon ? setCajonNotas(false) : setPanelAbierto("no"))} />
+                alCerrar={() => (enCajon ? setCajonNotas(false) : setPanelAbierto("no"))} enCajon={enCajon} />
   );
 
   const barra = (enCajon: boolean) => (
@@ -410,7 +413,6 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
             una nota nueva, se impide: el foco ya lo tomó el editor. */}
         <SheetContent side="right" showCloseButton={false} className="w-80 p-0"
                       onOpenAutoFocus={(e) => { if (pestanaNotas === "notas" && pedidoNueva > 0) e.preventDefault(); }}>
-          <SheetTitle className="sr-only">Mis notas y resaltados</SheetTitle>
           {panel(true)}
         </SheetContent>
       </Sheet>
