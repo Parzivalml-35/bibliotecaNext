@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { TarjetaSede } from "@/components/tarjeta-sede";
 import { FormularioReserva } from "@/components/formularios-lector";
 import { SeccionDigital } from "@/components/seccion-digital";
+import { SeccionResenas } from "@/components/resenas/seccion-resenas";
 import { obtenerDisponibilidadDigital, obtenerSituacionDigitalEnTitulo } from "@/lib/data/digital";
 import { obtenerPrestamoAbiertoDeObra, obtenerReservaVivaDeObra } from "@/lib/data/lectores";
 import { obtenerDisponibilidadPorSede, obtenerLibroPorIsbn } from "@/lib/data/libros";
@@ -145,6 +146,9 @@ export default async function PaginaLibro({ params }: PageProps<"/libros/[isbn]"
         <SeccionDigital isbn={libro.isbn} disponibilidad={digital} situacion={situacionDigital} conectado={!!usuario}
                         esLector={!!usuario?.lector} verificada={!!usuario?.lector?.verificada} />
       )}
+
+      {/* RN-94, RN-95: lo que opinan los lectores, con su apodo. */}
+      <SeccionResenas idLibro={libro.id_libro} isbn={libro.isbn} />
     </div>
   );
 }

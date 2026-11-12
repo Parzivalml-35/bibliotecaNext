@@ -5,11 +5,13 @@ import { partesDeAvance, porcentajeDeAvance } from "@/components/cuenta/avance-l
 import { NotasDelLibro } from "@/components/cuenta/notas-del-libro";
 import { PaginaAlcanzada } from "@/components/cuenta/pagina-alcanzada";
 import { TerminadoDeLeer } from "@/components/cuenta/terminado-de-leer";
+import { FormularioResena } from "@/components/resenas/formulario-resena";
 import { Portada } from "@/components/portada";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { obtenerAccesoDeLectura } from "@/lib/data/digital";
 import { fechaTerminado } from "@/lib/data/encuestas";
+import { maxCaracteresResena, miResena } from "@/lib/data/resenas";
 import {
   type HechoDelLibro,
   historiaDelLibro,
@@ -51,7 +53,7 @@ export default async function PaginaLecturaDeLibro({ params }: PageProps<"/cuent
   if (!libro) notFound();
 
   // Todo lo demás no depende entre sí: siete consultas a la vez.
-  const [ficha, acceso, historia, notas, anotaciones, sesiones, limites, terminado] = await Promise.all([
+  const [ficha, acceso, historia, notas, anotaciones, sesiones, limites, terminado, resena, maxResena] = await Promise.all([
     obtenerLibroPorIsbn(isbn),
     obtenerAccesoDeLectura(lector.idLector, isbn), // la misma regla de acceso que /leer
     historiaDelLibro(lector.idLector, libro.id_libro),
@@ -60,6 +62,8 @@ export default async function PaginaLecturaDeLibro({ params }: PageProps<"/cuent
     listarSesiones(lector.idLector, libro.id_libro),
     limitesDeLectura(),
     fechaTerminado(lector.idLector, libro.id_libro), // RN-93
+    miResena(lector.idLector, libro.id_libro), // RN-94
+    maxCaracteresResena(),
   ]);
   // RN-93, RN-90: la encuesta pregunta la página del préstamo físico más reciente (la historia viene de nuevo a viejo).
   const ultimoFisico = historia.find((h) => h.tipo === "prestamo_fisico");
@@ -123,13 +127,24 @@ export default async function PaginaLecturaDeLibro({ params }: PageProps<"/cuent
               debajo de la barra flotante (sticky); 6 rem de margen arriba. */}
           <div id="encuesta" className="scroll-mt-24 rounded-2xl border border-border bg-card p-4">
             <h2 className="text-sm font-medium">Tu opinión</h2>
-            <p className="mt-1 mb-3 text-sm text-muted-foreground">Cuando lo termines, márcalo: te dejamos un aviso para que cuentes qué te pareció.</p>
+            <p className="mt-1 mb-3 text-sm text-muted-foreground">
+              Cuando lo termines, márcalo. Tu reseña se publica en la ficha del libro con tu apodo, no con tu nombre.
+            </p>
             <TerminadoDeLeer isbn={isbn} terminado={terminado} />
             {ultimoFisico?.tipo === "prestamo_fisico" && (
               // key con la página: si se guarda en la historia de abajo, este campo se vuelve a crear con el valor nuevo.
               <PaginaAlcanzada key={`${ultimoFisico.id_prestamo}-${ultimoFisico.pagina}`} idPrestamo={ultimoFisico.id_prestamo}
                                pagina={ultimoFisico.pagina} paginas={libro.paginas} />
             )}
+            {/* RN-94: la reseña. border-t: separada de lo de arriba. Solo con la cuenta verificada (la acción lo vuelve a
+                comprobar); sin verificar, el aviso. */}
+            <div className="mt-4 border-t border-border pt-4">
+              {lector.verificada ? (
+                <FormularioResena isbn={isbn} actual={resena} maximo={maxResena} />
+              ) : (
+                <p className="text-sm text-muted-foreground">Verifica tu correo para publicar una reseña.</p>
+              )}
+            </div>
           </div>
 
           <div>
