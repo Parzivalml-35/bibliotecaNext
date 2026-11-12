@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FormularioRegistro } from "@/components/formularios-lector";
+import { apodoGenerado } from "@/lib/apodo";
 import { listarCiudades } from "@/lib/data/lectores";
 import { obtenerUsuario } from "@/lib/sesion";
 
@@ -26,7 +27,8 @@ export default async function PaginaRegistro({ searchParams }: PageProps<"/regis
           <p className="mt-1 mb-6 text-sm text-muted-foreground">
             Con la cuenta verificada puedes reservar y leer libros digitales. Para llevarte libros físicos, presenta tu documento en cualquier sede.
           </p>
-          <FormularioRegistro ciudades={await listarCiudades()} />
+          {/* RN-92: el apodo propuesto se genera en cada visita (la página ya es dinámica: lee la sesión). */}
+          <FormularioRegistro ciudades={await listarCiudades()} apodoSugerido={apodoGenerado()} />
         </>
       )}
     </div>

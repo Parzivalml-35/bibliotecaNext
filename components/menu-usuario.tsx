@@ -21,6 +21,7 @@ export async function MenuUsuario() {
     <MenuCuenta
       nombre={nombre}
       correo={usuario.correo}
+      apodo={usuario.apodo}
       avatar={urlDeAvatar(usuario.avatar)} // RN-81: la URL se arma aquí, en el servidor (lib/avatar.ts no va al navegador)
       esLector={usuario.lector !== null}
       // A dónde lleva "Panel": el inicio del rol (DI-10), sin pasar por la redirección de /panel. null = no es empleado.

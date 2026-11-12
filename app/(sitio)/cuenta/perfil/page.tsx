@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FormularioContacto } from "@/components/formularios-lector";
-import { SeccionAvatar, SeccionTema } from "@/components/secciones-cuenta";
+import { SeccionApodo, SeccionAvatar, SeccionTema } from "@/components/secciones-cuenta";
 import { listarCiudades, obtenerPerfilDeLector } from "@/lib/data/lectores";
 import { exigirLector } from "@/lib/sesion";
 
@@ -59,6 +59,7 @@ export default async function PaginaPerfil() {
 
       {/* Avatar y tema son de la cuenta: las mismas secciones que /panel/perfil (components/secciones-cuenta.tsx). */}
       <div className="mt-6 space-y-6">
+        <SeccionApodo />
         <SeccionAvatar />
         <SeccionTema />
       </div>

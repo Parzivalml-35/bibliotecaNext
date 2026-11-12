@@ -23,11 +23,11 @@ function iniciales(nombre: string): string {
   return letras.toUpperCase();
 }
 
-type Props = { nombre: string; correo: string; avatar: string; esLector: boolean; inicioPanel: string | null };
+type Props = { nombre: string; correo: string; apodo: string; avatar: string; esLector: boolean; inicioPanel: string | null };
 
 // DI-02 y DI-12: el avatar abre el menú de la cuenta. Client Component porque el menú se abre y se cierra
 // (estado); los datos llegan ya resueltos de MenuUsuario, en el servidor.
-export function MenuCuenta({ nombre, correo, avatar, esLector, inicioPanel }: Props) {
+export function MenuCuenta({ nombre, correo, apodo, avatar, esLector, inicioPanel }: Props) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -44,6 +44,8 @@ export function MenuCuenta({ nombre, correo, avatar, esLector, inicioPanel }: Pr
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>
           <span className="block truncate font-medium text-foreground">{nombre}</span>
+          {/* RN-92: el apodo, para que la persona sepa cómo la ven los demás. */}
+          <span className="block truncate">@{apodo}</span>
           <span className="block truncate">{correo}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

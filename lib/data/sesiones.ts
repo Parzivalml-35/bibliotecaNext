@@ -68,6 +68,7 @@ type FilaSesion = {
   avatar_estilo: string;
   avatar_semilla: string;
   avatar_clave: string | null; // RN-82: NULL = usa el avatar generado
+  apodo: string; // RN-92: nombre público
 } & RowDataPacket;
 
 // RN-64 en una sola consulta: la sesión existe, no venció y la cuenta no está desactivada. El empleado
@@ -77,7 +78,7 @@ export async function buscarSesionVigente(tokenHash: string) {
   const [filas] = await pool.execute<FilaSesion[]>(
     `SELECT c.id_cuenta, c.correo, e.id_empleado, e.nombre, e.apellido, e.rol, e.id_sede, sd.nombre AS sede,
             lc.id_lector, CONCAT(lc.nombre, ' ', lc.apellido) AS nombre_lector, c.fecha_verificacion IS NOT NULL AS verificada,
-            c.avatar_estilo, c.avatar_semilla, c.avatar_clave
+            c.avatar_estilo, c.avatar_semilla, c.avatar_clave, c.apodo
      FROM sesion s
      JOIN cuenta c ON c.id_cuenta = s.id_cuenta
      LEFT JOIN empleado e ON e.id_cuenta = c.id_cuenta AND e.activo
@@ -219,4 +220,31 @@ export async function usarTokenYRestablecer(conexion: PoolConnection, idToken: n
   await conexion.execute("UPDATE token_cuenta SET usado_en = NOW() WHERE id_token = ? AND usado_en IS NULL", [idToken]);
   await conexion.execute("UPDATE cuenta SET password_hash = ? WHERE id_cuenta = ?", [passwordHash, idCuenta]);
   await conexion.execute("DELETE FROM sesion WHERE id_cuenta = ?", [idCuenta]);
+}
+
+// ---------------------------------------------------------------------
+// Apodo (RN-92)
+// ---------------------------------------------------------------------
+
+// ¿Lo usa OTRA cuenta? La comparación la hace MySQL con la intercalación de la columna (utf8mb4_0900_ai_ci): "José" y
+// "JOSE" son el mismo apodo, igual que para el UNIQUE. `idCuenta` null = en el registro (todavía no hay cuenta).
+// FOR SHARE: dentro de la transacción, otra que quiera escribir ese apodo espera; igual el UNIQUE es la última palabra
+// (dos registros a la vez pueden pasar los dos esta lectura) y quien llama trata ER_DUP_ENTRY.
+export async function apodoOcupado(conexion: PoolConnection, apodo: string, idCuenta: number | null): Promise<boolean> {
+  const [filas] = await conexion.execute<RowDataPacket[]>(
+    "SELECT 1 FROM cuenta WHERE apodo = ? AND id_cuenta <> ? FOR SHARE",
+    [apodo, idCuenta ?? 0],
+  );
+  return filas.length > 0;
+}
+
+export async function cambiarApodoDeCuenta(conexion: PoolConnection, idCuenta: number, apodo: string): Promise<void> {
+  await conexion.execute("UPDATE cuenta SET apodo = ? WHERE id_cuenta = ?", [apodo, idCuenta]);
+}
+
+// Un ER_DUP_ENTRY de MySQL, ¿es por el apodo? El mensaje nombra el índice ("for key 'cuenta.uq_cuenta_apodo'"). Sirve
+// para distinguirlo del correo o del documento repetidos, que el registro responde en silencio (no revela cuentas).
+export function esApodoRepetido(error: unknown): boolean {
+  const e = error as { code?: string; message?: string };
+  return e.code === "ER_DUP_ENTRY" && (e.message ?? "").includes("uq_cuenta_apodo");
 }

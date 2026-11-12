@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeccionAvatar, SeccionContrasena, SeccionCorreo, SeccionTema } from "@/components/secciones-cuenta";
+import { SeccionApodo, SeccionAvatar, SeccionContrasena, SeccionCorreo, SeccionTema } from "@/components/secciones-cuenta";
 import { NOMBRE_ROL } from "@/lib/permisos";
 import { exigirEmpleado, obtenerUsuario } from "@/lib/sesion";
 
@@ -35,6 +35,7 @@ export default async function PaginaPerfilEmpleado() {
       </section>
 
       <div className="mt-6 space-y-6">
+        <SeccionApodo />
         <SeccionAvatar />
         <SeccionTema />
         <SeccionContrasena />

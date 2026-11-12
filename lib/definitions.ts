@@ -89,6 +89,7 @@ export type UsuarioSesion = {
   correo: string;
   // RN-81 y RN-82: de la cuenta, sea lector o empleado. clave = nombre de la foto (null: usa el generado).
   avatar: { estilo: string; semilla: string; clave: string | null };
+  apodo: string; // RN-92: el nombre público (reseñas); el nombre real solo lo ve el personal
   empleado: {
     idEmpleado: number;
     nombre: string;
