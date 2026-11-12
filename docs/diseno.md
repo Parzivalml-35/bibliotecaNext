@@ -32,6 +32,7 @@ Inspiración, no copia: no se usan imágenes, logos ni textos de las referencias
 | DI-13 | **Emblema** del proyecto a la izquierda de la barra: más alto que la cápsula, **cuelga** de ella (sobresale arriba y abajo), como un sello o un marcapáginas. El logo definitivo se está diseñando: hasta entonces hay uno provisional, y el arte vive en un solo archivo (ver "Logo e íconos de marca"). **Se ve en todas las vistas**, también en el visor `/leer`: ahí, en pequeño y sin colgar (`components/marca/enlace-logo.tsx`), como enlace al catálogo | Identidad propia; el usuario lo pidió "en la barra pero no al frente y más grande" (Fase A) y "siempre visible, también leyendo" (2026-11-12) |
 | DI-14 | **Luz sobre una pared** en el fondo, distinta por tema: haces de **sol** en el claro, de **luna** en el oscuro y el foco cálido de una **lámpara de pared** en la lámpara. CSS (degradados) sobre una textura de pared ligera; las tarjetas siguen opacas | Da ambiente sin restar legibilidad: la luz solo se ve donde hay fondo. Referencias: aplique de pared y haces sobre concreto (Fase A) |
 | DI-15 | La luz se **anima solo al cambiar de tema** (la lámpara "calienta" al encenderse); después queda quieta. Con `prefers-reduced-motion` el cambio es inmediato | Movimiento continuo distrae al leer; la animación de entrada da la sensación de encender |
+| DI-16 | **"Mis lecturas" en dos columnas** (R10, 2026-11-12): un **layout anidado** (`app/(sitio)/cuenta/lecturas/layout.tsx`) deja la lista de libros fija a la izquierda en el escritorio y el detalle a la derecha; al cambiar de libro la lista no se vuelve a montar. En el celular, la lista y el detalle son pantallas distintas (la lista se oculta al elegir un libro). La zona de cuenta se ensancha solo en esta sección (`has-[[data-ancho=amplio]]:max-w-6xl`). El panel de notas es **el mismo del visor**, con props opcionales (sin "Ir al pasaje" si no hay acceso) | Combina las dos propuestas que vio el usuario: la lista como índice siempre visible y la vista completa del libro; reutilizar el panel evita dos versiones de las mismas notas |
 
 ## Arquitectura de información (DI-10)
 
@@ -57,6 +58,8 @@ Una barra de pestañas propia, debajo de la barra superior.
 | `/cuenta` | Resumen | Situación (bloqueos y motivos), lo que vence pronto (RN-76), avisos | Existe; se reparte |
 | `/cuenta/prestamos` | Préstamos y reservas | Préstamos físicos (con renovaciones) y reservas físicas | **Nueva**: sale de `/cuenta` |
 | `/cuenta/digitales` | Digitales | Préstamos y reservas digitales, botón "Leer" | **Nueva**: sale de `/cuenta` |
+| `/cuenta/lecturas` | Lecturas | Cada libro que el lector tuvo (prestado o comprado, físico o digital) con su avance y su última actividad (RN-89); la lista vive en el layout (DI-16) | **Nueva** (R10) |
+| `/cuenta/lecturas/[isbn]` | Lecturas (activa en las subrutas) | Detalle de un libro: ficha, "Seguir leyendo" si hay acceso, avance (digital y página en papel, RN-90), tiempo leído y sesiones, historia (reservas, préstamos, compras) y el panel de notas libres y resaltados del visor (RN-86, RN-87) | **Nueva** (R10) |
 | `/cuenta/multas` | Multas | Multas y pago en línea | **Nueva**: sale de `/cuenta` |
 | `/cuenta/pago/[id]` | (sin pestaña) | Pasarela simulada | Existe; se conserva |
 | `/cuenta/perfil` | Perfil | Datos editables (RN-77), avatar (RN-81, RN-82), tema | **Nueva** (R7) |
