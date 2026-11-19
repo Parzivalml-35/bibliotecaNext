@@ -32,8 +32,9 @@ INSERT INTO configuracion (id, max_renovaciones, multa_por_dia, multa_tope, dias
                            max_fallos_por_correo, max_fallos_por_ip, max_registros_por_ip, minutos_ventana_intentos,
                            dias_aviso_vencimiento, minutos_recuperacion_contrasena, max_kb_avatar,
                            max_caracteres_nota, max_caracteres_cita, segundos_latido_lectura, minutos_pausa_lectura,
-                           minutos_inactividad_lectura)
-SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector, 5, 20, 5, 15, 3, 60, 2048, 2000, 1000, 60, 15, 5
+                           minutos_inactividad_lectura, dias_vencimiento_notificacion, max_caracteres_resena)
+SELECT 1, 2, 1000.00, 30000.00, 30, 48, 30, 15, 1, 8, 24, id_tipo_lector, 5, 20, 5, 15, 3, 60, 2048, 2000, 1000, 60, 15, 5,
+       30, 2000
 FROM tipo_lector WHERE nombre = 'Estándar';
 
 INSERT INTO pais (nombre) VALUES
@@ -177,6 +178,16 @@ INSERT INTO cuenta (correo, password_hash, fecha_registro, fecha_verificacion, a
   ('mateo.cardenas@example.com',  @sin_clave, NOW() - INTERVAL 60 DAY, NOW() - INTERVAL 60 DAY, 'open-peeps'),
   ('sofia.herrera@example.com',   @sin_clave, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY, 'glass'),  -- verificada, sin validar
   ('camila.torres@example.com',   @sin_clave, NOW() - INTERVAL 1 DAY, NULL, 'shapes');                        -- sin verificar el correo
+
+-- RN-92: apodos fijos para las cuentas de prueba (reproducibles). Una cuenta nueva recibe el generado del DEFAULT.
+UPDATE cuenta c
+JOIN (VALUES ROW('laura.castano@example.com', 'laura.red'), ROW('jorge.perez@example.com', 'jorge_norte'),
+             ROW('marta.torres@example.com', 'marta.sur'), ROW('diego.ramirez@example.com', 'diego.centro'),
+             ROW('ana.ruiz@example.com', 'ana_lee'), ROW('luis.gomez@example.com', 'luisg'),
+             ROW('valentina.ospina@example.com', 'vale.lectora'), ROW('andres.mejia@example.com', 'andres-m'),
+             ROW('mateo.cardenas@example.com', 'mateo13'), ROW('sofia.herrera@example.com', 'sofía.h'),
+             ROW('camila.torres@example.com', 'camila_t')) AS a (correo, apodo) ON a.correo = c.correo
+SET c.apodo = a.apodo;
 
 INSERT INTO empleado (id_cuenta, nombre, apellido, rol, id_sede, fecha_contratacion)
 SELECT c.id_cuenta, e.nombre, e.apellido, e.rol, s.id_sede, e.contratacion
@@ -458,3 +469,27 @@ FROM pedido pe
 JOIN pedido_detalle d USING (id_pedido)
 JOIN producto p ON p.id_producto = d.id_producto AND p.tipo = 'digital'
 WHERE pe.estado = 'entregado';
+
+-- ---------------------------------------------------------------------
+-- Comunidad: reseñas de muestra (RN-94, RN-95)
+-- ---------------------------------------------------------------------
+-- Ana (préstamo digital de El principito) y Valentina (compró Cosmos) llevan la insignia "Lo leyó en la biblioteca";
+-- Sofía opina de Cien años de soledad sin haberlo tenido aquí (RN-94: basta la cuenta verificada). La de Luis queda
+-- con un reporte pendiente de Mateo, para probar la moderación.
+INSERT INTO resena (id_lector, id_libro, estrellas, recomienda, texto, fecha_creacion)
+SELECT le.id_lector, li.id_libro, r.estrellas, r.recomienda, r.texto, NOW() - INTERVAL r.dias DAY
+FROM (VALUES ROW('ana.ruiz@example.com', 'El principito', 5, TRUE, 'Lo releí de adulta y me dijo cosas distintas. Corto y para volver a él.', 3),
+             ROW('valentina.ospina@example.com', 'Cosmos', 4, TRUE, 'Divulgación de la buena. Algunos datos envejecieron, pero el asombro no.', 10),
+             ROW('sofia.herrera@example.com', 'Cien años de soledad', 5, TRUE, NULL, 20),
+             ROW('luis.gomez@example.com', 'El principito', 2, FALSE, 'No entiendo por qué gusta tanto. Al final el aviador muere.', 1)
+     ) AS r (correo, titulo, estrellas, recomienda, texto, dias)
+JOIN cuenta c ON c.correo = r.correo
+JOIN lector le ON le.id_cuenta = c.id_cuenta
+JOIN libro li ON li.titulo = r.titulo;
+
+INSERT INTO reporte_resena (id_resena, id_lector, motivo, detalle)
+SELECT re.id_resena, le.id_lector, 'revela_el_final', 'Cuenta el final sin avisar.'
+FROM resena re
+JOIN lector lr ON lr.id_lector = re.id_lector JOIN cuenta cr ON cr.id_cuenta = lr.id_cuenta AND cr.correo = 'luis.gomez@example.com'
+JOIN cuenta c ON c.correo = 'mateo.cardenas@example.com'
+JOIN lector le ON le.id_cuenta = c.id_cuenta;

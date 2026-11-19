@@ -16,7 +16,7 @@ import { MenuResaltado } from "@/components/visor-epub/menu-resaltado";
 import { PanelNotas, type PestanaNotas } from "@/components/visor-epub/panel-notas";
 import { type AjustesLectura, type Rectangulo, type Seleccion, useLibroEpub } from "@/components/visor-epub/motor";
 import { usePreferencia } from "@/components/visor-epub/preferencias";
-import { actualizarResaltado, borrarNota, borrarResaltado, crearNota, editarNota, guardarResaltado } from "@/lib/actions/lectura";
+import { actualizarResaltado, borrarNota, borrarResaltado, cambiarTerminado, crearNota, editarNota, guardarResaltado } from "@/lib/actions/lectura";
 import {
   type Anotacion,
   type ColorAnotacion,
@@ -104,6 +104,7 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
   const [menu, setMenu] = useState<MenuAbierto | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [avisoBueno, setAvisoBueno] = useState(false); // el aviso es una confirmación (verde) y no un error
   // R10-D: el panel derecho. Abierto en el escritorio: se recuerda en este navegador (como la barra izquierda).
   const [panelAbierto, setPanelAbierto] = usePreferencia("visor-epub:panel-notas", "no", esSiNo);
   const [cajonNotas, setCajonNotas] = useState(false);
@@ -124,7 +125,15 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
     window.history.replaceState(null, "", direccion.pathname + direccion.search);
   }, []);
 
-  function avisar(texto: string) {
+  // RN-93: "Terminé de leer" desde el lápiz. La encuesta queda en la campana, que se ve al salir del visor.
+  async function terminar() {
+    const r = await cambiarTerminado(ficha.isbn, true);
+    if (!r.ok) return avisar(r.error);
+    avisar("Listo: lo marcaste como terminado. Al salir, en la campana, puedes contarnos qué te pareció.", true);
+  }
+
+  function avisar(texto: string, bueno = false) {
+    setAvisoBueno(bueno);
     setAviso(texto);
     setTimeout(() => setAviso((a) => (a === texto ? null : a)), 6000); // se borra solo, si no lo reemplazó otro
   }
@@ -348,7 +357,8 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
           {/* El lápiz, junto al capítulo (R10): las opciones de marcar están donde se lee. */}
           {listo && (
             <Lapiz modo={modo} color={color} estilo={estilo} alCambiarModo={setModo} alCambiarColor={setColor}
-                   alCambiarEstilo={setEstilo} alNuevaNota={() => abrirPanel("notas", true)} alVerNotas={() => abrirPanel(pestanaNotas)} />
+                   alCambiarEstilo={setEstilo} alNuevaNota={() => abrirPanel("notas", true)} alVerNotas={() => abrirPanel(pestanaNotas)}
+                   alTerminar={terminar} />
           )}
           {/* El espacio que sobra: empuja la lámpara y el panel a la derecha. */}
           <div className="flex-1" />
@@ -369,7 +379,8 @@ export function VisorEpub({ url, ficha, portada, detalles, anotaciones: iniciale
         {/* Avisos de las acciones (sin acceso, nota muy larga…). role="status": el lector de pantalla lo lee sin
             interrumpir. fixed + centrado arriba, sobre el libro. */}
         {aviso && (
-          <p role="status" className="fixed top-14 left-1/2 z-50 max-w-sm -translate-x-1/2 rounded-xl border border-danger/40 bg-danger-suave px-4 py-2 text-sm text-danger-texto shadow-lg">
+          <p role="status" className={cn("fixed top-14 left-1/2 z-50 max-w-sm -translate-x-1/2 rounded-xl border px-4 py-2 text-sm shadow-lg",
+                                         avisoBueno ? "border-success/40 bg-success-suave text-success-texto" : "border-danger/40 bg-danger-suave text-danger-texto")}>
             {aviso}
           </p>
         )}

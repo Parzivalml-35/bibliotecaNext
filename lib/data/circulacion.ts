@@ -364,13 +364,14 @@ export async function insertarPrestamo(
 
 type FilaPrestamoParaDevolver = {
   id_prestamo: number;
+  id_lector: number; // RN-93: a quién se le envía la encuesta
   lector: string;
   dias_atraso: number; // 0 si se devuelve a tiempo
 } & RowDataPacket;
 
 export async function bloquearPrestamoAbiertoDelEjemplar(conexion: Conexion, idEjemplar: number) {
   const [filas] = await conexion.execute<FilaPrestamoParaDevolver[]>(
-    `SELECT p.id_prestamo, CONCAT(l.nombre, ' ', l.apellido) AS lector,
+    `SELECT p.id_prestamo, p.id_lector, CONCAT(l.nombre, ' ', l.apellido) AS lector,
             GREATEST(DATEDIFF(CURDATE(), p.fecha_vencimiento), 0) AS dias_atraso
      FROM prestamo_fisico p JOIN lector l ON l.id_lector = p.id_lector
      WHERE p.id_ejemplar = ? AND p.fecha_devolucion IS NULL

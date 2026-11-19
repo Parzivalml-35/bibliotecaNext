@@ -3,6 +3,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { AYUDA_APODO, esApodoValido, normalizarApodo } from "@/lib/apodo";
 import { estiloAlAzar } from "@/lib/avatar";
 import { hashearContrasena } from "@/lib/contrasenas";
 import { enTransaccion } from "@/lib/db";
@@ -22,6 +23,7 @@ import type { EstadoFormulario } from "@/lib/definitions";
 import { empleadoDeMostrador, enviarCorreo, ErrorDeRegla, errorDeContrasenaActual, idDe, ipDeLaPeticion, operar, texto, TIPOS_DOCUMENTO } from "@/lib/actions/reglas";
 import { anotarIntento, recuperacionBloqueada, registroBloqueado } from "@/lib/data/intentos";
 import {
+  apodoOcupado,
   bloquearTokenCambioCorreo,
   bloquearTokenRecuperacion,
   buscarCuentaPorCorreo,
@@ -30,6 +32,7 @@ import {
   crearTokenCambioCorreo,
   crearTokenRecuperacion,
   usarTokenYCambiarCorreo,
+  esApodoRepetido,
   usarTokenYRestablecer,
 } from "@/lib/data/sesiones";
 import { exigirLector, obtenerUsuario } from "@/lib/sesion";
@@ -75,8 +78,10 @@ export async function registrarLector(_estadoAnterior: EstadoFormulario, datos: 
   const calle = texto(datos, "calle");
   const codigoPostal = texto(datos, "codigo_postal");
   const idCiudad = idDe(datos, "id_ciudad");
+  // RN-92: el formulario trae uno generado; si la persona lo borra, se queda sin apodo y se le pide uno.
+  const apodo = normalizarApodo(datos.get("apodo"));
   const valores = { // la contraseña nunca vuelve
-    correo, nombre, apellido, fecha_nacimiento: nacimiento, tipo_documento: tipoDocumento,
+    apodo, correo, nombre, apellido, fecha_nacimiento: nacimiento, tipo_documento: tipoDocumento,
     numero_documento: numeroDocumento, telefono, calle, codigo_postal: codigoPostal, id_ciudad: texto(datos, "id_ciudad"),
   };
 
@@ -94,6 +99,7 @@ export async function registrarLector(_estadoAnterior: EstadoFormulario, datos: 
   const errorContacto = errorDeContacto(telefono, calle, codigoPostal, idCiudad);
   // `|| !idCiudad`: errorDeContacto ya lo comprueba, pero TypeScript no lo sabe; así idCiudad queda como number.
   if (errorContacto || !idCiudad) return { error: errorContacto ?? "Elige tu ciudad.", valores };
+  if (!esApodoValido(apodo)) return { error: `El apodo no sirve. ${AYUDA_APODO}`, valores };
 
   // RN-73: un límite de registros por IP frena la creación masiva de cuentas (y de "correos" enviados).
   const ip = await ipDeLaPeticion();
@@ -122,15 +128,21 @@ export async function registrarLector(_estadoAnterior: EstadoFormulario, datos: 
         return;
       }
       if (!(await existeCiudad(conexion, idCiudad))) throw new ErrorDeRegla("Elige tu ciudad.");
+      // RN-92: el apodo es público, así que decir que está en uso no revela nada que no se vea en una reseña. Va
+      // DESPUÉS de las comprobaciones de correo y documento: si no, la respuesta distinta delataría que esos no existen.
+      if (await apodoOcupado(conexion, apodo, null)) throw new ErrorDeRegla("Ese apodo ya está en uso. Elige otro.");
       const horas = await insertarLectorRegistrado(conexion, {
         correo, passwordHash, nombre, apellido, nacimiento, tipoDocumento, numeroDocumento, telefono, calle,
         codigoPostal: codigoPostal || null, idCiudad, tokenHash: hashDeToken(token),
         avatarEstilo: estiloAlAzar(), // RN-81: toda cuenta nace con un avatar genérico al azar
+        apodo,
       });
       enviarCorreo(correo, "Verifica tu correo", `Abre este enlace en las próximas ${horas} horas:\n${origen}/verificar?token=${token}`);
     });
   } catch (error) {
     if (error instanceof ErrorDeRegla) return { error: error.message, valores };
+    // Dos registros simultáneos con el mismo apodo: el UNIQUE frena al segundo. A diferencia del correo, se dice.
+    if (esApodoRepetido(error)) return { error: "Ese apodo ya está en uso. Elige otro.", valores };
     // Dos registros simultáneos con el mismo correo o documento: el UNIQUE frena al segundo, y recibe la
     // misma respuesta que todos.
     if ((error as { code?: string }).code !== "ER_DUP_ENTRY") {

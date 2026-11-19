@@ -18,7 +18,8 @@ import {
 } from "@/lib/data/digital";
 import { obtenerLibroPorIsbn } from "@/lib/data/libros";
 import type { EstadoFormulario, LibroDetalle } from "@/lib/definitions";
-import { elegirLote, ErrorDeRegla, idDe, licenciasLibres, operar, procesarColaDigital, texto } from "@/lib/actions/reglas";
+import { elegirLote, enviarCorreo, ErrorDeRegla, idDe, licenciasLibres, operar, procesarColaDigital, texto } from "@/lib/actions/reglas";
+import { enviarEncuesta } from "@/lib/data/encuestas";
 import { esIsbnValido } from "@/lib/isbn";
 import { exigirLector } from "@/lib/sesion";
 
@@ -148,7 +149,13 @@ export async function devolverDigital(_estadoAnterior: EstadoFormulario, datos: 
         throw new ErrorDeRegla("Ese préstamo ya terminó.");
       }
       await procesarColaDigital(conexion, libro.id_libro, libro.titulo); // la licencia liberada, al primero de la cola
-      return "Devuelto. Gracias: la licencia queda para otro lector.";
+      // RN-93: la encuesta, en esta misma transacción. Correo simulado dentro, como los demás de este archivo.
+      const encuesta = await enviarEncuesta(conexion, lector.id_lector, libro.id_libro);
+      if (encuesta) {
+        enviarCorreo(encuesta.correo, `¿Qué te pareció «${encuesta.titulo}»?`,
+          `Devolviste «${encuesta.titulo}». Cuéntanos qué te pareció: entra a «Mis lecturas» o abre el aviso de la campana.`);
+      }
+      return "Devuelto. Gracias: la licencia queda para otro lector. Si quieres, cuéntanos qué te pareció (te dejamos un aviso en la campana).";
     },
     rutasDe(libro.isbn),
   );

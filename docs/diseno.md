@@ -33,6 +33,7 @@ Inspiración, no copia: no se usan imágenes, logos ni textos de las referencias
 | DI-14 | **Luz sobre una pared** en el fondo, distinta por tema: haces de **sol** en el claro, de **luna** en el oscuro y el foco cálido de una **lámpara de pared** en la lámpara. CSS (degradados) sobre una textura de pared ligera; las tarjetas siguen opacas | Da ambiente sin restar legibilidad: la luz solo se ve donde hay fondo. Referencias: aplique de pared y haces sobre concreto (Fase A) |
 | DI-15 | La luz se **anima solo al cambiar de tema** (la lámpara "calienta" al encenderse); después queda quieta. Con `prefers-reduced-motion` el cambio es inmediato | Movimiento continuo distrae al leer; la animación de entrada da la sensación de encender |
 | DI-16 | **"Mis lecturas" en dos columnas** (R10, 2026-11-12): un **layout anidado** (`app/(sitio)/cuenta/lecturas/layout.tsx`) deja la lista de libros fija a la izquierda en el escritorio y el detalle a la derecha; al cambiar de libro la lista no se vuelve a montar. En el celular, la lista y el detalle son pantallas distintas (la lista se oculta al elegir un libro). La zona de cuenta se ensancha solo en esta sección (`has-[[data-ancho=amplio]]:max-w-6xl`). El panel de notas es **el mismo del visor**, con props opcionales (sin "Ir al pasaje" si no hay acceso) | Combina las dos propuestas que vio el usuario: la lista como índice siempre visible y la vista completa del libro; reutilizar el panel evita dos versiones de las mismas notas |
+| DI-17 | **Avisos en una campana** (R11, 2026-11-12): las notificaciones de la cuenta (RN-91) se ven en una campana de la barra superior, con el número de no leídas en un círculo del acento del tema y el número dicho con palabras al lector de pantalla. No aparece en `/leer` (la lectura no se interrumpe). Lo **público** (reseñas) siempre lleva el **apodo** (RN-92), nunca el nombre real | El usuario pidió un lugar para estos avisos y los futuros; la campana es la convención conocida. El apodo separa la identidad pública de la que la biblioteca necesita para operar |
 
 ## Arquitectura de información (DI-10)
 
@@ -44,9 +45,9 @@ Rutas **objetivo**. Las que cambian respecto de hoy se marcan como nuevas o movi
 | Ruta | Pantalla | Estado |
 |---|---|---|
 | `/` | Catálogo con búsqueda | Existe |
-| `/libros/[isbn]` | Ficha del libro: dónde está, reservar, leer en línea | Existe |
+| `/libros/[isbn]` | Ficha del libro: dónde está, reservar, leer en línea, **reseñas de lectores** (promedio, % que lo recomienda, insignia "Lo leyó en la biblioteca", escribir y reportar; RN-94, RN-95) | Existe; reseñas en R11 |
 | `/login` | Iniciar sesión. Acepta `?siguiente=` (RN-83) | Existe; `?siguiente=` es nuevo |
-| `/registro`, `/verificar` | Crear cuenta y verificar el correo | Existen |
+| `/registro`, `/verificar` | Crear cuenta (con el apodo propuesto, RN-92) y verificar el correo | Existen |
 | `/recuperar` | Pedir el enlace y, con `?token=`, elegir la contraseña nueva (RN-80) | **Nueva** (R7) |
 
 ### "Mi cuenta" (cualquier cuenta con perfil de lector)
@@ -59,10 +60,10 @@ Una barra de pestañas propia, debajo de la barra superior.
 | `/cuenta/prestamos` | Préstamos y reservas | Préstamos físicos (con renovaciones) y reservas físicas | **Nueva**: sale de `/cuenta` |
 | `/cuenta/digitales` | Digitales | Préstamos y reservas digitales, botón "Leer" | **Nueva**: sale de `/cuenta` |
 | `/cuenta/lecturas` | Lecturas | Cada libro que el lector tuvo (prestado o comprado, físico o digital) con su avance y su última actividad (RN-89); la lista vive en el layout (DI-16) | **Nueva** (R10) |
-| `/cuenta/lecturas/[isbn]` | Lecturas (activa en las subrutas) | Detalle de un libro: ficha, "Seguir leyendo" si hay acceso, avance (digital y página en papel, RN-90), tiempo leído y sesiones, historia (reservas, préstamos, compras) y el panel de notas libres y resaltados del visor (RN-86, RN-87) | **Nueva** (R10) |
+| `/cuenta/lecturas/[isbn]` | Lecturas (activa en las subrutas) | Detalle de un libro: ficha, "Seguir leyendo" si hay acceso, avance (digital y página en papel, RN-90), tiempo leído y sesiones, historia (reservas, préstamos, compras) el panel de notas libres y resaltados del visor (RN-86, RN-87) y la tarjeta **"Tu opinión"** (`#encuesta`, adonde lleva la encuesta: "Terminé de leer", la página alcanzada y la reseña; RN-93, RN-94) | **Nueva** (R10) |
 | `/cuenta/multas` | Multas | Multas y pago en línea | **Nueva**: sale de `/cuenta` |
 | `/cuenta/pago/[id]` | (sin pestaña) | Pasarela simulada | Existe; se conserva |
-| `/cuenta/perfil` | Perfil | Datos editables (RN-77), avatar (RN-81, RN-82), tema | **Nueva** (R7) |
+| `/cuenta/perfil` | Perfil | Datos editables (RN-77), apodo (RN-92), avatar (RN-81, RN-82), tema | **Nueva** (R7; apodo en R11) |
 | `/cuenta/seguridad` | Seguridad | Contraseña (RN-78) y correo (RN-79) | **Nueva** (R7) |
 | `/leer/[isbn]` | (sin pestañas) | Visor **inmersivo**: barra mínima con volver, título y tema; sin la barra de la app | Hecho (R5d): fuera del route group `app/(sitio)` |
 
@@ -81,6 +82,7 @@ La barra de pestañas del panel muestra solo las secciones del rol; dentro de ca
 | | `/panel/mostrador/devolucion` | Devolución | ✓ | ✓ | | Movida (R3b) |
 | | `/panel/mostrador/pedidos` | Entregar pedidos (RN-33) | ✓ | ✓ | | Fase 6 |
 | Lectores | `/panel/lectores` | Buscar lector, validar, multas (anular según RN-67) | ✓ | ✓ | ✓ | Existe |
+| | `/panel/lectores/resenas` | Reseñas reportadas: ocultar, descartar reportes, volver a mostrar (RN-95); apodo y nombre real | ✓ | ✓ | ✓ | Hecho (R11-F) |
 | Colección | `/panel/coleccion/ubicar` | Ubicar ejemplares | ✓ | ✓ | | Movida (R3b) |
 | | `/panel/coleccion/perdidos` | Candidatos a perdido | ✓ | ✓ | | Movida (R3b) |
 | | `/panel/coleccion/traslados` | Traslados (RN-50 a RN-52) | | ✓ | | Fase de traslados |
@@ -103,9 +105,10 @@ cada página y en cada acción (RN-35), porque un layout no se vuelve a ejecutar
 
 | Pieza | Contenido | Dónde |
 |---|---|---|
-| Barra superior flotante (todas las páginas, salvo el visor, que lleva el emblema en sus propias barras) | Emblema (DI-13) · pestañas en píldora: **Catálogo**, **Mi cuenta** (si es lector), **Panel** (si es empleado) · lámpara (DI-03) · menú de usuario | `app/(sitio)/layout.tsx` (R5d: route group) |
+| Barra superior flotante (todas las páginas, salvo el visor, que lleva el emblema en sus propias barras) | Emblema (DI-13) · pestañas en píldora: **Catálogo**, **Mi cuenta** (si es lector), **Panel** (si es empleado) · lámpara (DI-03) · **campana de notificaciones** (con sesión, RN-91) · menú de usuario | `app/(sitio)/layout.tsx` (R5d: route group) |
+| Campana (R11-B, DI-17) | Número de avisos sin leer, la lista (abrir lleva a su enlace y la marca leída), "Marcar todas como leídas". No aparece en `/leer`: el visor está fuera del grupo `(sitio)` | Barra superior (`DropdownMenu` controlado) |
 | Menú de usuario (sin sesión) | "Iniciar sesión" y "Crear cuenta" | Barra superior |
-| Menú de usuario (con sesión) | Avatar (DI-12) que abre un menú: nombre y correo, Mi cuenta / Panel, Perfil, Seguridad, Salir | Barra superior (`DropdownMenu`) |
+| Menú de usuario (con sesión) | Avatar (DI-12) que abre un menú: nombre, `@apodo` (RN-92) y correo, Mi cuenta / Panel, Perfil, Seguridad, Salir | Barra superior (`DropdownMenu`) |
 | Sub-navegación | Pestañas de "Mi cuenta" o secciones del panel del rol | Layout de la zona |
 | En el celular | Las pestañas de la barra superior pasan a un menú lateral (`Sheet`); las sub-navegaciones se desplazan en horizontal | — |
 

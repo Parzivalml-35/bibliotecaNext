@@ -1,6 +1,6 @@
 "use client";
 
-import { Note01Icon, NoteEditIcon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
+import { CheckmarkCircle02Icon, Note01Icon, NoteEditIcon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ const NOMBRE_MODO: Record<ModoSeleccion, string> = {
   anotar: "Resaltar y anotar",
 };
 
-export function Lapiz({ modo, color, estilo, alCambiarModo, alCambiarColor, alCambiarEstilo, alNuevaNota, alVerNotas }: {
+export function Lapiz({ modo, color, estilo, alCambiarModo, alCambiarColor, alCambiarEstilo, alNuevaNota, alVerNotas, alTerminar }: {
   modo: ModoSeleccion;
   color: ColorAnotacion;
   estilo: EstiloAnotacion;
@@ -47,6 +47,7 @@ export function Lapiz({ modo, color, estilo, alCambiarModo, alCambiarColor, alCa
   alCambiarEstilo: (e: EstiloAnotacion) => void;
   alNuevaNota: () => void;
   alVerNotas: () => void;
+  alTerminar: () => void; // RN-93: "Terminé de leer"
 }) {
   // Al cerrarse, Radix devuelve el foco al lápiz. Si se eligió "Nueva nota libre", el foco tiene que quedar en el editor
   // de la nota: se marca aquí y onCloseAutoFocus lo impide (preventDefault) solo esa vez.
@@ -97,6 +98,13 @@ export function Lapiz({ modo, color, estilo, alCambiarModo, alCambiarColor, alCa
         <DropdownMenuItem onSelect={alVerNotas}>
           <HugeiconsIcon icon={Note01Icon} aria-hidden="true" />
           Mis notas y resaltados
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {/* RN-93: marca el libro como terminado y deja la encuesta en la campana (que no se ve en /leer: la lectura no se
+            interrumpe). Desmarcarlo se hace en "Mis lecturas". */}
+        <DropdownMenuItem onSelect={alTerminar}>
+          <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden="true" />
+          Terminé de leer
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

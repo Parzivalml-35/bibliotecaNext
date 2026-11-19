@@ -3,7 +3,9 @@
 import { useActionState } from "react";
 import { claseBoton, claseCampo, claseEtiqueta, MensajeFormulario } from "@/components/ui-formulario";
 import { actualizarContacto, registrarLector, verificarCorreo } from "@/lib/actions/cuenta";
+import { cambiarApodo } from "@/lib/actions/apodo";
 import { reservarObra } from "@/lib/actions/reservas";
+import { AYUDA_APODO, LARGO_MAXIMO_APODO, LARGO_MINIMO_APODO } from "@/lib/apodo";
 import type { EstadoFormulario } from "@/lib/definitions";
 
 const estadoInicial: EstadoFormulario = {};
@@ -13,7 +15,8 @@ type Ciudad = { id_ciudad: number; nombre: string; departamento: string };
 // Formularios del lado del lector. Client Components solo por useActionState (mensaje y "pendiente").
 
 // D-02, RN-70, RN-74. Los atributos required/minLength/type son comodidad: la acción valida todo de nuevo.
-export function FormularioRegistro({ ciudades }: { ciudades: Ciudad[] }) {
+// RN-92: `apodoSugerido` lo genera la página en el servidor; la persona lo deja o lo cambia aquí mismo.
+export function FormularioRegistro({ ciudades, apodoSugerido }: { ciudades: Ciudad[]; apodoSugerido: string }) {
   const [estado, accion, pendiente] = useActionState(registrarLector, estadoInicial);
   const v = estado.valores ?? {};
   return (
@@ -52,6 +55,8 @@ export function FormularioRegistro({ ciudades }: { ciudades: Ciudad[] }) {
         </div>
       </div>
       <CamposContacto ciudades={ciudades} valores={v} />
+      {/* RN-92: el nombre público. Después del nombre real y antes del correo, para que se lea la diferencia. */}
+      <CampoApodo valor={v.apodo ?? apodoSugerido} ayuda={`Es lo que verán los demás en tus reseñas; tu nombre real no se publica. Te propusimos uno: puedes dejarlo o cambiarlo, aquí o después en tu perfil. ${AYUDA_APODO}`} />
       <div>
         <label htmlFor="correo" className={claseEtiqueta}>Correo</label>
         <input id="correo" name="correo" type="email" required autoComplete="email" defaultValue={v.correo} className={claseCampo} />
@@ -66,6 +71,38 @@ export function FormularioRegistro({ ciudades }: { ciudades: Ciudad[] }) {
       <MensajeFormulario estado={estado} />
       <button type="submit" disabled={pendiente} className={`${claseBoton} w-full`}>
         {pendiente ? "Creando cuenta…" : "Crear cuenta"}
+      </button>
+    </form>
+  );
+}
+
+// RN-92: el campo del apodo, igual en el registro y en el perfil. pattern y minLength/maxLength son comodidad (el
+// navegador avisa antes de enviar); la acción valida de nuevo con la misma regla (lib/apodo.ts). En `pattern` la
+// expresión va sin ^ ni $ (el navegador exige que coincida entera) y con la bandera v que el navegador le pone sola,
+// así \p{L} (cualquier letra, con tilde) funciona. autoCapitalize="none": el teclado del celular no pone mayúscula.
+export function CampoApodo({ valor, ayuda }: { valor: string; ayuda: string }) {
+  return (
+    <div>
+      <label htmlFor="apodo" className={claseEtiqueta}>Apodo</label>
+      <input id="apodo" name="apodo" required minLength={LARGO_MINIMO_APODO} maxLength={LARGO_MAXIMO_APODO}
+             pattern="[\p{L}\p{N}_.\-]+" autoComplete="nickname" autoCapitalize="none" spellCheck={false}
+             defaultValue={valor} className={claseCampo} aria-describedby="ayuda-apodo" />
+      <p id="ayuda-apodo" className="mt-1 text-xs text-muted-foreground">{ayuda}</p>
+    </div>
+  );
+}
+
+// RN-92: cambiar el apodo desde el perfil (de la cuenta: lo usan /cuenta/perfil y /panel/perfil). Tras guardar, la
+// acción revalida todo el sitio y `actual` llega con el nuevo; tras un error, el campo conserva lo que se escribió.
+// key: cuando cambia `actual`, React vuelve a crear el campo (un defaultValue solo se lee al montar).
+export function FormularioApodo({ actual }: { actual: string }) {
+  const [estado, accion, pendiente] = useActionState(cambiarApodo, estadoInicial);
+  return (
+    <form action={accion} className="space-y-4">
+      <CampoApodo key={actual} valor={estado.valores?.apodo ?? actual} ayuda={AYUDA_APODO} />
+      <MensajeFormulario estado={estado} />
+      <button type="submit" disabled={pendiente} className={claseBoton}>
+        {pendiente ? "Guardando…" : "Guardar apodo"}
       </button>
     </form>
   );

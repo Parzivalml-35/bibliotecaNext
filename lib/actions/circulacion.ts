@@ -33,7 +33,9 @@ import {
   procesarReservasVencidas,
   texto,
   TIPOS_DOCUMENTO,
+  enviarCorreo,
 } from "@/lib/actions/reglas";
+import { enviarEncuesta } from "@/lib/data/encuestas";
 
 // Circulación en mostrador: préstamo, devolución, renovación (Fase 3), ubicar y declarar perdido (Fase 4).
 // Cada acción: 1) exige empleado con sede (RN-33, RN-34, RN-35); 2) valida la entrada; 3) aplica las reglas
@@ -172,6 +174,15 @@ export async function devolverEjemplar(_estadoAnterior: EstadoFormulario, datos:
 
     await procesarReservasVencidas(conexion, ejemplar.id_libro, empleado.idSede); // RN-48, antes de mirar la cola
     const destino = await liberarEjemplar(conexion, ejemplar, "prestado", empleado.idSede);
+
+    // RN-93: la encuesta al lector, en esta misma transacción (si la devolución se deshace, la encuesta también). El
+    // mensaje al empleado no la menciona: lo que el lector opine no es asunto del mostrador (RN-87).
+    const encuesta = await enviarEncuesta(conexion, prestamo.id_lector, ejemplar.id_libro);
+    if (encuesta) {
+      // Correo simulado dentro de la transacción, como los demás de este archivo (ver "Pendientes" de estado.md).
+      enviarCorreo(encuesta.correo, `¿Qué te pareció «${encuesta.titulo}»?`,
+        `Devolviste «${encuesta.titulo}». Cuéntanos qué te pareció y hasta qué página llegaste: entra a «Mis lecturas» o abre el aviso de la campana.`);
+    }
 
     const otraSede = ejemplar.id_sede !== empleado.idSede ? ` Era de ${ejemplar.sede}; ahora pertenece a ${empleado.sede}.` : "";
     return `Devuelto «${ejemplar.titulo}» (${codigo}), prestado a ${prestamo.lector}.${multa}${otraSede} Siguiente paso: ${destino}.`;

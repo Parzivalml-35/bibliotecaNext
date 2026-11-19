@@ -53,14 +53,15 @@ export type DatosRegistro = {
   idCiudad: number;
   tokenHash: string;
   avatarEstilo: string; // RN-81: lo elige la acción (estiloAlAzar); la semilla la pone el DEFAULT de la columna
+  apodo: string; // RN-92: el que propuso el formulario o el que escribió la persona, ya validado
 };
 
 // Crea cuenta + lector (con el tipo inicial de la configuración, C-04) + token de verificación, todo con
 // valores calculados en MySQL. Devuelve las horas de validez del enlace, para el mensaje del correo.
 export async function insertarLectorRegistrado(conexion: Conexion, datos: DatosRegistro): Promise<number> {
   const [cuenta] = await conexion.execute<ResultSetHeader>(
-    "INSERT INTO cuenta (correo, password_hash, avatar_estilo) VALUES (?, ?, ?)",
-    [datos.correo, datos.passwordHash, datos.avatarEstilo],
+    "INSERT INTO cuenta (correo, password_hash, avatar_estilo, apodo) VALUES (?, ?, ?, ?)",
+    [datos.correo, datos.passwordHash, datos.avatarEstilo, datos.apodo],
   );
   await conexion.execute(
     `INSERT INTO lector (id_cuenta, id_tipo_lector, nombre, apellido, fecha_nacimiento, tipo_documento, numero_documento,

@@ -217,6 +217,7 @@ erDiagram
         varchar avatar_clave "UK, NULL"
         enum tema_base "NULL"
         boolean lampara "NULL"
+        varchar apodo "UK, DEFAULT generado (RN-92)"
     }
     token_cuenta {
         int id_token PK
@@ -755,3 +756,84 @@ erDiagram
   ver ni borrar las propias (RN-87).
 - El lector sale **siempre de la sesión**; una anotación o nota ajena se trata como inexistente (RN-87, RN-35).
 - Forma del `cfi` (empieza por `epubcfi(` y cabe en 500), largo de la nota y recorte de la cita según `configuracion`.
+
+## Bloque 7 — Comunidad: notificaciones, lecturas terminadas, reseñas y reportes
+
+Agregado el 2026-11-12 (RN-91 a RN-95). Lo **público** (reseñas) se muestra con el apodo de la cuenta (`cuenta.apodo`,
+RN-92), nunca con el nombre del lector. Las notificaciones son de la **cuenta** (RN-31): hoy solo las recibe el lector,
+pero un empleado también podrá recibirlas. El foro irá en un bloque propio.
+
+```mermaid
+erDiagram
+    cuenta ||--o{ notificacion : "recibe"
+    libro ||--o{ notificacion : "trata de"
+    lector ||--o{ lectura_terminada : "terminó"
+    libro ||--o{ lectura_terminada : ""
+    lector ||--o{ resena : "escribe"
+    libro ||--o{ resena : ""
+    empleado ||--o{ resena : "oculta"
+    resena ||--o{ reporte_resena : "recibe"
+    lector ||--o{ reporte_resena : "reporta"
+    empleado ||--o{ reporte_resena : "resuelve"
+
+    notificacion {
+        int id_notificacion PK
+        int id_cuenta FK
+        enum tipo
+        varchar texto
+        varchar enlace "ruta interna"
+        int id_libro FK "NULL"
+        datetime fecha_creacion
+        datetime fecha_lectura "NULL"
+        datetime fecha_vencimiento
+    }
+    lectura_terminada {
+        int id_lector PK, FK
+        int id_libro PK, FK
+        datetime fecha
+    }
+    resena {
+        int id_resena PK
+        int id_lector FK
+        int id_libro FK
+        tinyint estrellas "1 a 5"
+        boolean recomienda
+        text texto "NULL"
+        datetime fecha_creacion
+        datetime fecha_edicion "NULL"
+        datetime fecha_ocultada "NULL"
+        int id_empleado_oculta FK "NULL"
+    }
+    reporte_resena {
+        int id_reporte PK
+        int id_resena FK
+        int id_lector FK
+        enum motivo
+        varchar detalle "NULL"
+        datetime fecha
+        enum estado
+        int id_empleado FK "NULL"
+        datetime fecha_resolucion "NULL"
+    }
+```
+
+### De dónde sale cada tabla
+
+| Tabla | Reglas | Notas de diseño |
+|---|---|---|
+| `cuenta.apodo` | RN-92 | `UNIQUE` con la intercalación de la BD (`utf8mb4_0900_ai_ci`): no distingue mayúsculas ni tildes, así "José" y "jose" chocan sin columna normalizada. `CHECK` con `REGEXP_LIKE(apodo, '^[[:alnum:]_.-]{3,30}$')` (en MySQL 8, `[[:alnum:]]` acepta letras con tilde y ñ: comprobado). `DEFAULT` generado (`lector-` + 6 dígitos); si choca, el `UNIQUE` lo rechaza y la aplicación propone otro. |
+| `notificacion` | RN-91, RN-93 | Genérica: `tipo` como ENUM (C-02: cada tipo se dibuja y se maneja distinto en el código; hoy solo `encuesta`). `texto` y `enlace` guardados, así una notificación vieja no cambia si cambia el código. `CHECK` de enlace interno (como RN-83). Leída = `fecha_lectura` no nula; vencida = `fecha_vencimiento` pasada (no se borra: se deja de mostrar). `id_libro` es obligatorio en la encuesta (`CHECK`): la usa la regla de "no repetir". |
+| `lectura_terminada` | RN-93 | Una fila = el lector marcó "Terminé de leer"; desmarcar la borra. Tabla propia y no una columna en `posicion_lectura`: aplica también a los libros en papel. |
+| `resena` | RN-94, RN-95 | `UNIQUE (id_lector, id_libro)`: una por libro; editar = `UPDATE` con `fecha_edicion`. La insignia "Lo leyó en la biblioteca" **no se guarda**: se calcula con la condición de RN-86 (si el lector luego pide el libro, la gana sin escribir nada). Oculta = `fecha_ocultada` + `id_empleado_oculta` (`CHECK` de los dos o ninguno). El promedio y el porcentaje que recomienda se calculan sobre las no ocultas. |
+| `reporte_resena` | RN-95 | `UNIQUE (id_resena, id_lector)`: un reporte por persona. `estado` ENUM con su `CHECK` (pendiente ⇔ sin empleado ni fecha de resolución). `ON DELETE CASCADE` en la reseña: si su autor la borra, sus reportes no quedan sueltos (`id_resena` no está en ningún `CHECK`, así no choca con el `ERROR 3823`). |
+| `configuracion` | RN-91, RN-94 | `dias_vencimiento_notificacion` (30) y `max_caracteres_resena` (2000), con su `CHECK` > 0. |
+
+### Lo que valida la capa de lógica
+
+- **Cuenta verificada** (RN-32) para escribir y reportar reseñas; reportar una propia no se permite.
+- El lector y la cuenta salen **siempre de la sesión**; una notificación ajena se trata como inexistente (RN-35).
+- **No repetir la encuesta** (RN-93): no se crea si el lector ya reseñó el libro o tiene una encuesta sin vencer de ese libro.
+- La encuesta por **vencimiento digital** se **calcula** al listar las notificaciones (préstamos vencidos sin encuesta ni
+  reseña) y se guarda cuando el lector la abre: un GET no escribe (mismo criterio que el turno de la cola).
+- Una reseña **oculta** no se puede volver a publicar editándola (RN-95): la acción de editar la mantiene oculta.
+- Largo del texto según `max_caracteres_resena`; texto vacío = sin texto (`NULL`).

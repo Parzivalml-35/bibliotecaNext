@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { FormularioAvatar, type OpcionAvatar } from "@/components/formularios-avatar";
+import { FormularioApodo } from "@/components/formularios-lector";
 import { FormularioContrasena, FormularioCorreo } from "@/components/formularios-seguridad";
 import { FormularioTema } from "@/components/formulario-tema";
 import { ESTILOS_AVATAR, esEstiloAvatar, NOMBRES_ESTILO, urlDeAvatar } from "@/lib/avatar";
@@ -22,6 +23,20 @@ function Seccion({ id, titulo, ayuda, children }: { id: string; titulo: string; 
       <p className="mt-1 mb-4 text-sm text-muted-foreground">{ayuda}</p>
       {children}
     </section>
+  );
+}
+
+// RN-92: el nombre público. De la cuenta, como el avatar: también lo tiene un empleado (para cuando publique).
+export async function SeccionApodo() {
+  const usuario = await obtenerUsuario();
+  if (!usuario) return null;
+  return (
+    // id="titulo-apodo" y no "apodo": ese id es del <input> (CampoApodo); dos elementos con el mismo id rompen el
+    // <label htmlFor> y el aria-labelledby.
+    <Seccion id="titulo-apodo" titulo="Apodo"
+             ayuda="Es tu nombre público: aparece en tus reseñas en lugar de tu nombre real, que solo ve el personal de la biblioteca.">
+      <FormularioApodo actual={usuario.apodo} />
+    </Seccion>
   );
 }
 

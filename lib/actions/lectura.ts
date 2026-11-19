@@ -15,6 +15,9 @@ import {
   limitesDeLectura,
   prestamoFisicoDelLector,
 } from "@/lib/data/lectura";
+import { enviarCorreo } from "@/lib/actions/reglas";
+import { enTransaccion } from "@/lib/db";
+import { desmarcarTerminado, enviarEncuesta, marcarTerminado } from "@/lib/data/encuestas";
 import { obtenerAccesoDeLectura } from "@/lib/data/digital";
 import { esIsbnValido } from "@/lib/isbn";
 import { esCfi, esColorAnotacion, esEstiloAnotacion, largo, recortar } from "@/lib/lectura";
@@ -220,5 +223,39 @@ export async function guardarPaginaFisica(idPrestamo: unknown, pagina: unknown):
     }
     await guardarAvanceFisico(idPrestamo, pagina);
     return { ok: true, valor: null };
+  });
+}
+
+// ---------------------------------------------------------------------
+// "Terminé de leer" (RN-93)
+// ---------------------------------------------------------------------
+// Lo marca el lector en "Mis lecturas" o en el visor, sobre un libro que TUVO (los mismos casos de las notas, RN-86).
+// Marcarlo envía la encuesta (si corresponde: sin reseña ni otra encuesta vigente de ese libro), en la misma
+// transacción. Desmarcarlo solo borra la marca: la encuesta ya enviada sigue en la campana hasta que venza.
+// El correo simulado sale DESPUÉS del COMMIT: si la transacción se deshiciera, no habría un correo de algo que no pasó.
+export async function cambiarTerminado(isbn: unknown, terminado: unknown): Promise<Resultado<boolean>> {
+  return intentar(async () => {
+    const usuario = await obtenerUsuario();
+    if (!usuario?.lector) return { ok: false, error: SIN_SESION };
+    if (typeof isbn !== "string" || !esIsbnValido(isbn) || typeof terminado !== "boolean") {
+      return { ok: false, error: "Datos no válidos." };
+    }
+    const idLector = usuario.lector.idLector;
+    const idLibro = await libroQueTuvo(idLector, isbn);
+    if (idLibro === null) return { ok: false, error: "Solo puedes marcar como terminados libros que tuviste (prestados o comprados)." };
+
+    if (!terminado) {
+      await desmarcarTerminado(idLector, idLibro);
+      return { ok: true, valor: false };
+    }
+    const encuesta = await enTransaccion(async (conexion) => {
+      await marcarTerminado(conexion, idLector, idLibro);
+      return enviarEncuesta(conexion, idLector, idLibro);
+    });
+    if (encuesta) {
+      enviarCorreo(encuesta.correo, `¿Qué te pareció «${encuesta.titulo}»?`,
+        `Terminaste «${encuesta.titulo}». Cuéntanos qué te pareció: entra a «Mis lecturas» o abre el aviso de la campana.`);
+    }
+    return { ok: true, valor: true };
   });
 }

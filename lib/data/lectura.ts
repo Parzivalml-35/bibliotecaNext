@@ -214,17 +214,20 @@ export async function registrarLatido(
 
 // RN-86, RN-89: "el lector TUVO este libro": un préstamo físico (en curso o devuelto), un préstamo digital (vigente o
 // terminado), una compra digital (acceso_digital) o una compra física entregada. Una reserva sola NO cuenta.
-// Fragmento SQL reutilizable: espera el libro como `l.id_libro` y lleva CUATRO `?`, todos el id del lector.
-const TUVO_EL_LIBRO = `(
+// Fragmento SQL reutilizable: espera el libro como `l.id_libro`. `lector` es la expresión SQL del lector: "?" (y la
+// consulta pasa el id CUATRO veces) o una columna, como "r.id_lector" en la lista de reseñas (RN-94: la insignia "Lo
+// leyó en la biblioteca" se calcula por fila). Solo la escribe el código, nunca llega del navegador.
+export const tuvoElLibro = (lector: "?" | "r.id_lector") => `(
   EXISTS (SELECT 1 FROM prestamo_fisico pf JOIN ejemplar ej ON ej.id_ejemplar = pf.id_ejemplar
-          WHERE pf.id_lector = ? AND ej.id_libro = l.id_libro)
+          WHERE pf.id_lector = ${lector} AND ej.id_libro = l.id_libro)
   OR EXISTS (SELECT 1 FROM prestamo_digital pd JOIN licencia_digital ld ON ld.id_licencia = pd.id_licencia
-             WHERE pd.id_lector = ? AND ld.id_libro = l.id_libro)
-  OR EXISTS (SELECT 1 FROM acceso_digital ad WHERE ad.id_lector = ? AND ad.id_libro = l.id_libro)
+             WHERE pd.id_lector = ${lector} AND ld.id_libro = l.id_libro)
+  OR EXISTS (SELECT 1 FROM acceso_digital ad WHERE ad.id_lector = ${lector} AND ad.id_libro = l.id_libro)
   OR EXISTS (SELECT 1 FROM pedido pe JOIN pedido_detalle dt ON dt.id_pedido = pe.id_pedido
              JOIN producto pr ON pr.id_producto = dt.id_producto
-             WHERE pe.id_lector = ? AND pe.estado = 'entregado' AND pr.tipo = 'fisico' AND pr.id_libro = l.id_libro)
+             WHERE pe.id_lector = ${lector} AND pe.estado = 'entregado' AND pr.tipo = 'fisico' AND pr.id_libro = l.id_libro)
 )`;
+const TUVO_EL_LIBRO = tuvoElLibro("?");
 const lectorCuatroVeces = (idLector: number) => [idLector, idLector, idLector, idLector];
 
 // El id del libro (por ISBN) si el lector lo tuvo; null si no (o si no existe: la respuesta es la misma).
