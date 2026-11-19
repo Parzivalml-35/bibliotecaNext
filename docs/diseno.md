@@ -265,7 +265,6 @@ animar sus partes. Si el arte cambia: reemplazar el original, pasarlo a JSX (atr
 | Logo reducido | `logo-reducido.svg` | `app/icon.svg` (favicon) | La cabeza con los ojos calados, legible a 16 px. En la pestaña el SVG es una imagen y no ve el tema: lleva el `primary` claro fijo y el oscuro con `prefers-color-scheme: dark` |
 | Sol, luna | `sol.svg`, `luna.svg` | `IconoSol`, `IconoLuna` | Grilla de 24, trazo 1.5, `currentColor`, como Hugeicons |
 | Lámpara | `lampara-apagada.svg`, `lampara-encendida.svg` | `IconoLampara({ encendida })` | Aplique mirando a la izquierda, como la luz de la pared. Encendida suma rayos hacia abajo con `decorativo` |
-| Lámpara (ilustración) | `lampara-ilustracion.svg` | Sin usar todavía | Para dibujar el aplique junto a su luz (DI-14), si se decide |
 
 ### Marca en movimiento (DI-15)
 
