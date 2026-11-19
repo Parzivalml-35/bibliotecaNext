@@ -147,3 +147,120 @@ export async function reportarResenaDeLector(
   );
   return "ok";
 }
+
+// ---------------------------------------------------------------------
+// Moderación en el panel (RN-95)
+// ---------------------------------------------------------------------
+// La ve el personal con el permiso `lectores`. Aquí SÍ aparece el nombre real junto al apodo (RN-92: el personal lo ve,
+// para las auditorías); estas consultas solo las usa el panel.
+
+export type ReporteDeResena = { motivo: MotivoReporte; detalle: string | null; fecha: string; apodo: string };
+
+export type ResenaAModerar = {
+  id_resena: number;
+  isbn: string;
+  titulo: string;
+  apodo: string;
+  nombre: string; // nombre real del autor (solo el personal)
+  estrellas: number;
+  recomienda: boolean;
+  texto: string | null;
+  fecha: string;
+  oculta_el: string | null; // fecha en que se ocultó (en la lista de ocultas)
+  oculta_por: string | null; // nombre del empleado que la ocultó
+  reportes: ReporteDeResena[]; // los pendientes (en la lista de reportadas)
+};
+
+type FilaModerar = Omit<ResenaAModerar, "recomienda" | "reportes"> & { recomienda: 0 | 1 } & RowDataPacket;
+
+const COLUMNAS_MODERAR = `
+  r.id_resena, li.isbn, li.titulo, c.apodo, CONCAT(le.nombre, ' ', le.apellido) AS nombre, r.estrellas, r.recomienda,
+  r.texto, DATE_FORMAT(r.fecha_creacion, '%d/%m/%Y') AS fecha,
+  DATE_FORMAT(r.fecha_ocultada, '%d/%m/%Y %H:%i') AS oculta_el,
+  CONCAT(em.nombre, ' ', em.apellido) AS oculta_por`;
+const DESDE_MODERAR = `
+  FROM resena r
+  JOIN libro li ON li.id_libro = r.id_libro
+  JOIN lector le ON le.id_lector = r.id_lector
+  JOIN cuenta c ON c.id_cuenta = le.id_cuenta
+  LEFT JOIN empleado em ON em.id_empleado = r.id_empleado_oculta`;
+
+const aModerar = (f: FilaModerar, reportes: ReporteDeResena[]): ResenaAModerar => ({
+  id_resena: f.id_resena, isbn: f.isbn, titulo: f.titulo, apodo: f.apodo, nombre: f.nombre, estrellas: f.estrellas,
+  recomienda: f.recomienda === 1, texto: f.texto, fecha: f.fecha, oculta_el: f.oculta_el, oculta_por: f.oculta_por, reportes,
+});
+
+// Reseñas VISIBLES con reportes pendientes, la más reportada primero. Dos consultas (reseñas y sus reportes) en lugar
+// de una con GROUP_CONCAT: los textos de los reportes pueden traer cualquier carácter, y así llegan intactos.
+export async function resenasReportadas(): Promise<ResenaAModerar[]> {
+  const [filas] = await pool.execute<(FilaModerar & { pendientes: number })[]>(
+    `SELECT ${COLUMNAS_MODERAR},
+            (SELECT COUNT(*) FROM reporte_resena rr WHERE rr.id_resena = r.id_resena AND rr.estado = 'pendiente') AS pendientes
+     ${DESDE_MODERAR}
+     WHERE r.fecha_ocultada IS NULL
+       AND EXISTS (SELECT 1 FROM reporte_resena rr WHERE rr.id_resena = r.id_resena AND rr.estado = 'pendiente')
+     ORDER BY pendientes DESC, r.fecha_creacion`,
+  );
+  if (filas.length === 0) return [];
+  // IN con tantos ? como reseñas: la lista sale de la consulta anterior (números), no del navegador.
+  const ids = filas.map((f) => f.id_resena);
+  const [reportes] = await pool.execute<(ReporteDeResena & { id_resena: number } & RowDataPacket)[]>(
+    `SELECT rr.id_resena, rr.motivo, rr.detalle, DATE_FORMAT(rr.fecha, '%d/%m/%Y %H:%i') AS fecha, c.apodo
+     FROM reporte_resena rr
+     JOIN lector le ON le.id_lector = rr.id_lector
+     JOIN cuenta c ON c.id_cuenta = le.id_cuenta
+     WHERE rr.estado = 'pendiente' AND rr.id_resena IN (${ids.map(() => "?").join(", ")})
+     ORDER BY rr.fecha`,
+    ids,
+  );
+  return filas.map((f) =>
+    aModerar(f, reportes.filter((r) => r.id_resena === f.id_resena).map(({ motivo, detalle, fecha, apodo }) => ({ motivo, detalle, fecha, apodo }))));
+}
+
+// Las ocultas, la más reciente primero (para volver a mostrarlas si fue un error).
+export async function resenasOcultas(): Promise<ResenaAModerar[]> {
+  const [filas] = await pool.execute<FilaModerar[]>(
+    `SELECT ${COLUMNAS_MODERAR} ${DESDE_MODERAR} WHERE r.fecha_ocultada IS NOT NULL ORDER BY r.fecha_ocultada DESC LIMIT 50`,
+  );
+  return filas.map((f) => aModerar(f, []));
+}
+
+// Bloquea la reseña para moderarla (dos empleados a la vez: el segundo espera y ve el estado nuevo). Devuelve su ISBN
+// (para revalidar la ficha) y si está oculta, o null si no existe.
+export async function bloquearResena(conexion: PoolConnection, idResena: number) {
+  const [filas] = await conexion.execute<({ isbn: string; oculta: 0 | 1 } & RowDataPacket)[]>(
+    `SELECT li.isbn, r.fecha_ocultada IS NOT NULL AS oculta
+     FROM resena r JOIN libro li ON li.id_libro = r.id_libro
+     WHERE r.id_resena = ? FOR UPDATE OF r`,
+    [idResena],
+  );
+  return filas[0] ? { isbn: filas[0].isbn, oculta: filas[0].oculta === 1 } : null;
+}
+
+// Resuelve TODOS los reportes pendientes de la reseña con el mismo resultado (RN-95: ocultar resuelve todos).
+async function resolverReportes(conexion: PoolConnection, idResena: number, idEmpleado: number, estado: "ocultada" | "descartada") {
+  const [r] = await conexion.execute<ResultSetHeader>(
+    `UPDATE reporte_resena SET estado = ?, id_empleado = ?, fecha_resolucion = NOW()
+     WHERE id_resena = ? AND estado = 'pendiente'`,
+    [estado, idEmpleado, idResena],
+  );
+  return r.affectedRows;
+}
+
+export async function ocultarResena(conexion: PoolConnection, idResena: number, idEmpleado: number): Promise<number> {
+  await conexion.execute(
+    "UPDATE resena SET fecha_ocultada = NOW(), id_empleado_oculta = ? WHERE id_resena = ? AND fecha_ocultada IS NULL",
+    [idEmpleado, idResena],
+  );
+  return resolverReportes(conexion, idResena, idEmpleado, "ocultada");
+}
+
+export async function descartarReportes(conexion: PoolConnection, idResena: number, idEmpleado: number): Promise<number> {
+  return resolverReportes(conexion, idResena, idEmpleado, "descartada");
+}
+
+// Volver a mostrar: las dos columnas a NULL (ck_resena_oculta exige las dos o ninguna). Los reportes ya resueltos se
+// quedan como estaban: son el registro de lo que pasó.
+export async function mostrarResena(conexion: PoolConnection, idResena: number): Promise<void> {
+  await conexion.execute("UPDATE resena SET fecha_ocultada = NULL, id_empleado_oculta = NULL WHERE id_resena = ?", [idResena]);
+}

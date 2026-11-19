@@ -53,7 +53,15 @@ export const SECCIONES_PANEL: SeccionPanel[] = [
       { titulo: "Devolución", ruta: "/panel/mostrador/devolucion", permiso: "mostrador" },
     ],
   },
-  { titulo: "Lectores", ruta: "/panel/lectores", paginas: [{ titulo: "Lectores y multas", ruta: "/panel/lectores", permiso: "lectores" }] },
+  {
+    titulo: "Lectores",
+    ruta: "/panel/lectores",
+    paginas: [
+      { titulo: "Lectores y multas", ruta: "/panel/lectores", permiso: "lectores" },
+      // RN-95: moderar las reseñas que los lectores reportan.
+      { titulo: "Reseñas reportadas", ruta: "/panel/lectores/resenas", permiso: "lectores" },
+    ],
+  },
   {
     titulo: "Colección",
     ruta: "/panel/coleccion",
