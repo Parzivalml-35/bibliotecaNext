@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+<!-- Favicon (DI-13): el logo reducido de docs/marca/logo-reducido.svg. Next lo sirve como /icon.svg y agrega el <link>.
+     En la pestaña el SVG va como imagen: no ve las variables CSS de la página y currentColor sería negro. Por eso lleva
+     el color primary fijo (claro: oklch(0.562 0.142 51) = #b4570c) y, si el navegador está en modo oscuro, el primary
+     del tema oscuro (oklch(0.744 0.15 59.6) = #f0923b), que se lee sobre pestañas oscuras. -->
+<style>
+  path, circle { fill: #b4570c; }
+  @media (prefers-color-scheme: dark) { path, circle { fill: #f0923b; } }
+</style>
+<path fill-rule="evenodd" d="M2.6 8.6C2.6 6.6 3.3 5.2 4.2 4.5L3.6 1.8L6.6 3.8C7.5 3.6 8.5 3.6 9.4 3.8L12.4 1.8L11.8 4.5C12.7 5.2 13.4 6.6 13.4 8.6C13.4 12.2 11 14.4 8 14.4C5 14.4 2.6 12.2 2.6 8.6ZM3.6 8.4a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0 -3.8 0ZM8.6 8.4a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0 -3.8 0ZM7.3 10.9H8.7L8 12.4Z"/>
+<circle cx="5.6" cy="8.6" r="0.85"/>
+<circle cx="10.4" cy="8.6" r="0.85"/>
+</svg>

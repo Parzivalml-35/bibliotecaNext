@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión, en el mismo commit. Es lo primero que se lee al retomar en cualquier equipo.
 
-**Última actualización:** 2026-11-19 — R9 y R10 en `main`; R11 (notificaciones, apodo, encuesta, reseñas y moderación) terminada en `feat/resenas`; falta integrarla en `main`
+**Última actualización:** 2026-11-19 — R11 en `main`; marca definitiva (logo, íconos, favicon y microanimaciones) en `feat/marca`
 
 ## Fase 0 — Diseño del dominio (terminada)
 
@@ -162,9 +162,21 @@ Decisiones del usuario (2026-11-12): encuesta al devolver (físico o digital) o 
 | F | Moderación en el panel (permiso `lectores`) | Hecho. `/panel/lectores/resenas` ("Reseñas reportadas" en la sección Lectores de `lib/permisos.ts`): las publicadas con reportes pendientes (la más reportada primero, con apodo y nombre real, RN-92) y las ocultas; `lib/actions/moderacion.ts` con `BotonAccion` y `operar` (`exigirEmpleado("lectores")` en cada acción; la reseña se bloquea con `FOR UPDATE OF r`): ocultar (resuelve todos los reportes pendientes), descartar reportes, volver a mostrar (los reportes resueltos quedan como registro); revalidan el panel y la ficha. Probado en Chrome como Diego: ocultar la de Luis (2 reportes) → sale de la ficha y del promedio, Luis la ve "oculta por moderación"; volver a mostrar; descartar el reporte de la de Ana (sigue publicada). Ids alterados en el campo oculto (99999, "abc") rechazados; Ana (lectora) en la página o llamando la acción → login con `sin-panel` |
 | G | Verificación, documentos, merge | Hecho salvo el merge. BD reconstruida el 2026-11-19 (51 tablas; vuelve al seed: 4 reseñas, 1 reporte, 0 avisos, 5 préstamos abiertos); revisión de humo (ficha con 3,5 y 2 reseñas, moderación con el reporte de Mateo, campana con sesión, `/leer` redirige sin sesión); `tsc`, lint y `pnpm build` (33 rutas) sin errores; `diseno.md` con las rutas nuevas, la campana y DI-17 |
 
+## Marca (rama `feat/marca` desde `main`)
+
+Diseñada en Claude Design (2026-11-19): el proyecto se integró como un artefacto "Design System" y los SVG exportados
+quedaron en `docs/marca/`. Concepto del usuario: lechuza de frente, alas abiertas hechas de páginas, algo de volumen.
+
+| Paso | Estado |
+|---|---|
+| Revisión de los SVG (tres temas, 16 a 160 px) y correcciones en Claude Design (lámparas más grandes y mirando a la izquierda; emblema sin halo, con margen, en versión con volumen y plana) | Hecho |
+| `components/marca/iconos.tsx` con el arte definitivo (misma interfaz; nuevo `LogoPrincipal` para la barra), microanimaciones en `globals.css`, `logo-animado` e `icono-animado` en el emblema y los botones, `app/icon.svg` | Hecho. `tsc`, lint y `pnpm diseno:contraste` sin errores; capturas en Chrome sin ventana (escritorio y celular, tres temas); parpadeo, alas a −9° y nada con movimiento reducido, medidos con `getComputedStyle` |
+| `app/favicon.ico` de Next borrado (queda solo `app/icon.svg`); el primer emblema descartado. Elegida la versión con volumen para la barra tras compararla en vivo con las otras dos | Hecho |
+| Actualizar el Design System en Claude con la marca final y merge en `main` | Pendiente |
+
 ## Próximo paso
 
-0. **R11 Comunidad** (terminada en `feat/resenas`): falta el merge `--no-ff` en `main` y el push. Después, el **foro** de discusión por libro (reglas por decidir).
+0. **Marca** (`feat/marca`): terminar los pendientes de su tabla. Después, el **foro** de discusión por libro (reglas por decidir).
 1. **`/documentar`**: la fase "Mi cuenta y lector EPUB" (R7, R8), la Fase R y la Fase A, y lo pendiente de la Fase 4
    (prueba en navegador de las fases 3 y 4, 2026-10-24), RN-75 y el choque de numeración RN-74 entre los dos equipos.
 2. Fase 6: compras (RN-36 a RN-42, RN-57 a RN-61) + **pasarela con notificación firmada** (Route Handler que
@@ -175,7 +187,6 @@ Decisiones del usuario (2026-11-12): encuesta al devolver (físico o digital) o 
    (antes: regla para su multa de reposición: anular si está pendiente, ¿reembolsar si ya se pagó?).
 5. Fase 9: calidad (Lighthouse, accesibilidad, build), CSP para el resto del sitio. Pendiente de la Fase 5: subir
    archivos PDF y EPUB desde el panel.
-6. Cuando lleguen el logo y los íconos definitivos: reemplazar `components/marca/iconos.tsx` y agregar `app/icon.svg`.
 
 Decidido y aplazado: retirar la foto de un lector desde el panel (RN-82). Mejoras pequeñas: el aviso "Pide el cambio otra vez
 desde Seguridad" de `confirmarCambioCorreo` no sirve al empleado (lo tiene en "Mi perfil").

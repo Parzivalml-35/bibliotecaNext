@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { BotonLampara, LamparaDeEsquina } from "@/components/boton-lampara";
 import { CampanaNotificaciones } from "@/components/campana-notificaciones";
-import { Logo } from "@/components/marca/iconos";
+import { LogoPrincipal } from "@/components/marca/iconos";
 import { MenuUsuario } from "@/components/menu-usuario";
 import { NavegacionPrincipal } from "@/components/navegacion-principal";
 
@@ -24,9 +24,11 @@ export default function LayoutSitio({ children }: { children: ReactNode }) {
           <div className="flex items-center pl-16 sm:pl-20">
             {/* DI-13: el emblema cuelga de la cápsula. absolute + top-1/2 + -translate-y-1/2: centrado en su alto;
                 como es más alto que la barra (56 px de ancho → 70 px de alto en 4:5, frente a ~48 px), sobresale
-                arriba y abajo. Es el enlace al inicio: su nombre accesible es el texto sr-only. */}
-            <Link href="/" className="absolute top-1/2 left-3 -translate-y-1/2 rounded-md sm:left-4">
-              <Logo className="w-11 sm:w-14" />
+                arriba y abajo. Es el enlace al inicio: su nombre accesible es el texto sr-only. La versión con volumen:
+                a este tamaño se nota. logo-animado: parpadea al pasar el mouse y abre las alas al presionar (globals.css).
+                focus-visible:*: el anillo de foco del resto de la interfaz (antes este enlace no tenía uno visible). */}
+            <Link href="/" className="logo-animado absolute top-1/2 left-3 -translate-y-1/2 rounded-md focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:left-4">
+              <LogoPrincipal className="w-11 sm:w-14" />
               <span className="sr-only">Biblioteca Next, ir al catálogo</span>
             </Link>
             {/* El nombre junto al emblema desde sm; en el celular falta espacio y el emblema basta. aria-hidden: el

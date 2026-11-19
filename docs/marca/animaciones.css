@@ -1,0 +1,84 @@
+/* Biblioteca Next — microanimaciones del logo y de los botones de tema.
+   Solo transform y opacity, menos de 400 ms, sin bucles.
+   Disparadores: .logo-animado (enlace del logo) y .icono-animado (botones de tema). */
+
+.logo-animado [data-parte],
+.icono-animado [data-parte] {
+  transform-box: fill-box;
+}
+
+/* ---------- Emblema y logo reducido: parpadeo ---------- */
+.logo-animado [data-parte="ojos"] {
+  transform-origin: 50% 50%;
+}
+.logo-animado:hover [data-parte="ojos"],
+.logo-animado:focus-visible [data-parte="ojos"] {
+  animation: bn-parpadeo 260ms ease-in-out 1;
+}
+@keyframes bn-parpadeo {
+  0%, 100% { transform: scaleY(1); }
+  45%, 55% { transform: scaleY(0.1); }
+}
+
+/* ---------- Emblema: las alas-página se abren al presionar ---------- */
+.logo-animado [data-parte="ala-izq"],
+.logo-animado [data-parte="ala-der"] {
+  transition: transform 140ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.logo-animado [data-parte="ala-izq"] { transform-origin: 90% 95%; }
+.logo-animado [data-parte="ala-der"] { transform-origin: 10% 95%; }
+.logo-animado:active [data-parte="ala-izq"] { transform: rotate(-9deg); }
+.logo-animado:active [data-parte="ala-der"] { transform: rotate(9deg); }
+
+/* ---------- Sol: los rayos giran 45° ---------- */
+.icono-animado [data-parte="nucleo"] ~ [data-parte="rayos"] {
+  transform-origin: 50% 50%;
+  transition: transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.icono-animado:hover [data-parte="nucleo"] ~ [data-parte="rayos"],
+.icono-animado:focus-visible [data-parte="nucleo"] ~ [data-parte="rayos"] {
+  transform: rotate(45deg);
+}
+
+/* ---------- Luna: balanceo leve ---------- */
+.icono-animado [data-parte="luna"] {
+  transform-origin: 50% 50%;
+}
+.icono-animado:hover [data-parte="luna"],
+.icono-animado:focus-visible [data-parte="luna"] {
+  animation: bn-balanceo 380ms ease-in-out 1;
+}
+@keyframes bn-balanceo {
+  0%, 100% { transform: rotate(0deg); }
+  30%      { transform: rotate(-9deg); }
+  65%      { transform: rotate(6deg); }
+}
+
+/* ---------- Lámpara: al encenderse, los rayos calientan ----------
+   Corre una vez cuando lampara-encendida.svg entra al DOM. */
+.icono-animado [data-parte="aplique"] ~ [data-parte="rayos"] {
+  animation: bn-calienta 340ms linear 1;
+}
+@keyframes bn-calienta {
+  0%   { opacity: 0; }
+  25%  { opacity: 0.9; }
+  40%  { opacity: 0.25; }
+  60%  { opacity: 1; }
+  75%  { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* ---------- Sin movimiento ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .logo-animado [data-parte],
+  .icono-animado [data-parte] {
+    animation: none !important;
+    transition: none !important;
+  }
+  .logo-animado:active [data-parte="ala-izq"],
+  .logo-animado:active [data-parte="ala-der"],
+  .icono-animado:hover [data-parte="nucleo"] ~ [data-parte="rayos"],
+  .icono-animado:focus-visible [data-parte="nucleo"] ~ [data-parte="rayos"] {
+    transform: none;
+  }
+}
