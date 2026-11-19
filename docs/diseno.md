@@ -29,9 +29,9 @@ Inspiración, no copia: no se usan imágenes, logos ni textos de las referencias
 | DI-10 | Tres **zonas** (pública, "Mi cuenta" y panel) con el mapa de rutas de abajo. El panel se divide en **secciones por tipo de trabajo**, y cada persona ve **solo las secciones y páginas que su rol puede usar** | Auditoría UX del 2026-10-27 (`docs/auditoria-ux.md`): hoy todos los roles ven los mismos 8 enlaces |
 | DI-11 | **Una sola fuente de permisos**: `lib/permisos.ts` define **permisos con nombre** (`mostrador`, `coleccion`, `lectores`, `anularMultas`, `reportes`, `red`), cada uno con sus roles y la regla que lo justifica, y las secciones del panel con el permiso de cada página. Páginas y acciones piden un permiso (`exigirEmpleado("mostrador")`) y el menú muestra las páginas cuyo permiso tiene el rol. Ninguna lista ni comparación de roles se escribe fuera de ese archivo; el alcance por sede se decide con la sede (RN-34), no con el nombre del rol. Decidido el 2026-10-27: permisos con nombre en vez de un mapa de rutas, para que las acciones también lo usen | El problema de la auditoría nace de tener dos listas que se escribieron por separado: los enlaces del layout y los roles de cada página |
 | DI-12 | **Avatar** en el menú de usuario: generado con DiceBear por defecto o foto propia (RN-81, RN-82). Si no carga, se muestran las iniciales | Da identidad a la cuenta y sirve de entrada al menú de usuario, como en las referencias |
-| DI-13 | **Emblema** del proyecto a la izquierda de la barra: más alto que la cápsula, **cuelga** de ella (sobresale arriba y abajo), como un sello o un marcapáginas. El logo definitivo se está diseñando: hasta entonces hay uno provisional, y el arte vive en un solo archivo (ver "Logo e íconos de marca"). **Se ve en todas las vistas**, también en el visor `/leer`: ahí, en pequeño y sin colgar (`components/marca/enlace-logo.tsx`), como enlace al catálogo | Identidad propia; el usuario lo pidió "en la barra pero no al frente y más grande" (Fase A) y "siempre visible, también leyendo" (2026-11-12) |
+| DI-13 | **Emblema** del proyecto a la izquierda de la barra: más alto que la cápsula, **cuelga** de ella (sobresale arriba y abajo), como un sello o un marcapáginas. Es una **lechuza de frente con las alas abiertas hechas de páginas** y un libro abierto en el pecho (2026-11-19), en dos versiones: con volumen en la barra y plana en tamaños chicos; el arte vive en un solo archivo (ver "Logo e íconos de marca"). **Se ve en todas las vistas**, también en el visor `/leer`: ahí, en pequeño y sin colgar (`components/marca/enlace-logo.tsx`), como enlace al catálogo | Identidad propia; el usuario lo pidió "en la barra pero no al frente y más grande" (Fase A) y "siempre visible, también leyendo" (2026-11-12) |
 | DI-14 | **Luz sobre una pared** en el fondo, distinta por tema: haces de **sol** en el claro, de **luna** en el oscuro y el foco cálido de una **lámpara de pared** en la lámpara. CSS (degradados) sobre una textura de pared ligera; las tarjetas siguen opacas | Da ambiente sin restar legibilidad: la luz solo se ve donde hay fondo. Referencias: aplique de pared y haces sobre concreto (Fase A) |
-| DI-15 | La luz se **anima solo al cambiar de tema** (la lámpara "calienta" al encenderse); después queda quieta. Con `prefers-reduced-motion` el cambio es inmediato | Movimiento continuo distrae al leer; la animación de entrada da la sensación de encender |
+| DI-15 | La luz se **anima solo al cambiar de tema** (la lámpara "calienta" al encenderse); después queda quieta. Con `prefers-reduced-motion` el cambio es inmediato. La marca tiene **microanimaciones** solo al interactuar (ver "Marca en movimiento"), con las mismas reglas: `transform` y `opacity`, menos de 400 ms, sin bucles | Movimiento continuo distrae al leer; la animación de entrada da la sensación de encender |
 | DI-16 | **"Mis lecturas" en dos columnas** (R10, 2026-11-12): un **layout anidado** (`app/(sitio)/cuenta/lecturas/layout.tsx`) deja la lista de libros fija a la izquierda en el escritorio y el detalle a la derecha; al cambiar de libro la lista no se vuelve a montar. En el celular, la lista y el detalle son pantallas distintas (la lista se oculta al elegir un libro). La zona de cuenta se ensancha solo en esta sección (`has-[[data-ancho=amplio]]:max-w-6xl`). El panel de notas es **el mismo del visor**, con props opcionales (sin "Ir al pasaje" si no hay acceso) | Combina las dos propuestas que vio el usuario: la lista como índice siempre visible y la vista completa del libro; reutilizar el panel evita dos versiones de las mismas notas |
 | DI-17 | **Avisos en una campana** (R11, 2026-11-12): las notificaciones de la cuenta (RN-91) se ven en una campana de la barra superior, con el número de no leídas en un círculo del acento del tema y el número dicho con palabras al lector de pantalla. No aparece en `/leer` (la lectura no se interrumpe). Lo **público** (reseñas) siempre lleva el **apodo** (RN-92), nunca el nombre real | El usuario pidió un lugar para estos avisos y los futuros; la campana es la convención conocida. El apodo separa la identidad pública de la que la biblioteca necesita para operar |
 
@@ -250,19 +250,35 @@ shadcn lo usen sin cambios.
 | Etiqueta | Píldora con ícono, fondo suave y texto del estado (como "Skill Booster") | `Badge` de shadcn con las variantes `success`, `warning`, `danger` e `info` (R4a) |
 | Línea de tiempo | Línea vertical punteada que une pasos (como "Reading Journey") | `border-l border-dashed`. Uso posible: historial de un préstamo (prestado → renovado → devuelto) |
 
-## Logo e íconos de marca (DI-13, Fase A)
+## Logo e íconos de marca (DI-13)
 
-El logo y los íconos de sol, luna y lámpara se pueden **conseguir o crear después** para darle identidad al proyecto. Todo el arte vive
-en `components/marca/iconos.tsx`: botones, barra y estilos solo piden "el ícono del sol" o "el logo". Al llegar los diseños se reemplaza
-ese archivo (y `app/icon.svg`), se corre `pnpm diseno:contraste` y se repiten las capturas.
+Diseñados en Claude Design (2026-11-19) a partir del sistema de diseño del proyecto. Los **originales** están en
+`docs/marca/*.svg`; en la app viven como JSX en `components/marca/iconos.tsx` (botones, barra y estilos solo piden "el
+ícono del sol" o "el logo"). Van incrustados y no como `<img>`: así toman las variables CSS del tema y el CSS puede
+animar sus partes. Si el arte cambia: reemplazar el original, pasarlo a JSX (atributos en camelCase, sin `xmlns`, con
+`className`) conservando los `data-parte`, correr `pnpm diseno:contraste` y repetir las capturas.
 
-| Pieza | Especificación |
-|---|---|
-| Logo (emblema) | SVG con `viewBox` de proporción **4:5** (vertical, como un sello o marcapáginas). Debe funcionar en los tres temas: un solo color con `currentColor`, o dos colores con variables CSS (`var(--primary)`, `var(--card)`). Con área de seguridad (sin detalles a menos de 1/10 del borde) y legible desde 40 px de alto |
-| Logo reducido | Versión cuadrada y simple para el celular y el favicon (`app/icon.svg`), legible a 16 px |
-| Sol, luna, lámpara | SVG en una grilla de **24 × 24** con trazo de 1.5 a 2 px (para combinar con los Hugeicons del resto de la interfaz), un solo color con `currentColor`, legibles a 16 px y sin texto |
-| Lámpara | Dos estados: **apagada** y **encendida**. El encendido puede llevar un detalle de luz con el token `decorativo` |
-| Lámpara (opcional) | Una versión "ilustración" más grande para dibujar el aplique en la pared, junto a su luz (DI-14) |
+| Pieza | Archivo original | En la app | Especificación |
+|---|---|---|---|
+| Emblema principal | `emblema-principal.svg` | `LogoPrincipal`: barra del sitio (55 a 70 px de alto) | `viewBox 0 0 40 50` (4:5), 4 unidades de margen. Volumen con capas planas de luz y sombra (`fill-opacity` en blanco y negro sobre `var(--primary)`): **sin degradados ni `id`**, porque el emblema se repite en la página y los `id` repetidos chocan |
+| Emblema plano | `emblema-barra.svg` | `Logo`: visor (`EnlaceLogo`, 35 px) | La misma silueta y las mismas partes, en dos tonos (`primary` y `primary-foreground`). Desde 40 px de alto |
+| Logo reducido | `logo-reducido.svg` | `app/icon.svg` (favicon) | La cabeza con los ojos calados, legible a 16 px. En la pestaña el SVG es una imagen y no ve el tema: lleva el `primary` claro fijo y el oscuro con `prefers-color-scheme: dark` |
+| Sol, luna | `sol.svg`, `luna.svg` | `IconoSol`, `IconoLuna` | Grilla de 24, trazo 1.5, `currentColor`, como Hugeicons |
+| Lámpara | `lampara-apagada.svg`, `lampara-encendida.svg` | `IconoLampara({ encendida })` | Aplique mirando a la izquierda, como la luz de la pared. Encendida suma rayos hacia abajo con `decorativo` |
+| Lámpara (ilustración) | `lampara-ilustracion.svg` | Sin usar todavía | Para dibujar el aplique junto a su luz (DI-14), si se decide |
+
+### Marca en movimiento (DI-15)
+
+CSS puro en `globals.css` (sin librería: los íconos siguen siendo Server Components). Cada pieza animable es un
+`<g data-parte="…">`; `transform-box: fill-box` mide el origen sobre la pieza. Todo va dentro de
+`@media (prefers-reduced-motion: no-preference)`: con movimiento reducido no hay animación.
+
+| Disparador | Dónde | Qué pasa |
+|---|---|---|
+| `.logo-animado:hover` / `:focus-visible` | Enlace del emblema (barra y visor) | Los ojos parpadean (260 ms) |
+| `.logo-animado:active` | Ídem | Las alas se abren ±9° desde su base (140 ms) |
+| `.icono-animado:hover` / `:focus-visible` | Botón de tema | El sol gira sus rayos 45° (360 ms); la luna se balancea (380 ms) |
+| Aparición del ícono encendido | Botón de la lámpara | Los rayos "calientan" (340 ms), al encender y al cargar con la lámpara encendida, igual que la luz de la pared |
 
 ## Equivalencias para pasar una pantalla a tokens (R5)
 

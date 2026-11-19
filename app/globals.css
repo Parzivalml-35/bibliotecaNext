@@ -302,3 +302,73 @@
   .luz { transition: none; }
   [data-tema="lampara"] .luz-lampara { animation: none; }
 }
+
+/* ---------- Marca en movimiento (DI-15; originales en docs/marca/animaciones.css) ----------
+   Las piezas son los <g data-parte="…"> de components/marca/iconos.tsx. Disparadores: .logo-animado (el enlace del
+   emblema) y .icono-animado (los botones de tema y de lámpara). Solo transform y opacity, menos de 400 ms, sin bucles.
+   Todo va dentro de "no-preference": con movimiento reducido estas reglas no existen (sin !important ni deshacer).
+   transform-box: fill-box hace que transform-origin se mida sobre la pieza y no sobre todo el SVG. */
+@media (prefers-reduced-motion: no-preference) {
+  .logo-animado [data-parte],
+  .icono-animado [data-parte] {
+    transform-box: fill-box;
+  }
+
+  /* Emblema: parpadea al pasar el mouse o llegar con Tab. */
+  .logo-animado [data-parte="ojos"] { transform-origin: 50% 50%; }
+  .logo-animado:hover [data-parte="ojos"],
+  .logo-animado:focus-visible [data-parte="ojos"] {
+    animation: bn-parpadeo 260ms ease-in-out 1;
+  }
+
+  /* Emblema: las alas-página se abren al presionar. El origen es la base de cada ala (junto al cuerpo). */
+  .logo-animado [data-parte="ala-izq"],
+  .logo-animado [data-parte="ala-der"] {
+    transition: transform 140ms cubic-bezier(0.3, 1.4, 0.5, 1);
+  }
+  .logo-animado [data-parte="ala-izq"] { transform-origin: 90% 95%; }
+  .logo-animado [data-parte="ala-der"] { transform-origin: 10% 95%; }
+  .logo-animado:active [data-parte="ala-izq"] { transform: rotate(-9deg); }
+  .logo-animado:active [data-parte="ala-der"] { transform: rotate(9deg); }
+
+  /* Sol: los rayos giran 45°. "nucleo ~ rayos" los distingue de los rayos de la lámpara. */
+  .icono-animado [data-parte="nucleo"] ~ [data-parte="rayos"] {
+    transform-origin: 50% 50%;
+    transition: transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .icono-animado:hover [data-parte="nucleo"] ~ [data-parte="rayos"],
+  .icono-animado:focus-visible [data-parte="nucleo"] ~ [data-parte="rayos"] {
+    transform: rotate(45deg);
+  }
+
+  /* Luna: balanceo leve. */
+  .icono-animado [data-parte="luna"] { transform-origin: 50% 50%; }
+  .icono-animado:hover [data-parte="luna"],
+  .icono-animado:focus-visible [data-parte="luna"] {
+    animation: bn-balanceo 380ms ease-in-out 1;
+  }
+
+  /* Lámpara: los rayos "calientan" cuando aparecen. BotonLampara dibuja los dos estados y oculta uno con display:
+     al encender, el ícono encendido pasa de oculto a visible y la animación arranca, igual que la luz de la pared. */
+  .icono-animado [data-parte="aplique"] ~ [data-parte="rayos"] {
+    animation: bn-calienta 340ms linear 1;
+  }
+}
+
+@keyframes bn-parpadeo {
+  0%, 100% { transform: scaleY(1); }
+  45%, 55% { transform: scaleY(0.1); }
+}
+@keyframes bn-balanceo {
+  0%, 100% { transform: rotate(0deg); }
+  30% { transform: rotate(-9deg); }
+  65% { transform: rotate(6deg); }
+}
+@keyframes bn-calienta {
+  0% { opacity: 0; }
+  25% { opacity: 0.9; }
+  40% { opacity: 0.25; }
+  60% { opacity: 1; }
+  75% { opacity: 0.6; }
+  100% { opacity: 1; }
+}

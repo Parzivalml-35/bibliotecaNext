@@ -40,7 +40,8 @@ export function BotonTema() {
       onClick={cambiar}
       // fixed: queda en la esquina aunque se desplace la página. z-40: por encima del contenido y de la barra,
       // por debajo de los menús de Radix (z-50). size-11: 44 px, la zona táctil mínima recomendada.
-      className={cn(buttonVariants({ variant: "outline", size: "icon-lg" }), "fixed right-4 bottom-4 z-40 size-11 bg-card")}
+      // icono-animado: los rayos del sol giran y la luna se balancea al pasar el mouse (globals.css).
+      className={cn(buttonVariants({ variant: "outline", size: "icon-lg" }), "icono-animado fixed right-4 bottom-4 z-40 size-11 bg-card")}
     >
       <span className="hidden items-center justify-center in-data-[tema-base=claro]:flex">
         <IconoSol />
